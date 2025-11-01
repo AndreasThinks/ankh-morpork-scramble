@@ -256,6 +256,7 @@ class BallHandler:
         
         # Hand off succeeds automatically (no roll needed)
         game_state.pitch.drop_ball()
+        game_state.pitch.place_ball(receiver_pos)
         game_state.pitch.pick_up_ball(receiver.id)
         
         return True, None

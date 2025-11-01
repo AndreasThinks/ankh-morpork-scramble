@@ -168,7 +168,7 @@ class CombatHandler:
             result=dice_count,
             target=None,
             success=True,
-            modifiers={"chosen_result": chosen_result.value}
+            modifiers={}
         ))
         
         # Apply result

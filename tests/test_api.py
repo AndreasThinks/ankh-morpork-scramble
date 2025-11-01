@@ -100,7 +100,11 @@ def test_full_game_flow():
     )
     assert response.status_code == 200
     
-    # 4. Place players
+    # 4. Join teams (required before starting)
+    client.post(f"/game/{game_id}/join", params={"team_id": "team1"})
+    client.post(f"/game/{game_id}/join", params={"team_id": "team2"})
+    
+    # 5. Place players
     response = client.post(
         f"/game/{game_id}/place-players",
         json={

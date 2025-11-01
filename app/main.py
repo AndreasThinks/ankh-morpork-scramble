@@ -223,6 +223,87 @@ def get_history(game_id: str, limit: int = 50):
     }
 
 
+@app.post("/game/{game_id}/join")
+def join_game(game_id: str, team_id: str):
+    """Mark a team as joined"""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    try:
+        if team_id == game_state.team1.id:
+            game_state.team1_joined = True
+            game_state.add_event(f"Team {team_id} joined")
+        elif team_id == game_state.team2.id:
+            game_state.team2_joined = True
+            game_state.add_event(f"Team {team_id} joined")
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid team_id: {team_id}")
+        
+        return {
+            "success": True,
+            "team_id": team_id,
+            "players_ready": game_state.players_ready
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/game/{game_id}/message")
+def send_message(game_id: str, sender_id: str, sender_name: str, content: str):
+    """Send a message in the game"""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    try:
+        message = game_state.add_message(sender_id, sender_name, content)
+        return {
+            "success": True,
+            "message": message
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/game/{game_id}/messages")
+def get_messages(game_id: str, turn_number: Optional[int] = None, limit: Optional[int] = None):
+    """Get messages from the game"""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    messages = game_state.messages
+    
+    # Filter by turn if specified
+    if turn_number is not None:
+        messages = [m for m in messages if m.turn_number == turn_number]
+    
+    # Apply limit if specified
+    if limit is not None:
+        messages = messages[-limit:]
+    
+    return {
+        "game_id": game_id,
+        "count": len(messages),
+        "messages": messages
+    }
+
+
+@app.post("/game/{game_id}/reset", response_model=GameState)
+def reset_game(game_id: str):
+    """Reset game to setup phase, preserving join status and message history"""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    try:
+        game_state.reset_to_setup()
+        return game_state
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
