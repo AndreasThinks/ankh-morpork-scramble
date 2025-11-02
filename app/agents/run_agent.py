@@ -11,10 +11,42 @@ from collections import deque
 from pathlib import Path
 from typing import Deque, Iterable, Optional
 
+import httpx
+
 from app.agents.config import AgentConfig
 from app.logging_utils import configure_root_logger
 
 MCP_SERVER_NAME = "scramble"
+
+
+async def _wait_for_server(base_url: str, timeout: float, *, prefix: str = "") -> None:
+    """Wait for the MCP HTTP server to become available before launching Cline.
+
+    Args:
+        base_url: The HTTP base URL of the MCP server
+        timeout: Maximum time to wait in seconds
+        prefix: Optional logging prefix
+
+    Raises:
+        RuntimeError: If the server doesn't become ready within the timeout period
+    """
+    logger = logging.getLogger("app.agents")
+    deadline = asyncio.get_event_loop().time() + timeout
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                response = await client.get(base_url, timeout=5)
+                if response.status_code < 500:
+                    context = f"{prefix} " if prefix else ""
+                    logger.info("%sServer at %s is ready", context, base_url)
+                    return
+            except Exception:
+                pass
+
+            if asyncio.get_event_loop().time() > deadline:
+                raise RuntimeError(f"Server at {base_url} did not become ready in time")
+
+            await asyncio.sleep(1)
 
 
 class AgentMemory:
@@ -355,8 +387,12 @@ async def run() -> None:
     )
 
     agent_logger = logging.getLogger(f"app.agents.{config.team_id}")
+    prefix = f"[{config.game_id}][{config.team_id}]"
     if log_file:
-        agent_logger.info("[%s][%s] Log file initialised at %s", config.game_id, config.team_id, log_file)
+        agent_logger.info("%s Log file initialised at %s", prefix, log_file)
+
+    # Wait for the MCP server to be ready before launching Cline
+    await _wait_for_server(config.http_base_url, config.startup_timeout, prefix=prefix)
 
     env = os.environ.copy()
     cline_dir = Path(env.get("CLINE_DIR", ""))
@@ -366,6 +402,15 @@ async def run() -> None:
     env.setdefault("POSTHOG_TELEMETRY_ENABLED", "false")
     env.setdefault("CLINE_DISABLE_AUTO_UPDATE", "1")
     env.setdefault("CLINE_CLI_DISABLE_AUTO_UPDATE", "1")
+
+    # Configure OpenRouter headers required by the API
+    # OpenRouter requires HTTP-Referer and X-Title headers for authentication
+    # These are passed as default headers to the OpenAI-compatible client
+    default_headers = json.dumps({
+        "HTTP-Referer": config.http_referer,
+        "X-Title": config.app_title,
+    })
+    env["OPENAI_DEFAULT_HEADERS"] = default_headers
 
     runner = ClineAgentRunner(config, env=env, cline_dir=cline_dir, agent_logger=agent_logger)
     await runner.run()
