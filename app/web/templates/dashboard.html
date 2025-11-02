@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ankh-Morpork Scramble Demo</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1f2933;
+            color: #f8fafc;
+        }
+        header {
+            background-color: #0f172a;
+            padding: 1rem 2rem;
+        }
+        main {
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        section {
+            background-color: #111827;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        .scoreboard {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .score-line {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .meta span {
+            display: inline-block;
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background-color: rgba(59, 130, 246, 0.2);
+            border-radius: 6px;
+        }
+        ul, ol {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        li + li {
+            margin-top: 0.5rem;
+        }
+        .timestamp {
+            opacity: 0.7;
+            font-size: 0.85rem;
+        }
+        .turn-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background-color: rgba(16, 185, 129, 0.2);
+            border-radius: 999px;
+            font-weight: 600;
+        }
+        .waiting {
+            background-color: rgba(239, 68, 68, 0.2);
+        }
+        footer {
+            text-align: center;
+            padding: 1rem;
+            background-color: #0f172a;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+    </style>
+</head>
+<body data-game-id="{{ game_id }}">
+<header>
+    <h1>Ankh-Morpork Scramble – Live Demo</h1>
+    <p>Tracking game <code>{{ game_id }}</code>. Data refreshes automatically every 3 seconds.</p>
+</header>
+<main>
+    <section>
+        <h2>Scoreboard</h2>
+        <div class="scoreboard">
+            <div class="score-line" id="score-line">Loading...</div>
+            <div class="meta" id="game-meta"></div>
+            <div id="turn-indicator" class="turn-flag waiting">Awaiting turn data…</div>
+        </div>
+    </section>
+    <section>
+        <h2>Recent Events</h2>
+        <ol id="event-log"></ol>
+    </section>
+    <section>
+        <h2>Team Messages</h2>
+        <ul id="message-log"></ul>
+    </section>
+</main>
+<footer>
+    Built for the Ankh-Morpork Scramble demo agents. View the REST API for more details.
+</footer>
+<script>
+    const gameId = document.body.dataset.gameId;
+    const scoreLine = document.getElementById('score-line');
+    const meta = document.getElementById('game-meta');
+    const turnIndicator = document.getElementById('turn-indicator');
+    const eventLog = document.getElementById('event-log');
+    const messageLog = document.getElementById('message-log');
+
+    function formatPosition(ball) {
+        if (!ball) return 'Off pitch';
+        if (ball.carrier) return `Carried by ${ball.carrier}`;
+        if (ball.position) return `Loose at (${ball.position.x}, ${ball.position.y})`;
+        return 'Unknown';
+    }
+
+    function renderMeta(state) {
+        const turn = state.turn;
+        const chips = [];
+        chips.push(`Phase: ${state.phase}`);
+        chips.push(`Half: ${turn ? turn.half : '-'}`);
+        chips.push(`Turn: ${turn ? turn.team_turn : '-'}`);
+        chips.push(`Ball: ${formatPosition({ carrier: state.pitch.ball_carrier, position: state.pitch.ball_position })}`);
+        meta.innerHTML = chips.map(value => `<span>${value}</span>`).join('');
+
+        if (turn && turn.active_team_id) {
+            turnIndicator.textContent = `Active team: ${turn.active_team_id}`;
+            turnIndicator.classList.remove('waiting');
+        } else {
+            turnIndicator.textContent = 'No active team';
+            turnIndicator.classList.add('waiting');
+        }
+    }
+
+    function renderEvents(events) {
+        eventLog.innerHTML = '';
+        events.slice(-10).reverse().forEach(event => {
+            const li = document.createElement('li');
+            li.textContent = event;
+            eventLog.appendChild(li);
+        });
+    }
+
+    function renderMessages(messages) {
+        messageLog.innerHTML = '';
+        messages.slice(-15).reverse().forEach(entry => {
+            const li = document.createElement('li');
+            const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+            li.innerHTML = `<strong>${entry.sender_name}</strong> <span class="timestamp">(${timestamp})</span><br>${entry.content}`;
+            messageLog.appendChild(li);
+        });
+    }
+
+    async function refresh() {
+        try {
+            const [stateRes, msgRes] = await Promise.all([
+                fetch(`/game/${gameId}`),
+                fetch(`/game/${gameId}/messages?limit=20`)
+            ]);
+
+            if (!stateRes.ok || !msgRes.ok) {
+                throw new Error('Failed to fetch game data');
+            }
+
+            const state = await stateRes.json();
+            const messages = await msgRes.json();
+
+            scoreLine.textContent = `${state.team1.name} ${state.team1.score} – ${state.team2.score} ${state.team2.name}`;
+            renderMeta(state);
+            renderEvents(state.event_log);
+            renderMessages(messages.messages || []);
+        } catch (err) {
+            turnIndicator.textContent = 'Unable to reach server';
+            turnIndicator.classList.add('waiting');
+            console.error(err);
+        }
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+</script>
+</body>
+</html>

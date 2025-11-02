@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  game-server:
+    build: .
+    image: ankh-morpork-scramble
+    ports:
+      - "8000:8000"
+    environment:
+      - DEFAULT_GAME_ID=demo-game
+      - openrouter_api_key=${openrouter_api_key:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent-team1:
+    build: .
+    image: ankh-morpork-scramble
+    command: ["python", "-m", "app.agents.run_agent"]
+    environment:
+      - TEAM_ID=team1
+      - TEAM_NAME=City Watch Constables
+      - GAME_ID=demo-game
+      - MCP_SERVER_URL=http://game-server:8000/mcp
+      - OPENROUTER_MODEL=openrouter/auto
+      - openrouter_api_key=${openrouter_api_key:-}
+    depends_on:
+      game-server:
+        condition: service_healthy
+
+  agent-team2:
+    build: .
+    image: ankh-morpork-scramble
+    command: ["python", "-m", "app.agents.run_agent"]
+    environment:
+      - TEAM_ID=team2
+      - TEAM_NAME=Unseen University Adepts
+      - GAME_ID=demo-game
+      - MCP_SERVER_URL=http://game-server:8000/mcp
+      - OPENROUTER_MODEL=openrouter/auto
+      - openrouter_api_key=${openrouter_api_key:-}
+    depends_on:
+      game-server:
+        condition: service_healthy
