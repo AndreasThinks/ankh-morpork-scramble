@@ -16,22 +16,22 @@ install:
 	uv sync --extra dev
 
 test:
-	uv run pytest
+	uv run --extra dev pytest
 
 test-verbose:
-	uv run pytest -v
+	uv run --extra dev pytest -v
 
 test-coverage:
-	uv run pytest --cov=app --cov-report=html --cov-report=term
+	uv run --extra dev pytest --cov=app --cov-report=html --cov-report=term
 	@echo ""
 	@echo "✅ Coverage report generated in htmlcov/index.html"
 
 test-watch:
-	uv run pytest-watch
+	uv run --extra dev pytest-watch
 
 deploy-check:
 	@echo "🔍 Running pre-deployment checks..."
-	@uv run pytest -v --cov=app --cov-fail-under=45
+	@uv run --extra dev pytest -v --cov=app --cov-fail-under=45
 	@echo ""
 	@echo "✅ All tests passed! Ready to deploy."
 

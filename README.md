@@ -28,6 +28,27 @@ python -m app.main
 
 The server will start at `http://localhost:8000`
 
+## Web Dashboard
+
+A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It refreshes
+every few seconds to display the live score, current turn information, recent
+events, and the in-game chat log for the default demo match.
+
+## Dockerised Multi-Agent Demo
+
+A ready-to-play demo match is packaged in the repository. The docker compose
+configuration spins up the FastAPI server plus two LangGraph-powered LLM agents
+that use the MCP tools to control each team.
+
+```bash
+export openrouter_api_key=<your-api-key>
+docker compose up --build
+```
+
+The server exposes port `8000` locally so you can watch the game state while the
+agents play. The `openrouter_api_key` environment variable is required because
+the agents call the OpenRouter API through LangChain.
+
 ## API Documentation
 
 Once the server is running, visit:

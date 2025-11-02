@@ -56,11 +56,23 @@ def join_game(
             f"'{game_state.team1.id}' and '{game_state.team2.id}'"
         )
     
+    # Automatically start the match once both teams are ready.
+    game_started = False
+    if game_state.players_ready and not game_state.game_started:
+        manager.start_game(game_id)
+        game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
+        game_started = True
+
     return {
         "success": True,
         "team_id": team_id,
         "players_ready": game_state.players_ready,
-        "message": f"Successfully joined as {team_id}"
+        "game_started": game_state.game_started,
+        "message": (
+            "Game started after both teams joined"
+            if game_started
+            else f"Successfully joined as {team_id}"
+        )
     }
 
 

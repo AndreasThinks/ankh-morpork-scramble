@@ -1,10 +1,19 @@
 """FastAPI application for Ankh-Morpork Scramble"""
-from fastapi import FastAPI, HTTPException
+from __future__ import annotations
+
+import logging
+import os
 from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+
+from app.web import router as ui_router
+
 from app.models.game_state import GameState
 from app.models.team import TeamType
 from app.models.actions import ActionRequest, ActionResult, SetupRequest, ValidActionsResponse
 from app.models.pitch import Position
+from app.setup.default_game import DEFAULT_GAME_ID, bootstrap_default_game
 from app.state.game_manager import GameManager
 
 # Global game manager instance (must be created before importing mcp_server)
@@ -14,7 +23,10 @@ game_manager = GameManager()
 from app.mcp_server import mcp
 
 # Create MCP ASGI app
-mcp_app = mcp.http_app(path='/mcp')
+mcp_app = mcp.http_app(path='/')
+
+# Configure logging early so startup hooks can log useful information
+logger = logging.getLogger("app.main")
 
 # Create FastAPI app with MCP lifespan
 app = FastAPI(
@@ -26,6 +38,18 @@ app = FastAPI(
 
 # Mount the MCP server at /mcp
 app.mount("/mcp", mcp_app)
+
+# Expose the lightweight monitoring dashboard
+app.include_router(ui_router)
+
+
+@app.on_event("startup")
+async def prepare_demo_game() -> None:
+    """Ensure a ready-to-play demo match exists for autonomous agents."""
+
+    game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
+    state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
+    logger.info("Demo game '%s' is ready with %d players", game_id, len(state.players))
 
 
 @app.get("/")
