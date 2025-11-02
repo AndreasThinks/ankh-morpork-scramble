@@ -258,6 +258,41 @@ def get_history(game_id: str, limit: int = 50):
     }
 
 
+@app.get("/game/{game_id}/suggest-path")
+def suggest_path(game_id: str, player_id: str, target_x: int, target_y: int):
+    """
+    Suggest a path for a player to reach a target position with risk assessment.
+    
+    Returns path with detailed risk information including:
+    - Dodge requirements
+    - Rush square identification
+    - Success probabilities
+    - Total risk score
+    """
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    try:
+        from app.game.pathfinding import PathFinder
+        from app.game.movement import MovementHandler
+        from app.game.dice import DiceRoller
+        
+        # Create pathfinder
+        dice_roller = DiceRoller()
+        movement_handler = MovementHandler(dice_roller)
+        pathfinder = PathFinder(movement_handler)
+        
+        # Generate suggestion
+        target_pos = Position(x=target_x, y=target_y)
+        suggestion = pathfinder.suggest_path(game_state, player_id, target_pos)
+        
+        return suggestion
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/game/{game_id}/join")
 def join_game(game_id: str, team_id: str):
     """Mark a team as joined"""

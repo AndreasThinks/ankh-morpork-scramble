@@ -521,3 +521,80 @@ def get_messages(
         "count": len(messages),
         "messages": messages
     }
+
+
+@mcp.tool
+def suggest_path(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    player_id: Annotated[str, "ID of the player who will move"],
+    target_x: Annotated[int, "Target X coordinate (0-25)"],
+    target_y: Annotated[int, "Target Y coordinate (0-14)"]
+) -> dict:
+    """
+    Suggest a path for a player to reach a target position, with complete risk assessment.
+    
+    This tool helps you plan movement by:
+    - Calculating a straight-line path to the target
+    - Assessing dodge requirements (leaving tackle zones)
+    - Identifying rush squares (movement beyond MA)
+    - Calculating success probabilities for risky moves
+    - Flagging occupied or out-of-bounds squares
+    
+    The returned path can be used directly with execute_action(action_type=MOVE, path=...).
+    
+    Risk Assessment:
+    - success_probability: Chance of successfully moving through that square (0.0-1.0)
+    - requires_dodge: Must roll to leave tackle zones
+    - is_rush_square: Requires 2+ roll (beyond normal movement)
+    - total_risk_score: Overall path risk (0.0=safe, 1.0=very risky)
+    
+    Returns:
+        Dictionary with:
+        - path: List of Position objects to follow
+        - movement_cost: Total squares to move
+        - requires_rushing: Whether rushing is needed
+        - rush_squares: Number of rush squares
+        - total_risk_score: Aggregate risk (0.0-1.0)
+        - risks: Detailed risk for each square
+        - is_valid: Whether the path is legal
+        - error_message: Why path is invalid (if applicable)
+    
+    Example:
+        suggestion = suggest_path(
+            game_id="game123",
+            player_id="team1_player1",
+            target_x=10,
+            target_y=7
+        )
+        
+        if suggestion["is_valid"]:
+            # Use the suggested path
+            execute_action(
+                game_id="game123",
+                action_type=ActionType.MOVE,
+                player_id="team1_player1",
+                target_position=Position(x=10, y=7),
+                path=suggestion["path"]
+            )
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+    
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+    
+    # Import pathfinding components
+    from app.game.pathfinding import PathFinder
+    from app.game.movement import MovementHandler
+    from app.game.dice import DiceRoller
+    
+    # Create pathfinder with movement handler
+    dice_roller = DiceRoller()
+    movement_handler = MovementHandler(dice_roller)
+    pathfinder = PathFinder(movement_handler)
+    
+    # Generate path suggestion
+    target_pos = Position(x=target_x, y=target_y)
+    suggestion = pathfinder.suggest_path(game_state, player_id, target_pos)
+    
+    return suggestion.model_dump()

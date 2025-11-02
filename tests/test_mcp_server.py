@@ -22,7 +22,7 @@ async def test_mcp_tools_are_registered():
         tools = await client.list_tools()
         tool_names = [t.name for t in tools]
         
-        # Verify all 9 expected tools are present
+        # Verify all 10 expected tools are present
         expected_tools = [
             "join_game",
             "get_game_state",
@@ -32,7 +32,8 @@ async def test_mcp_tools_are_registered():
             "use_reroll",
             "get_history",
             "send_message",
-            "get_messages"
+            "get_messages",
+            "suggest_path"
         ]
         
         for tool in expected_tools:
