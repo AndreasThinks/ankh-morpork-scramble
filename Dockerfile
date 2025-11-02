@@ -7,8 +7,14 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl nodejs npm \
+    && npm install -g cline \
+    && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
+
+ENV CLINE_DISABLE_AUTO_UPDATE=1 \
+    CLINE_CLI_DISABLE_AUTO_UPDATE=1 \
+    POSTHOG_TELEMETRY_ENABLED=false
 
 COPY . .
 
