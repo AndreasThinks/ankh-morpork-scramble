@@ -11,9 +11,11 @@ import httpx
 from fastmcp.client import Client
 from langchain_mcp import MCPToolkit
 from langchain_openai import ChatOpenAI
+from langchain_core.messages import ToolMessage
 
 from app.agents.config import AgentConfig
 from app.agents.langgraph_agent import AgentStepResult, LangGraphMCPAgent
+from app.logging_utils import configure_root_logger
 
 
 logger = logging.getLogger("app.agents")
@@ -66,14 +68,15 @@ def _build_system_prompt(config: AgentConfig) -> str:
     )
 
 
-async def _wait_for_server(base_url: str, timeout: float) -> None:
+async def _wait_for_server(base_url: str, timeout: float, *, prefix: str = "") -> None:
     deadline = asyncio.get_event_loop().time() + timeout
     async with httpx.AsyncClient() as client:
         while True:
             try:
                 response = await client.get(base_url, timeout=5)
                 if response.status_code < 500:
-                    logger.info("Server at %s is ready", base_url)
+                    context = f"{prefix} " if prefix else ""
+                    logger.info("%sServer at %s is ready", context, base_url)
                     return
             except Exception:
                 pass
@@ -177,15 +180,36 @@ def _compose_instruction(
     return "\n".join(base)
 
 
-def _log_step(result: AgentStepResult) -> None:
+def _log_step(
+    result: AgentStepResult,
+    *,
+    prefix: str,
+    agent_logger: logging.Logger,
+    tools_logger: logging.Logger,
+) -> None:
     if result.ai_message:
-        logger.info("Assistant: %r", result.ai_message.content)
+        agent_logger.info("%s Assistant: %s", prefix, result.ai_message.content.strip())
         if getattr(result.ai_message, "additional_kwargs", None):
-            logger.info("Assistant metadata: %s", result.ai_message.additional_kwargs)
+            agent_logger.debug(
+                "%s Assistant metadata: %s",
+                prefix,
+                result.ai_message.additional_kwargs,
+            )
+
     if result.tool_calls:
-        logger.info("Tools used: %s", ", ".join(result.tool_calls))
+        tools_logger.info("%s Tools invoked: %s", prefix, ", ".join(result.tool_calls))
+
     for msg in result.new_messages:
-        logger.debug("New message %s", msg)
+        if isinstance(msg, ToolMessage):
+            content = msg.content
+            if isinstance(content, list):
+                content = " ".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in content
+                )
+            tools_logger.info("%s Tool %s → %s", prefix, msg.name, str(content).strip())
+        else:
+            agent_logger.debug("%s Message %s", prefix, msg)
 
 
 async def _fetch_state(client: httpx.AsyncClient, config: AgentConfig) -> dict:
@@ -195,11 +219,22 @@ async def _fetch_state(client: httpx.AsyncClient, config: AgentConfig) -> dict:
 
 
 async def run() -> None:
-    log_level = os.getenv("AGENT_LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
     config = AgentConfig.from_env()
+    log_file = configure_root_logger(
+        service_name=f"agent-{config.team_id}",
+        env_prefix="AGENT_",
+        default_level=os.getenv("AGENT_LOG_LEVEL", "INFO"),
+    )
 
-    await _wait_for_server(config.http_base_url, config.startup_timeout)
+    agent_logger = logging.getLogger(f"app.agents.{config.team_id}")
+    tools_logger = logging.getLogger(f"app.agents.{config.team_id}.tools")
+    state_logger = logging.getLogger(f"app.agents.{config.team_id}.state")
+
+    prefix = f"[{config.game_id}][{config.team_id}]"
+    if log_file:
+        agent_logger.info("%s Log file initialised at %s", prefix, log_file)
+
+    await _wait_for_server(config.http_base_url, config.startup_timeout, prefix=prefix)
 
     llm = ChatOpenAI(
         model=config.model,
@@ -226,6 +261,7 @@ async def run() -> None:
         for step in range(config.max_steps):
             state = await _fetch_state(http_client, config)
             state_summary = _summarize_game_state(state, config.team_id)
+            state_logger.info("%s %s", prefix, state_summary)
             require_action = bool(
                 joined
                 and state.get("turn")
@@ -240,9 +276,14 @@ async def run() -> None:
                 require_action,
                 awaiting_end_turn,
             )
-            logger.info("Step %s instruction: %s", step + 1, instruction)
+            agent_logger.info("%s Step %s instruction: %s", prefix, step + 1, instruction)
             result = await agent.step(instruction)
-            _log_step(result)
+            _log_step(
+                result,
+                prefix=prefix,
+                agent_logger=agent_logger,
+                tools_logger=tools_logger,
+            )
 
             if result.ai_message:
                 memory.add(result.ai_message.content)

@@ -1,11 +1,16 @@
 """Game state model"""
 from typing import Optional
 from datetime import datetime
+import logging
 from pydantic import BaseModel, Field
 from app.models.enums import GamePhase, TeamType
 from app.models.pitch import Pitch
 from app.models.player import Player
 from app.models.team import Team
+
+
+event_logger = logging.getLogger("app.game.events")
+message_logger = logging.getLogger("app.game.chat")
 
 
 class GameMessage(BaseModel):
@@ -114,6 +119,16 @@ class GameState(BaseModel):
     def add_event(self, event: str) -> None:
         """Add event to game log"""
         self.event_log.append(event)
+        turn_number = self.turn.team_turn if self.turn else "-"
+        active_team = self.turn.active_team_id if self.turn else "-"
+        event_logger.info(
+            "[%s] phase=%s turn=%s active_team=%s | %s",
+            self.game_id,
+            self.phase.value,
+            turn_number,
+            active_team,
+            event,
+        )
     
     def switch_turn(self) -> None:
         """Switch to the other team's turn"""
@@ -172,6 +187,15 @@ class GameState(BaseModel):
             game_phase=self.phase.value
         )
         self.messages.append(message)
+        message_logger.info(
+            "[%s] %s (%s) turn=%s phase=%s | %s",
+            self.game_id,
+            sender_name,
+            sender_id,
+            turn_number if turn_number is not None else "-",
+            self.phase.value,
+            content,
+        )
         return message
     
     def reset_to_setup(self) -> None:

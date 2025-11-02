@@ -22,8 +22,4 @@ def render_dashboard(request: Request, game_id: str = DEFAULT_GAME_ID) -> HTMLRe
     state, event log, and chat messages for the configured game identifier.
     """
 
-    context = {
-        "request": request,
-        "game_id": game_id,
-    }
-    return _templates.TemplateResponse("dashboard.html", context)
+    return _templates.TemplateResponse(request, "dashboard.html", {"game_id": game_id})

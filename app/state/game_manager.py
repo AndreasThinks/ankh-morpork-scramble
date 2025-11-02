@@ -1,4 +1,5 @@
 """Game manager - orchestrates game state and rules"""
+import logging
 import uuid
 from typing import Optional
 from app.models.game_state import GameState, TurnState
@@ -7,6 +8,9 @@ from app.models.player import Player
 from app.models.enums import TeamType, GamePhase
 from app.models.pitch import Position
 from app.state.action_executor import ActionExecutor
+
+
+logger = logging.getLogger("app.game.manager")
 
 
 class GameManager:
@@ -42,8 +46,9 @@ class GameManager:
             team1=team1,
             team2=team2
         )
-        
+
         self.games[game_id] = game_state
+        logger.info("Created new game %s with default rosters", game_id)
         return game_state
     
     def get_game(self, game_id: str) -> Optional[GameState]:
@@ -66,7 +71,7 @@ class GameManager:
         team.team_type = team_type
         
         roster = TEAM_ROSTERS[team_type]
-        
+
         # Create players
         player_count = 0
         for position_key, count_str in player_positions.items():
@@ -88,7 +93,14 @@ class GameManager:
                 game_state.players[player_id] = player
                 team.player_ids.append(player_id)
                 player_count += 1
-        
+
+        logger.info(
+            "Configured team %s (%s) with %d players for game %s",
+            team_id,
+            team_type.value,
+            player_count,
+            game_id,
+        )
         return game_state
     
     def place_players(
@@ -108,9 +120,15 @@ class GameManager:
             
             if player.team_id != team_id:
                 raise ValueError(f"Player {player_id} does not belong to team {team_id}")
-            
+
             game_state.pitch.player_positions[player_id] = position
-        
+
+        logger.info(
+            "Placed %d players for %s in game %s",
+            len(positions),
+            team_id,
+            game_id,
+        )
         return game_state
     
     def start_game(self, game_id: str) -> GameState:
@@ -121,12 +139,19 @@ class GameManager:
         
         if game_state.phase != GamePhase.SETUP:
             raise ValueError(f"Game must be in setup phase to start")
-        
+
         game_state.start_game()
-        
+
         # Place ball at center of pitch
         game_state.pitch.place_ball(Position(x=13, y=7))
-        
+
+        logger.info(
+            "Game %s started: %s vs %s",
+            game_id,
+            game_state.team1.name,
+            game_state.team2.name,
+        )
+
         return game_state
     
     def end_turn(self, game_id: str) -> GameState:
@@ -137,10 +162,17 @@ class GameManager:
         
         if not game_state.turn:
             raise ValueError("No active turn")
-        
+
         game_state.switch_turn()
         game_state.add_event(f"Turn ended. Now {game_state.get_active_team().name}'s turn")
-        
+
+        logger.info(
+            "Game %s turn advanced to team %s (turn %s)",
+            game_id,
+            game_state.turn.active_team_id,
+            game_state.turn.team_turn,
+        )
+
         return game_state
     
     def check_scoring(self, game_id: str) -> Optional[str]:
@@ -170,11 +202,19 @@ class GameManager:
         if scored_team:
             scored_team.add_score()
             game_state.add_event(f"{scored_team.name} scored!")
-            
+
             # Reset for new drive
             game_state.pitch.ball_carrier = None
             game_state.pitch.place_ball(Position(x=13, y=7))
-            
+
+            logger.info(
+                "Game %s: %s scored (score %s-%s)",
+                game_id,
+                scored_team.name,
+                game_state.team1.score,
+                game_state.team2.score,
+            )
+
             return scored_team.id
         
         return None

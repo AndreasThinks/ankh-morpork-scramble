@@ -10,10 +10,11 @@ services:
       - DEFAULT_GAME_ID=demo-game
       - openrouter_api_key=${openrouter_api_key:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/game/demo-game"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   agent-team1:
     build: .

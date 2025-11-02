@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 
+from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
 
 from app.models.game_state import GameState
@@ -26,7 +27,15 @@ from app.mcp_server import mcp
 mcp_app = mcp.http_app(path='/')
 
 # Configure logging early so startup hooks can log useful information
+_LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
 logger = logging.getLogger("app.main")
+if _LOG_FILE:
+    logger.info("API log file initialised at %s", _LOG_FILE)
+
+# Initialize demo game immediately at module load time
+game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
+demo_game_state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
+logger.info("Demo game '%s' is ready with %d players", game_id, len(demo_game_state.players))
 
 # Create FastAPI app with MCP lifespan
 app = FastAPI(
@@ -41,15 +50,6 @@ app.mount("/mcp", mcp_app)
 
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
-
-
-@app.on_event("startup")
-async def prepare_demo_game() -> None:
-    """Ensure a ready-to-play demo match exists for autonomous agents."""
-
-    game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
-    state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
-    logger.info("Demo game '%s' is ready with %d players", game_id, len(state.players))
 
 
 @app.get("/")

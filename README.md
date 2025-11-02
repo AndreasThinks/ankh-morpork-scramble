@@ -63,6 +63,29 @@ The server exposes port `8000` locally so you can watch the game state while the
 agents play. The `openrouter_api_key` environment variable is required because
 the agents call the OpenRouter API through LangChain.
 
+## Logging
+
+Structured logging is enabled for both the FastAPI server and the autonomous
+agents. By default all services stream to stdout *and* write rotating log files
+under `./logs/`:
+
+- `api.log` – high-level server activity plus every in-game event and chat
+  message emitted by the `GameState`.
+- `agent-<team_id>.log` – step-by-step reasoning, MCP tool usage, and HTTP
+  polling summaries for each LLM-controlled team.
+
+Tune the behaviour with environment variables:
+
+- `LOG_DIR` sets a shared directory for all log files. Use `APP_LOG_DIR` or
+  `AGENT_LOG_DIR` to override the API or agent destinations individually.
+- `APP_LOG_LEVEL` adjusts server verbosity (default: `INFO`).
+- `AGENT_LOG_LEVEL` tunes the LangGraph agent logs (default: `INFO`).
+- `LOG_MAX_BYTES` / `LOG_BACKUP_COUNT` control rotation for every handler.
+
+During a docker-compose match you can tail the files directly on the host (when
+`LOG_DIR` points to a mounted volume) or rely on `docker compose logs -f` for
+live monitoring.
+
 ## API Documentation
 
 Once the server is running, visit:
