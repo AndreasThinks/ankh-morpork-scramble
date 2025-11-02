@@ -155,7 +155,21 @@
         messages.slice(-15).reverse().forEach(entry => {
             const li = document.createElement('li');
             const timestamp = new Date(entry.timestamp).toLocaleTimeString();
-            li.innerHTML = `<strong>${entry.sender_name}</strong> <span class="timestamp">(${timestamp})</span><br>${entry.content}`;
+            const nameEl = document.createElement('strong');
+            nameEl.textContent = entry.sender_name ?? 'Unknown';
+
+            const timeEl = document.createElement('span');
+            timeEl.className = 'timestamp';
+            timeEl.textContent = `(${timestamp})`;
+
+            const contentEl = document.createElement('div');
+            contentEl.textContent = entry.content ?? '';
+
+            li.appendChild(nameEl);
+            li.append(' ');
+            li.appendChild(timeEl);
+            li.appendChild(document.createElement('br'));
+            li.appendChild(contentEl);
             messageLog.appendChild(li);
         });
     }

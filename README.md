@@ -28,6 +28,20 @@ python -m app.main
 
 The server will start at `http://localhost:8000`
 
+## Environment Configuration
+
+Use the provided sample file to configure environment variables locally:
+
+```bash
+cp .env.example .env
+```
+
+Populate at least one of `OPENROUTER_API_KEY` or `openrouter_api_key` with your
+OpenRouter credentials so automated agents can call the API. The defaults in the
+sample file will spin up the demo match (`DEFAULT_GAME_ID=demo-game`) and assign
+the first agent as `team1`. Duplicate the agent section in `.env` with a unique
+`TEAM_ID` / `TEAM_NAME` pair if you want to run multiple local agents.
+
 ## Web Dashboard
 
 A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It refreshes

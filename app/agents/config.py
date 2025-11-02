@@ -62,7 +62,7 @@ class AgentConfig:
         team_name = _get_env("TEAM_NAME", default=team_id)
         game_id = _get_env("GAME_ID", default="demo-game")
         mcp_server_url = _get_env("MCP_SERVER_URL", default="http://game-server:8000/mcp")
-        model = _get_env("OPENROUTER_MODEL", "openrouter/auto")
+        model = _get_env("OPENROUTER_MODEL", default="openrouter/auto")
         api_key = _get_env("openrouter_api_key", "OPENROUTER_API_KEY")
 
         if not api_key:
