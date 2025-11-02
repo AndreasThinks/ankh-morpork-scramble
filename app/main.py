@@ -7,14 +7,25 @@ from app.models.actions import ActionRequest, ActionResult, SetupRequest, ValidA
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
 
+# Global game manager instance (must be created before importing mcp_server)
+game_manager = GameManager()
+
+# Import MCP server after game_manager is created
+from app.mcp_server import mcp
+
+# Create MCP ASGI app
+mcp_app = mcp.http_app(path='/mcp')
+
+# Create FastAPI app with MCP lifespan
 app = FastAPI(
     title="Ankh-Morpork Scramble API",
     description="Turn-based sports game server based on Blood Bowl mechanics",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=mcp_app.lifespan
 )
 
-# Global game manager instance
-game_manager = GameManager()
+# Mount the MCP server at /mcp
+app.mount("/mcp", mcp_app)
 
 
 @app.get("/")

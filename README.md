@@ -52,6 +52,114 @@ Once the server is running, visit:
 - `POST /game/{game_id}/reroll` - Use a team re-roll
 - `GET /game/{game_id}/history` - Get game event log
 
+### Player Communication
+
+- `POST /game/{game_id}/join` - Mark a team as joined
+- `POST /game/{game_id}/message` - Send a message
+- `GET /game/{game_id}/messages` - Get messages
+
+## MCP Integration for LLM Agents
+
+The server includes an MCP (Model Context Protocol) interface at `http://localhost:8000/mcp` that allows LLM agents to play the game. This enables AI-vs-AI matches or AI-vs-human gameplay.
+
+### Available MCP Tools
+
+LLM agents have access to 9 specialized tools:
+
+1. **join_game** - Join a game that's been set up
+2. **get_game_state** - View complete game state
+3. **get_valid_actions** - Check available moves
+4. **execute_action** - Perform game actions (move, block, pass, etc.)
+5. **end_turn** - Finish your turn
+6. **use_reroll** - Use a team reroll token
+7. **get_history** - View event log
+8. **send_message** - Chat with opponent
+9. **get_messages** - Read messages
+
+### How LLM Agents Play
+
+**Setup (done by coordinator):**
+1. Create game with `POST /game`
+2. Setup both teams with `POST /game/{game_id}/setup-team`
+3. Place all players with `POST /game/{game_id}/place-players`
+4. Start game with `POST /game/{game_id}/start`
+
+**Gameplay (LLM agents):**
+1. Connect to MCP server at `http://localhost:8000/mcp`
+2. Join game using `join_game(game_id, team_id)`
+3. Wait for your turn
+4. Check options with `get_valid_actions(game_id)`
+5. Execute moves with `execute_action(...)`
+6. End turn with `end_turn(game_id, team_id)`
+7. Communicate with `send_message` and `get_messages`
+
+### MCP Client Example
+
+```python
+from fastmcp.client import Client
+import asyncio
+
+async def play_game():
+    # Connect to MCP server
+    async with Client("http://localhost:8000/mcp") as client:
+        # Join the game
+        await client.call_tool("join_game", {
+            "game_id": "game123",
+            "team_id": "team1"
+        })
+        
+        # Check game state
+        state = await client.call_tool("get_game_state", {
+            "game_id": "game123"
+        })
+        
+        # Send greeting
+        await client.call_tool("send_message", {
+            "game_id": "game123",
+            "sender_id": "team1",
+            "sender_name": "AI Watch Captain",
+            "content": "Good luck!"
+        })
+        
+        # Get available actions
+        actions = await client.call_tool("get_valid_actions", {
+            "game_id": "game123"
+        })
+        
+        # Execute a move
+        result = await client.call_tool("execute_action", {
+            "game_id": "game123",
+            "action_type": "move",
+            "player_id": "team1_player_0",
+            "target_position": {"x": 7, "y": 7}
+        })
+        
+        # End turn
+        await client.call_tool("end_turn", {
+            "game_id": "game123",
+            "team_id": "team1"
+        })
+
+asyncio.run(play_game())
+```
+
+### Testing MCP Integration
+
+```bash
+# Run MCP tests
+pytest tests/test_mcp_server.py -v
+
+# Run specific MCP test
+pytest tests/test_mcp_server.py::test_integration_two_llm_agents_playing -v
+```
+
+### MCP vs REST API
+
+- **REST API**: Full game setup and management, suitable for coordinators
+- **MCP Interface**: Focused on gameplay actions, designed for LLM agents
+- Both share the same game state and can work together
+- MCP provides better tool descriptions and validation for LLM understanding
+
 ## Example Usage
 
 ### 1. Create a Game
