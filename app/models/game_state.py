@@ -1,6 +1,6 @@
 """Game state model"""
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from app.models.enums import GamePhase, TeamType
 from app.models.pitch import Pitch
@@ -13,7 +13,7 @@ class GameMessage(BaseModel):
     sender_id: str = Field(description="ID of the sender (player or team)")
     sender_name: str = Field(description="Display name of sender")
     content: str = Field(description="Message content")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     turn_number: Optional[int] = Field(None, description="Turn when message was sent")
     game_phase: str = Field(description="Phase when message was sent")
 
@@ -142,9 +142,9 @@ class GameState(BaseModel):
         # Reset team re-rolls
         active_team = self.get_active_team()
         active_team.reset_rerolls()
-        
-        # Check if half is over
-        if self.turn.team_turn > 8:
+
+        # Check if half is over (turns are 0-7, so 8 turns total per team)
+        if self.turn.team_turn >= 8:
             self.end_half()
     
     def end_half(self) -> None:

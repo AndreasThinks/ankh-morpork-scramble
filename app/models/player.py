@@ -99,12 +99,21 @@ class Player(BaseModel):
     
     def get_agility_target(self) -> int:
         """Parse agility string to target number (e.g., '3+' -> 3)"""
-        return int(self.position.ag.replace('+', ''))
-    
+        try:
+            return int(self.position.ag.rstrip('+'))
+        except ValueError:
+            raise ValueError(f"Invalid agility value: {self.position.ag}")
+
     def get_passing_target(self) -> int:
         """Parse passing ability string to target number"""
-        return int(self.position.pa.replace('+', ''))
-    
+        try:
+            return int(self.position.pa.rstrip('+'))
+        except ValueError:
+            raise ValueError(f"Invalid passing ability value: {self.position.pa}")
+
     def get_armor_value(self) -> int:
         """Parse armor value string to target number"""
-        return int(self.position.av.replace('+', ''))
+        try:
+            return int(self.position.av.rstrip('+'))
+        except ValueError:
+            raise ValueError(f"Invalid armor value: {self.position.av}")

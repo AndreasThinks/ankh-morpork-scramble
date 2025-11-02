@@ -62,12 +62,13 @@ class AgentConfig:
         team_name = _get_env("TEAM_NAME", default=team_id)
         game_id = _get_env("GAME_ID", default="demo-game")
         mcp_server_url = _get_env("MCP_SERVER_URL", default="http://game-server:8000/mcp")
-        model = _get_env("OPENROUTER_MODEL", "openrouter/auto")
-        api_key = _get_env("openrouter_api_key", "OPENROUTER_API_KEY")
+        model = _get_env("OPENROUTER_MODEL", default="openrouter/auto")
+        # Try uppercase first (Python convention), fallback to lowercase for backward compatibility
+        api_key = _get_env("OPENROUTER_API_KEY", "openrouter_api_key")
 
         if not api_key:
             raise RuntimeError(
-                "openrouter_api_key (or OPENROUTER_API_KEY) environment variable is required"
+                "OPENROUTER_API_KEY (or openrouter_api_key) environment variable is required"
             )
 
         base_url = _get_env("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")

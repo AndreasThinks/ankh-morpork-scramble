@@ -9,6 +9,13 @@ from app.models.pitch import Position
 from app.state.action_executor import ActionExecutor
 
 
+# End zone scoring thresholds
+# Team 1 moves towards the right side (higher X values) to score
+TEAM1_END_ZONE_X = 23  # Team 1 scores when ball carrier reaches x >= 23
+# Team 2 moves towards the left side (lower X values) to score
+TEAM2_END_ZONE_X = 2   # Team 2 scores when ball carrier reaches x <= 2
+
+
 class GameManager:
     """Manages game creation, state transitions, and rule enforcement"""
     
@@ -158,13 +165,12 @@ class GameManager:
         if not carrier_pos:
             return None
         
-        # Check if in end zone
-        # Team 1 scores in x >= 23, Team 2 scores in x <= 2
+        # Check if ball carrier has reached the opposing team's end zone
         scored_team = None
-        
-        if carrier.team_id == game_state.team1.id and carrier_pos.x >= 23:
+
+        if carrier.team_id == game_state.team1.id and carrier_pos.x >= TEAM1_END_ZONE_X:
             scored_team = game_state.team1
-        elif carrier.team_id == game_state.team2.id and carrier_pos.x <= 2:
+        elif carrier.team_id == game_state.team2.id and carrier_pos.x <= TEAM2_END_ZONE_X:
             scored_team = game_state.team2
         
         if scored_team:

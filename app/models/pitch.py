@@ -3,10 +3,15 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
+# Pitch dimensions constants
+PITCH_WIDTH = 26  # X-axis: 0-25
+PITCH_HEIGHT = 15  # Y-axis: 0-14
+
+
 class Position(BaseModel):
     """Position on the pitch (26x15 grid)"""
-    x: int = Field(..., ge=0, lt=26, description="X coordinate (0-25)")
-    y: int = Field(..., ge=0, lt=15, description="Y coordinate (0-14)")
+    x: int = Field(..., ge=0, lt=PITCH_WIDTH, description="X coordinate (0-25)")
+    y: int = Field(..., ge=0, lt=PITCH_HEIGHT, description="Y coordinate (0-14)")
     
     def __eq__(self, other):
         if not isinstance(other, Position):
@@ -39,8 +44,8 @@ class Pitch(BaseModel):
     def validate_ball_position(cls, v):
         """Ensure ball position is within pitch bounds"""
         if v is not None:
-            if not (0 <= v.x < 26 and 0 <= v.y < 15):
-                raise ValueError("Ball position must be within pitch bounds (0-25, 0-14)")
+            if not (0 <= v.x < PITCH_WIDTH and 0 <= v.y < PITCH_HEIGHT):
+                raise ValueError(f"Ball position must be within pitch bounds (0-{PITCH_WIDTH-1}, 0-{PITCH_HEIGHT-1})")
         return v
     
     def get_player_at(self, pos: Position) -> Optional[str]:

@@ -2,7 +2,7 @@
 from typing import Optional
 from app.models.game_state import GameState
 from app.models.player import Player
-from app.models.pitch import Position
+from app.models.pitch import Position, PITCH_WIDTH, PITCH_HEIGHT
 from app.models.enums import SkillType, PassResult
 from app.models.actions import DiceRoll
 from app.game.dice import DiceRoller
@@ -105,9 +105,9 @@ class BallHandler:
         
         dx, dy = self.dice.scatter()
         old_pos = game_state.pitch.ball_position
-        
-        new_x = max(0, min(25, old_pos.x + dx))
-        new_y = max(0, min(14, old_pos.y + dy))
+
+        new_x = max(0, min(PITCH_WIDTH - 1, old_pos.x + dx))
+        new_y = max(0, min(PITCH_HEIGHT - 1, old_pos.y + dy))
         new_pos = Position(x=new_x, y=new_y)
         
         game_state.pitch.place_ball(new_pos)

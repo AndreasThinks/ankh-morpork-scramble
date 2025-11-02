@@ -2,7 +2,7 @@
 from typing import Optional
 from app.models.game_state import GameState
 from app.models.player import Player
-from app.models.pitch import Position
+from app.models.pitch import Position, PITCH_WIDTH, PITCH_HEIGHT
 from app.models.enums import SkillType, PlayerState
 from app.models.actions import DiceRoll
 from app.game.dice import DiceRoller
@@ -89,7 +89,7 @@ class MovementHandler:
             return False, "Player must be standing to move"
         
         # Check if position is on the pitch
-        if not (0 <= target_pos.x < 26 and 0 <= target_pos.y < 15):
+        if not (0 <= target_pos.x < PITCH_WIDTH and 0 <= target_pos.y < PITCH_HEIGHT):
             return False, "Position is outside pitch bounds"
         
         # Check if position is occupied
