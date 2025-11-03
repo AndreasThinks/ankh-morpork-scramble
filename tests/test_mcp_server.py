@@ -21,9 +21,10 @@ async def test_mcp_tools_are_registered():
     async with Client(mcp) as client:
         tools = await client.list_tools()
         tool_names = [t.name for t in tools]
-        
-        # Verify all 10 expected tools are present
+
+        # Verify all expected tools are present (10 original + 4 setup phase tools)
         expected_tools = [
+            # Gameplay tools
             "join_game",
             "get_game_state",
             "get_valid_actions",
@@ -33,14 +34,19 @@ async def test_mcp_tools_are_registered():
             "get_history",
             "send_message",
             "get_messages",
-            "suggest_path"
+            "suggest_path",
+            # Setup phase tools
+            "get_team_budget",
+            "get_available_positions",
+            "buy_player",
+            "buy_reroll"
         ]
-        
+
         for tool in expected_tools:
             assert tool in tool_names, f"Tool '{tool}' not found in MCP server"
-        
+
         assert len(tool_names) == len(expected_tools), \
-            f"Expected {len(expected_tools)} tools, found {len(tool_names)}"
+            f"Expected {len(expected_tools)} tools, found {len(tool_names)}: {tool_names}"
 
 
 @pytest.mark.asyncio
@@ -460,16 +466,20 @@ async def test_use_reroll(clean_manager):
     """Test using a reroll through MCP"""
     clean_manager.create_game("test_game")
     clean_manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
-    
+
+    # Buy a reroll first (teams start with 0 rerolls now)
+    clean_manager.buy_reroll("test_game", "team1")
+
     game = clean_manager.get_game("test_game")
     initial_rerolls = game.team1.rerolls_remaining
-    
+    assert initial_rerolls == 1  # Should have 1 reroll after purchase
+
     async with Client(mcp) as client:
         result = await client.call_tool(
             "use_reroll",
             {"game_id": "test_game", "team_id": "team1"}
         )
-        
+
         assert result.data["success"] is True
         assert result.data["rerolls_remaining"] == initial_rerolls - 1
 

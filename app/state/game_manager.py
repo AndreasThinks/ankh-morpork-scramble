@@ -32,18 +32,17 @@ class GameManager:
             game_id = str(uuid.uuid4())
         
         # Create placeholder teams - will be set during join
+        # Teams start with no rerolls; they must purchase them during setup
         team1 = Team(
             id="team1",
             name="Team 1",
-            team_type=TeamType.CITY_WATCH,
-            rerolls_total=3
+            team_type=TeamType.CITY_WATCH
         )
-        
+
         team2 = Team(
             id="team2",
             name="Team 2",
-            team_type=TeamType.UNSEEN_UNIVERSITY,
-            rerolls_total=3
+            team_type=TeamType.UNSEEN_UNIVERSITY
         )
         
         game_state = GameState(
