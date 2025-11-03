@@ -189,32 +189,34 @@ class ClineAgentRunner:
         self.cline_logger = logging.getLogger(f"app.agents.{config.team_id}.cline")
 
     async def run(self) -> None:
-        """Configure the CLI, write MCP settings, and launch the task."""
+        """Configure the CLI, write MCP settings, and launch the task using instance management."""
 
         self._ensure_prerequisites()
-        await self._apply_configuration()
+        
+        # Write MCP settings BEFORE starting instance (so it reads them on startup)
         self._write_mcp_settings()
+        
+        # Start a persistent Cline Core instance
+        instance_address = await self._start_instance()
+        self.agent_logger.info("Started Cline Core instance at %s", instance_address)
+        
+        try:
+            # Authenticate with OpenRouter
+            await self._apply_configuration()
 
-        prompt = self._build_prompt()
-        self.agent_logger.info("Starting Cline task with prompt:\n%s", prompt)
+            # Build and create the task
+            prompt = self._build_prompt()
+            self.agent_logger.info("Creating Cline task with prompt:\n%s", prompt)
 
-        await self._run_cli_command(
-            [
-                "cline",
-                "-y",
-                "-m",
-                "act",
-                "--output-format",
-                "plain",
-                "--setting",
-                "auto-approval-settings.actions.use-mcp=true",
-                "--setting",
-                "auto-approval-settings.actions.execute-safe-commands=true",
-            ],
-            stdin_text=prompt + "\n",
-            mask_args=[self.config.api_key],
-            description="launch cline task",
-        )
+            await self._create_task(instance_address, prompt)
+            
+            # Follow the task until completion
+            self.agent_logger.info("Following task execution...")
+            await self._follow_task(instance_address)
+            
+        finally:
+            # Clean up the instance
+            await self._kill_instance(instance_address)
 
     def _ensure_prerequisites(self) -> None:
         if shutil.which("cline") is None:
@@ -223,32 +225,108 @@ class ClineAgentRunner:
         self.cline_dir.mkdir(parents=True, exist_ok=True)
         (self.cline_dir / "data" / "settings").mkdir(parents=True, exist_ok=True)
 
-    async def _apply_configuration(self) -> None:
-        """Configure provider credentials and default behaviour."""
-
-        await self._run_cli_command(
-            ["cline", "config", "set", f"open-router-api-key={self.config.api_key}"],
-            mask_args=[self.config.api_key],
-            description="configure OpenRouter API key",
+    async def _start_instance(self) -> str:
+        """Start a persistent Cline Core instance and return its address."""
+        
+        process = await asyncio.create_subprocess_exec(
+            "cline",
+            "instance",
+            "new",
+            "--default",
+            env=self.env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
+        
+        output, _ = await process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"Failed to start Cline instance; exit code {process.returncode}")
+        
+        # Extract the instance address from output (format: "Address: 127.0.0.1:12345")
+        output_text = output.decode(errors="ignore")
+        self.cline_logger.info(output_text.strip())
+        
+        for line in output_text.split("\n"):
+            if "Address:" in line:
+                # Extract address after "Address: "
+                parts = line.split("Address:")
+                if len(parts) > 1:
+                    address = parts[1].strip()
+                    return address
+        
+        raise RuntimeError("Failed to extract instance address from output")
+    
+    async def _kill_instance(self, address: str) -> None:
+        """Kill the Cline Core instance at the specified address."""
+        
+        self.agent_logger.info("Cleaning up Cline instance at %s", address)
+        process = await asyncio.create_subprocess_exec(
+            "cline",
+            "instance",
+            "kill",
+            address,
+            env=self.env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        
+        await process.wait()
+
+    async def _apply_configuration(self) -> None:
+        """Authenticate Cline with OpenRouter provider."""
 
         await self._run_cli_command(
             [
                 "cline",
-                "config",
-                "set",
-                "plan-mode-api-provider=openrouter",
-                "act-mode-api-provider=openrouter",
-                f"plan-mode-open-router-model-id={self.config.model}",
-                f"act-mode-open-router-model-id={self.config.model}",
-                "mode=act",
-                "telemetry-setting=disabled",
-                "auto-approval-settings.actions.use-mcp=true",
-                "auto-approval-settings.actions.execute-safe-commands=true",
-                "auto-approval-settings.actions.edit-files=true",
-                "auto-approval-settings.actions.read-files=true",
+                "auth",
+                "--provider",
+                "openrouter",
+                "--apikey",
+                self.config.api_key,
+                "--modelid",
+                self.config.model
             ],
-            description="configure default settings",
+            mask_args=[self.config.api_key],
+            description="authenticate with OpenRouter",
+        )
+    
+    async def _create_task(self, instance_address: str, prompt: str) -> None:
+        """Create a task on the specified Cline instance."""
+        
+        await self._run_cli_command(
+            [
+                "cline",
+                "task",
+                "new",
+                prompt,
+                "--address",
+                instance_address,
+                "-y",
+                "-m",
+                "act",
+                "--setting",
+                "auto-approval-settings.actions.use-mcp=true",
+                "--setting",
+                "auto-approval-settings.actions.execute-safe-commands=true",
+            ],
+            mask_args=[self.config.api_key],
+            description="create task",
+        )
+    
+    async def _follow_task(self, instance_address: str) -> None:
+        """Follow the task execution until completion."""
+        
+        await self._run_cli_command(
+            [
+                "cline",
+                "task",
+                "view",
+                "--follow-complete",
+                "--address",
+                instance_address,
+            ],
+            mask_args=[self.config.api_key],
+            description="follow task",
         )
 
     def _write_mcp_settings(self) -> None:

@@ -25,8 +25,14 @@ services:
       - TEAM_NAME=City Watch Constables
       - GAME_ID=demo-game
       - MCP_SERVER_URL=http://game-server:8000/mcp
-      - OPENROUTER_MODEL=openrouter/auto
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       - openrouter_api_key=${openrouter_api_key:-}
+      - OPENROUTER_API_KEY=${openrouter_api_key:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
+      - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
+      - CLINE_DIR=/tmp/cline-team1
+      - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-INFO}
     depends_on:
       game-server:
         condition: service_healthy
@@ -40,8 +46,14 @@ services:
       - TEAM_NAME=Unseen University Adepts
       - GAME_ID=demo-game
       - MCP_SERVER_URL=http://game-server:8000/mcp
-      - OPENROUTER_MODEL=openrouter/auto
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       - openrouter_api_key=${openrouter_api_key:-}
+      - OPENROUTER_API_KEY=${openrouter_api_key:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
+      - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
+      - CLINE_DIR=/tmp/cline-team2
+      - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-INFO}
     depends_on:
       game-server:
         condition: service_healthy
