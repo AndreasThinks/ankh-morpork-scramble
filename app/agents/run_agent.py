@@ -1,74 +1,36 @@
-"""Entry point for Dockerised LLM agents controlling the MCP tools."""
+"""Run an Ankh-Morpork Scramble agent using the Cline CLI."""
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+import shutil
+import textwrap
 from collections import deque
-from typing import Deque, Iterable
+from pathlib import Path
+from typing import Deque, Iterable, Optional
 
 import httpx
-from fastmcp.client import Client
-from langchain_mcp import MCPToolkit
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import ToolMessage
 
 from app.agents.config import AgentConfig
-from app.agents.langgraph_agent import AgentStepResult, LangGraphMCPAgent
 from app.logging_utils import configure_root_logger
 
-
-logger = logging.getLogger("app.agents")
-
-
-class AgentMemory:
-    """Bounded log of the agent's recent reasoning."""
-
-    def __init__(self, capacity: int) -> None:
-        self._entries: Deque[str] = deque(maxlen=capacity)
-
-    def add(self, *entries: str) -> None:
-        for entry in entries:
-            clean = entry.strip()
-            if clean:
-                self._entries.append(clean)
-
-    def render(self) -> str:
-        if not self._entries:
-            return "No previous turns recorded."
-
-        numbered: Iterable[str] = (
-            f"{idx + 1}. {value}"
-            for idx, value in enumerate(self._entries)
-        )
-        return "\n".join(numbered)
-
-
-def _build_system_prompt(config: AgentConfig) -> str:
-    direction = (
-        "increase the x coordinate by 1"
-        if config.team_direction == 1
-        else "decrease the x coordinate by 1"
-    )
-
-    return (
-        "You are an autonomous coach for Ankh-Morpork Scramble. Your team id is "
-        f"{config.team_id} and the current game id is {config.game_id}.\n"
-        "Use the provided MCP tools to control your players.\n"
-        "Workflow:\n"
-        "1. If you have not yet joined, call join_game with the correct IDs.\n"
-        "2. Every loop call get_game_state to understand the board and whose turn it is.\n"
-        "3. When it is your turn, call get_valid_actions, pick the first movable "
-        "player, and move them one square toward the opponent (" + direction + ").\n"
-        "   Use execute_action with action_type='MOVE' and a target_position JSON object.\n"
-        "4. Immediately call end_turn after a successful action.\n"
-        "5. When it is not your turn, simply acknowledge `STATUS: WAITING`.\n"
-        "Respond with a short status line such as `STATUS: ACTION_TAKEN` followed by "
-        "a justification."
-    )
+MCP_SERVER_NAME = "scramble"
 
 
 async def _wait_for_server(base_url: str, timeout: float, *, prefix: str = "") -> None:
+    """Wait for the MCP HTTP server to become available before launching Cline.
+
+    Args:
+        base_url: The HTTP base URL of the MCP server
+        timeout: Maximum time to wait in seconds
+        prefix: Optional logging prefix
+
+    Raises:
+        RuntimeError: If the server doesn't become ready within the timeout period
+    """
+    logger = logging.getLogger("app.agents")
     deadline = asyncio.get_event_loop().time() + timeout
     async with httpx.AsyncClient() as client:
         while True:
@@ -87,8 +49,30 @@ async def _wait_for_server(base_url: str, timeout: float, *, prefix: str = "") -
             await asyncio.sleep(1)
 
 
+class AgentMemory:
+    """Bounded log of the agent's recent reasoning (legacy support)."""
+
+    def __init__(self, capacity: int) -> None:
+        self._entries: Deque[str] = deque(maxlen=capacity)
+
+    def add(self, *entries: str) -> None:
+        for entry in entries:
+            clean = entry.strip()
+            if clean:
+                self._entries.append(clean)
+
+    def render(self) -> str:
+        if not self._entries:
+            return "No previous turns recorded."
+
+        numbered: Iterable[str] = (
+            f"{idx + 1}. {value}" for idx, value in enumerate(self._entries)
+        )
+        return "\n".join(numbered)
+
+
 def _summarize_game_state(state: dict, team_id: str) -> str:
-    """Compress the HTTP game payload into a concise text summary."""
+    """Compress the HTTP game payload into a concise text summary (legacy helper)."""
 
     phase = state.get("phase", "?")
     turn = state.get("turn") or {}
@@ -135,6 +119,8 @@ def _compose_instruction(
     require_action: bool,
     awaiting_end_turn: bool,
 ) -> str:
+    """Preserve legacy instruction formatting for compatibility with tests."""
+
     base = [
         f"Game ID: {config.game_id}",
         f"Team ID: {config.team_id}",
@@ -156,9 +142,14 @@ def _compose_instruction(
             "identify the active team."
         )
         if require_action:
+            direction = (
+                "increase the x coordinate by 1"
+                if config.team_direction == 1
+                else "decrease the x coordinate by 1"
+            )
             base.extend(
                 [
-                    "It is YOUR turn. Use get_valid_actions to inspect movable_players, "
+                    "It is YOUR turn. Use get_valid_actions to inspect movable_players, ",
                     "then move the first available player one square forward (x "
                     f"{'+' if config.team_direction == 1 else '-'} 1).",
                     "Submit the MOVE via execute_action and immediately end the turn "
@@ -180,42 +171,211 @@ def _compose_instruction(
     return "\n".join(base)
 
 
-def _log_step(
-    result: AgentStepResult,
-    *,
-    prefix: str,
-    agent_logger: logging.Logger,
-    tools_logger: logging.Logger,
-) -> None:
-    if result.ai_message:
-        agent_logger.info("%s Assistant: %s", prefix, result.ai_message.content.strip())
-        if getattr(result.ai_message, "additional_kwargs", None):
-            agent_logger.debug(
-                "%s Assistant metadata: %s",
-                prefix,
-                result.ai_message.additional_kwargs,
-            )
+class ClineAgentRunner:
+    """Thin wrapper around the Cline CLI for autonomous play."""
 
-    if result.tool_calls:
-        tools_logger.info("%s Tools invoked: %s", prefix, ", ".join(result.tool_calls))
+    def __init__(
+        self,
+        config: AgentConfig,
+        *,
+        env: dict[str, str],
+        cline_dir: Path,
+        agent_logger: logging.Logger,
+    ) -> None:
+        self.config = config
+        self.env = env
+        self.cline_dir = cline_dir
+        self.agent_logger = agent_logger
+        self.cline_logger = logging.getLogger(f"app.agents.{config.team_id}.cline")
 
-    for msg in result.new_messages:
-        if isinstance(msg, ToolMessage):
-            content = msg.content
-            if isinstance(content, list):
-                content = " ".join(
-                    part.get("text", "") if isinstance(part, dict) else str(part)
-                    for part in content
-                )
-            tools_logger.info("%s Tool %s → %s", prefix, msg.name, str(content).strip())
-        else:
-            agent_logger.debug("%s Message %s", prefix, msg)
+    async def run(self) -> None:
+        """Configure the CLI, write MCP settings, and launch the task."""
 
+        self._ensure_prerequisites()
+        await self._apply_configuration()
+        self._write_mcp_settings()
 
-async def _fetch_state(client: httpx.AsyncClient, config: AgentConfig) -> dict:
-    response = await client.get(f"{config.http_base_url}/game/{config.game_id}", timeout=10)
-    response.raise_for_status()
-    return response.json()
+        prompt = self._build_prompt()
+        self.agent_logger.info("Starting Cline task with prompt:\n%s", prompt)
+
+        await self._run_cli_command(
+            [
+                "cline",
+                "-y",
+                "-m",
+                "act",
+                "--output-format",
+                "plain",
+                "--setting",
+                "auto-approval-settings.actions.use-mcp=true",
+                "--setting",
+                "auto-approval-settings.actions.execute-safe-commands=true",
+            ],
+            stdin_text=prompt + "\n",
+            mask_args=[self.config.api_key],
+            description="launch cline task",
+        )
+
+    def _ensure_prerequisites(self) -> None:
+        if shutil.which("cline") is None:
+            raise RuntimeError("cline executable not found on PATH. Ensure npm installed it correctly.")
+
+        self.cline_dir.mkdir(parents=True, exist_ok=True)
+        (self.cline_dir / "data" / "settings").mkdir(parents=True, exist_ok=True)
+
+    async def _apply_configuration(self) -> None:
+        """Configure provider credentials and default behaviour."""
+
+        await self._run_cli_command(
+            ["cline", "config", "set", f"open-router-api-key={self.config.api_key}"],
+            mask_args=[self.config.api_key],
+            description="configure OpenRouter API key",
+        )
+
+        await self._run_cli_command(
+            [
+                "cline",
+                "config",
+                "set",
+                "plan-mode-api-provider=openrouter",
+                "act-mode-api-provider=openrouter",
+                f"plan-mode-open-router-model-id={self.config.model}",
+                f"act-mode-open-router-model-id={self.config.model}",
+                "mode=act",
+                "telemetry-setting=disabled",
+                "auto-approval-settings.actions.use-mcp=true",
+                "auto-approval-settings.actions.execute-safe-commands=true",
+                "auto-approval-settings.actions.edit-files=true",
+                "auto-approval-settings.actions.read-files=true",
+            ],
+            description="configure default settings",
+        )
+
+    def _write_mcp_settings(self) -> None:
+        """Write the MCP server configuration consumed by Cline core."""
+
+        settings_dir = self.cline_dir / "data" / "settings"
+        settings_dir.mkdir(parents=True, exist_ok=True)
+        settings_path = settings_dir / "cline_mcp_settings.json"
+
+        data = {
+            "mcpServers": {
+                MCP_SERVER_NAME: {
+                    "url": self.config.mcp_server_url,
+                    "disabled": False,
+                    "timeout": 120,
+                    "autoApprove": [
+                        "join_game",
+                        "get_game_state",
+                        "get_valid_actions",
+                        "execute_action",
+                        "end_turn",
+                        "use_reroll",
+                        "get_history",
+                        "send_message",
+                        "get_messages",
+                    ],
+                }
+            }
+        }
+
+        settings_path.write_text(json.dumps(data, indent=2))
+        self.agent_logger.info("Updated MCP configuration at %s", settings_path)
+
+    def _build_prompt(self) -> str:
+        direction = (
+            "increase the x coordinate by 1"
+            if self.config.team_direction == 1
+            else "decrease the x coordinate by 1"
+        )
+
+        return textwrap.dedent(
+            f"""
+            You are an autonomous coach for Ankh-Morpork Scramble controlling team {self.config.team_name}
+            (ID {self.config.team_id}). The current game identifier is {self.config.game_id}.
+
+            The Cline CLI is preconfigured with a remote MCP server named "{MCP_SERVER_NAME}" at
+            {self.config.mcp_server_url}. Use only this server's tools to interact with the game. Available tools:
+            join_game, get_game_state, get_valid_actions, execute_action, end_turn, use_reroll, get_history,
+            send_message, get_messages.
+
+            Workflow:
+            1. Confirm the MCP server is reachable (list tools or call get_game_state).
+            2. If the team is not yet registered, call join_game exactly once and verify via get_game_state that the
+               join flag is set for your team.
+            3. On every loop call get_game_state to understand the current phase, score, and whose turn it is.
+            4. When it is YOUR turn, call get_valid_actions. Pick the first movable player and move them one square
+               toward the opponent (i.e. {direction}) using execute_action with action_type="MOVE" and a
+               target_position payload. Afterwards call end_turn immediately.
+            5. When it is not your turn, acknowledge STATUS: WAITING after confirming the active team and continue
+               polling the state until your turn resumes.
+            6. Keep responses concise. Begin each status update with STATUS: followed by ACTION_TAKEN, WAITING, or
+               COMPLETE. Mention the MCP tools you invoked in that turn.
+
+            Stop once the match ends, the game reports a winner, or you cannot perform further actions. Provide a
+            final STATUS: COMPLETE summary including the last scoreline.
+            """
+        ).strip()
+
+    async def _run_cli_command(
+        self,
+        args: list[str],
+        *,
+        stdin_text: Optional[str] = None,
+        mask_args: Optional[Iterable[str]] = None,
+        description: str,
+    ) -> None:
+        display_cmd = " ".join(self._mask_argument(arg, mask_args) for arg in args)
+        self.agent_logger.info("Executing: %s", display_cmd)
+
+        process = await asyncio.create_subprocess_exec(
+            *args,
+            env=self.env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.PIPE if stdin_text is not None else None,
+        )
+
+        tasks = []
+        if process.stdout is not None:
+            tasks.append(asyncio.create_task(self._stream_output(process.stdout, self.cline_logger.info)))
+        if process.stderr is not None:
+            tasks.append(asyncio.create_task(self._stream_output(process.stderr, self.cline_logger.error)))
+
+        if stdin_text is not None and process.stdin is not None:
+            process.stdin.write(stdin_text.encode())
+            await process.stdin.drain()
+            process.stdin.close()
+
+        if tasks:
+            await asyncio.gather(*tasks)
+
+        return_code = await process.wait()
+        if return_code != 0:
+            raise RuntimeError(f"Failed to {description}; exit code {return_code}")
+
+    async def _stream_output(self, stream: asyncio.StreamReader, log_method) -> None:
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            text = line.decode(errors="ignore").rstrip()
+            log_method(self._mask_text(text))
+
+    def _mask_argument(self, value: str, mask_args: Optional[Iterable[str]]) -> str:
+        if not mask_args:
+            return value
+        masked = value
+        for secret in mask_args:
+            if secret:
+                masked = masked.replace(secret, "[REDACTED]")
+        return masked
+
+    def _mask_text(self, value: str) -> str:
+        masked = value
+        if self.config.api_key:
+            masked = masked.replace(self.config.api_key, "[REDACTED]")
+        return masked
 
 
 async def run() -> None:
@@ -227,81 +387,33 @@ async def run() -> None:
     )
 
     agent_logger = logging.getLogger(f"app.agents.{config.team_id}")
-    tools_logger = logging.getLogger(f"app.agents.{config.team_id}.tools")
-    state_logger = logging.getLogger(f"app.agents.{config.team_id}.state")
-
     prefix = f"[{config.game_id}][{config.team_id}]"
     if log_file:
         agent_logger.info("%s Log file initialised at %s", prefix, log_file)
 
+    # Wait for the MCP server to be ready before launching Cline
     await _wait_for_server(config.http_base_url, config.startup_timeout, prefix=prefix)
 
-    llm = ChatOpenAI(
-        model=config.model,
-        api_key=config.api_key,
-        base_url=config.base_url,
-        temperature=0.2,
-        default_headers={
-            "HTTP-Referer": config.http_referer,
-            "X-Title": config.app_title,
-        },
-    )
+    env = os.environ.copy()
+    cline_dir = Path(env.get("CLINE_DIR", ""))
+    if not cline_dir:
+        cline_dir = Path("/tmp") / f"cline-{config.team_id}"
+    env["CLINE_DIR"] = str(cline_dir)
+    env.setdefault("POSTHOG_TELEMETRY_ENABLED", "false")
+    env.setdefault("CLINE_DISABLE_AUTO_UPDATE", "1")
+    env.setdefault("CLINE_CLI_DISABLE_AUTO_UPDATE", "1")
 
-    async with httpx.AsyncClient() as http_client, Client(config.mcp_server_url) as client:
-        toolkit = MCPToolkit(session=client.session)
-        await toolkit.initialize()
+    # Configure OpenRouter headers required by the API
+    # OpenRouter requires HTTP-Referer and X-Title headers for authentication
+    # These are passed as default headers to the OpenAI-compatible client
+    default_headers = json.dumps({
+        "HTTP-Referer": config.http_referer,
+        "X-Title": config.app_title,
+    })
+    env["OPENAI_DEFAULT_HEADERS"] = default_headers
 
-        system_prompt = _build_system_prompt(config)
-        agent = LangGraphMCPAgent(llm, toolkit.get_tools(), system_prompt=system_prompt)
-
-        joined = False
-        awaiting_end_turn = False
-        memory = AgentMemory(config.memory_window)
-
-        for step in range(config.max_steps):
-            state = await _fetch_state(http_client, config)
-            state_summary = _summarize_game_state(state, config.team_id)
-            state_logger.info("%s %s", prefix, state_summary)
-            require_action = bool(
-                joined
-                and state.get("turn")
-                and state["turn"].get("active_team_id") == config.team_id
-            )
-
-            instruction = _compose_instruction(
-                config,
-                joined,
-                state_summary,
-                memory.render(),
-                require_action,
-                awaiting_end_turn,
-            )
-            agent_logger.info("%s Step %s instruction: %s", prefix, step + 1, instruction)
-            result = await agent.step(instruction)
-            _log_step(
-                result,
-                prefix=prefix,
-                agent_logger=agent_logger,
-                tools_logger=tools_logger,
-            )
-
-            if result.ai_message:
-                memory.add(result.ai_message.content)
-            if result.tool_calls:
-                memory.add("Tools used: " + ", ".join(result.tool_calls))
-
-            if "join_game" in result.tool_calls:
-                joined = True
-
-            if "execute_action" in result.tool_calls:
-                awaiting_end_turn = True
-
-            if "end_turn" in result.tool_calls:
-                awaiting_end_turn = False
-
-            await asyncio.sleep(
-                config.post_turn_delay if "end_turn" in result.tool_calls else config.poll_interval
-            )
+    runner = ClineAgentRunner(config, env=env, cline_dir=cline_dir, agent_logger=agent_logger)
+    await runner.run()
 
 
 if __name__ == "__main__":
