@@ -12,7 +12,15 @@ from app.web import router as ui_router
 
 from app.models.game_state import GameState
 from app.models.team import TeamType
-from app.models.actions import ActionRequest, ActionResult, SetupRequest, ValidActionsResponse
+from app.models.actions import (
+    ActionRequest,
+    ActionResult,
+    SetupRequest,
+    ValidActionsResponse,
+    BudgetStatus,
+    PurchaseResult,
+    AvailablePositionsResponse
+)
 from app.models.pitch import Position
 from app.setup.default_game import DEFAULT_GAME_ID, bootstrap_default_game
 from app.state.game_manager import GameManager
@@ -108,6 +116,65 @@ def setup_team(
             player_positions
         )
         return game_state
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/game/{game_id}/team/{team_id}/budget", response_model=BudgetStatus)
+def get_team_budget(game_id: str, team_id: str):
+    """Get budget information for a team"""
+    try:
+        budget_status = game_manager.get_budget_status(game_id, team_id)
+        return budget_status
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/game/{game_id}/team/{team_id}/available-positions", response_model=AvailablePositionsResponse)
+def get_available_positions(game_id: str, team_id: str):
+    """Get available player positions and rerolls for purchase"""
+    try:
+        available = game_manager.get_available_positions(game_id, team_id)
+        return available
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/game/{game_id}/team/{team_id}/buy-player", response_model=PurchaseResult)
+def buy_player(game_id: str, team_id: str, position_key: str):
+    """
+    Purchase a player for a team during setup phase
+
+    Args:
+        game_id: Game identifier
+        team_id: Team identifier (e.g., "team1")
+        position_key: Position to purchase (e.g., "constable", "apprentice_wizard")
+
+    Returns:
+        PurchaseResult with updated budget status
+    """
+    try:
+        result = game_manager.buy_player(game_id, team_id, position_key)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/game/{game_id}/team/{team_id}/buy-reroll", response_model=PurchaseResult)
+def buy_reroll(game_id: str, team_id: str):
+    """
+    Purchase a team reroll during setup phase
+
+    Args:
+        game_id: Game identifier
+        team_id: Team identifier (e.g., "team1")
+
+    Returns:
+        PurchaseResult with updated budget status
+    """
+    try:
+        result = game_manager.buy_reroll(game_id, team_id)
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

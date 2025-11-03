@@ -524,6 +524,169 @@ def get_messages(
 
 
 @mcp.tool
+def get_team_budget(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"]
+) -> dict:
+    """
+    Get your team's budget information during setup phase.
+
+    This shows:
+    - Initial budget (usually 1,000,000 gold)
+    - Amount spent so far
+    - Remaining budget
+    - Purchase history
+
+    Use this to check how much money you have left to buy players and rerolls.
+
+    Returns:
+        Dictionary with budget information (initial, spent, remaining, purchases)
+
+    Example:
+        budget = get_team_budget(game_id="game123", team_id="team1")
+        print(f"Remaining: {budget['remaining']}g")
+    """
+    manager = get_manager()
+
+    try:
+        budget_status = manager.get_budget_status(game_id, team_id)
+        return budget_status.model_dump()
+    except Exception as e:
+        raise ToolError(f"Failed to get budget: {str(e)}")
+
+
+@mcp.tool
+def get_available_positions(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"]
+) -> dict:
+    """
+    Get available player positions and rerolls you can purchase during setup.
+
+    This shows for each position type:
+    - Position name and stats (MA, ST, AG, PA, AV, skills)
+    - Cost in gold
+    - Quantity limits (max allowed)
+    - Quantity you already own
+    - Whether you can afford it
+
+    Also shows:
+    - Team reroll cost
+    - Number of rerolls owned
+    - Maximum rerolls allowed
+
+    Use this to plan your roster purchases and see what fits your budget.
+
+    Returns:
+        Dictionary with available positions, budget status, and reroll info
+
+    Example:
+        available = get_available_positions(game_id="game123", team_id="team1")
+        for pos in available["positions"]:
+            if pos["can_afford"] and pos["quantity_owned"] < pos["quantity_limit"]:
+                print(f"Can buy: {pos['role']} for {pos['cost']}g")
+    """
+    manager = get_manager()
+
+    try:
+        available = manager.get_available_positions(game_id, team_id)
+        return available.model_dump()
+    except Exception as e:
+        raise ToolError(f"Failed to get available positions: {str(e)}")
+
+
+@mcp.tool
+def buy_player(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"],
+    position_key: Annotated[str, "Position to purchase (e.g., 'constable', 'apprentice_wizard')"]
+) -> dict:
+    """
+    Purchase a player for your team during the setup phase.
+
+    Available positions depend on your team type:
+
+    City Watch:
+    - constable (50k, 0-16 allowed)
+    - clerk_runner (80k, 0-2 allowed)
+    - fleet_recruit (65k, 0-4 allowed)
+    - watch_sergeant (85k, 0-4 allowed)
+
+    Unseen University:
+    - apprentice_wizard (45k, 0-12 allowed)
+    - senior_wizard (90k, 0-6 allowed)
+    - animated_gargoyle (115k, 0-1 allowed)
+
+    This will:
+    1. Validate you have enough budget
+    2. Check you haven't exceeded position limits
+    3. Create the player
+    4. Deduct cost from your budget
+    5. Return updated budget status
+
+    You must have at least 3 players before starting the game.
+
+    Returns:
+        Dictionary with purchase result and updated budget
+
+    Example:
+        result = buy_player(
+            game_id="game123",
+            team_id="team1",
+            position_key="constable"
+        )
+        print(result["message"])  # "Successfully purchased Constable. 950000g remaining."
+    """
+    manager = get_manager()
+
+    try:
+        result = manager.buy_player(game_id, team_id, position_key)
+        return result.model_dump()
+    except Exception as e:
+        raise ToolError(f"Failed to purchase player: {str(e)}")
+
+
+@mcp.tool
+def buy_reroll(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"]
+) -> dict:
+    """
+    Purchase a team reroll during the setup phase.
+
+    Team rerolls are crucial - they let you reroll failed dice during the game.
+    Each team has a different cost:
+    - City Watch: 50,000 gold per reroll
+    - Unseen University: 60,000 gold per reroll
+
+    Maximum 8 rerolls per team (from the rules).
+
+    This will:
+    1. Validate you have enough budget
+    2. Check you haven't exceeded 8 rerolls
+    3. Add one reroll to your team
+    4. Deduct cost from your budget
+    5. Return updated budget status
+
+    Rerolls are expensive but invaluable during gameplay!
+
+    Returns:
+        Dictionary with purchase result and updated budget
+
+    Example:
+        result = buy_reroll(game_id="game123", team_id="team1")
+        print(result["message"])  # "Successfully purchased team reroll. 950000g remaining."
+    """
+    manager = get_manager()
+
+    try:
+        result = manager.buy_reroll(game_id, team_id)
+        return result.model_dump()
+    except Exception as e:
+        raise ToolError(f"Failed to purchase reroll: {str(e)}")
+
+
+@mcp.tool
 def suggest_path(
     game_id: Annotated[str, "The unique identifier of the game"],
     player_id: Annotated[str, "ID of the player who will move"],

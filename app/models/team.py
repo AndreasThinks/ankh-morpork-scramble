@@ -141,32 +141,73 @@ class Team(BaseModel):
     id: str
     name: str
     team_type: TeamType
-    
+
+    # Budget tracking
+    budget_initial: int = 1_000_000  # Standard Blood Bowl budget
+    budget_spent: int = 0
+    purchase_history: list[str] = Field(default_factory=list)
+
     # Re-rolls
     rerolls_total: int = 0
     rerolls_used: int = 0
-    
+
     # Score
     score: int = 0
-    
+
     # Players on this team (player_id list)
     player_ids: list[str] = Field(default_factory=list)
     
     @property
+    def budget_remaining(self) -> int:
+        """Get remaining budget"""
+        return max(0, self.budget_initial - self.budget_spent)
+
+    @property
     def rerolls_remaining(self) -> int:
         """Get remaining team re-rolls"""
         return max(0, self.rerolls_total - self.rerolls_used)
-    
+
+    def can_afford(self, cost: int) -> bool:
+        """Check if team can afford a purchase"""
+        return self.budget_remaining >= cost
+
+    def purchase_item(self, item_name: str, cost: int) -> None:
+        """Purchase an item and update budget"""
+        if not self.can_afford(cost):
+            raise ValueError(
+                f"Insufficient funds: need {cost}, have {self.budget_remaining}"
+            )
+        self.budget_spent += cost
+        self.purchase_history.append(f"{item_name} ({cost}g)")
+
+    def purchase_player(self, position_role: str, cost: int) -> None:
+        """Purchase a player"""
+        self.purchase_item(f"Player: {position_role}", cost)
+
+    def purchase_reroll(self, cost: int) -> None:
+        """Purchase a team reroll"""
+        roster = TEAM_ROSTERS.get(self.team_type)
+        if not roster:
+            raise ValueError(f"Unknown team type: {self.team_type}")
+
+        if self.rerolls_total >= roster.max_rerolls:
+            raise ValueError(
+                f"Cannot exceed maximum of {roster.max_rerolls} rerolls"
+            )
+
+        self.purchase_item(f"Team Reroll", cost)
+        self.rerolls_total += 1
+
     def use_reroll(self) -> None:
         """Use a team re-roll"""
         if self.rerolls_remaining == 0:
             raise ValueError("No team re-rolls remaining")
         self.rerolls_used += 1
-    
+
     def reset_rerolls(self) -> None:
         """Reset re-rolls for new turn"""
         self.rerolls_used = 0
-    
+
     def add_score(self, points: int = 1) -> None:
         """Add to team score"""
         self.score += points
