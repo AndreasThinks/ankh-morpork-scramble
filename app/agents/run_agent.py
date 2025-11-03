@@ -203,6 +203,9 @@ class ClineAgentRunner:
         try:
             # Authenticate with OpenRouter
             await self._apply_configuration()
+            
+            # Enable YOLO mode for complete auto-approval including MCP tools
+            await self._enable_yolo_mode()
 
             # Build and create the task
             prompt = self._build_prompt()
@@ -272,6 +275,20 @@ class ClineAgentRunner:
         
         await process.wait()
 
+    async def _enable_yolo_mode(self) -> None:
+        """Enable YOLO mode for complete auto-approval of all actions including MCP tools."""
+        
+        self.agent_logger.info("Enabling YOLO mode for auto-approval")
+        await self._run_cli_command(
+            [
+                "cline",
+                "config",
+                "set",
+                "yolo-mode-toggled=true",
+            ],
+            description="enable YOLO mode",
+        )
+    
     async def _apply_configuration(self) -> None:
         """Authenticate Cline with OpenRouter provider."""
 
@@ -342,7 +359,7 @@ class ClineAgentRunner:
                     "url": self.config.mcp_server_url,
                     "disabled": False,
                     "timeout": 120,
-                    "autoApprove": [
+                    "alwaysAllow": [
                         "join_game",
                         "get_game_state",
                         "get_valid_actions",
@@ -357,8 +374,16 @@ class ClineAgentRunner:
             }
         }
 
-        settings_path.write_text(json.dumps(data, indent=2))
+        settings_json = json.dumps(data, indent=2)
+        settings_path.write_text(settings_json)
         self.agent_logger.info("Updated MCP configuration at %s", settings_path)
+        self.agent_logger.info("MCP settings content:\n%s", settings_json)
+        
+        # Verify file was written
+        if settings_path.exists():
+            self.agent_logger.info("MCP settings file verified to exist at %s", settings_path)
+        else:
+            self.agent_logger.error("MCP settings file was NOT created at %s", settings_path)
 
     def _build_prompt(self) -> str:
         direction = (
