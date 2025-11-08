@@ -47,7 +47,7 @@ class GameManager:
         
         game_state = GameState(
             game_id=game_id,
-            phase=GamePhase.DEPLOYMENT,
+            phase=GamePhase.SETUP,
             team1=team1,
             team2=team2
         )
@@ -142,8 +142,8 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
         
-        if game_state.phase != GamePhase.DEPLOYMENT:
-            raise ValueError(f"Game must be in deployment phase to start")
+        if game_state.phase != GamePhase.SETUP:
+            raise ValueError("Game must be in setup phase to start")
 
         game_state.start_game()
 
@@ -280,8 +280,10 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
 
-        if game_state.phase != GamePhase.DEPLOYMENT:
-            raise ValueError("Can only purchase players during deployment phase")
+        if game_state.phase != GamePhase.SETUP:
+            raise ValueError(
+                "Can only purchase players during deployment/setup phase"
+            )
 
         team = game_state.get_team_by_id(team_id)
         roster = TEAM_ROSTERS[team.team_type]
@@ -349,8 +351,10 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
 
-        if game_state.phase != GamePhase.DEPLOYMENT:
-            raise ValueError("Can only purchase rerolls during deployment phase")
+        if game_state.phase != GamePhase.SETUP:
+            raise ValueError(
+                "Can only purchase rerolls during deployment/setup phase"
+            )
 
         team = game_state.get_team_by_id(team_id)
         roster = TEAM_ROSTERS[team.team_type]
