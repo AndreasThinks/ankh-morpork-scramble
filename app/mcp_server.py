@@ -1,7 +1,13 @@
 """MCP server for LLM agents to play Ankh-Morpork Scramble"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
 from typing import Annotated, Optional
+
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.resources import FileResource, Resource
 from app.models.game_state import GameState
 from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
 from app.models.enums import ActionType
@@ -11,6 +17,177 @@ from app.state.game_manager import GameManager
 
 # Create MCP server
 mcp = FastMCP("Ankh-Morpork Scramble")
+
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DOC_ROOT = REPO_ROOT
+
+
+def _resource_name_from_uri(uri: str) -> str:
+    """Create a stable resource name from a URI."""
+
+    return uri.split("://", 1)[-1].replace("/", "-")
+
+
+def _extract_markdown_section(path: Path, heading: str) -> str:
+    """Return a markdown section starting from heading until the next peer heading."""
+
+    content = path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    captured: list[str] = []
+    capture = False
+    target_level = None
+
+    normalized_heading = heading.strip().lower()
+
+    for line in lines:
+        if line.startswith("#"):
+            hash_count = len(line) - len(line.lstrip("#"))
+            current_heading = line.lstrip("#").strip().lower()
+
+            if current_heading == normalized_heading:
+                capture = True
+                target_level = hash_count
+                captured = [line]
+                continue
+
+            if capture and target_level is not None and hash_count <= target_level:
+                break
+
+        if capture:
+            captured.append(line)
+
+    if not captured:
+        return f"{heading} section not found in {path.name}."
+
+    return "\n".join(captured).strip()
+
+
+def _register_markdown_resources() -> None:
+    """Expose key markdown files and quick-start guides as MCP resources."""
+
+    markdown_files = [
+        (
+            "resource://docs/rules",
+            DOC_ROOT / "rules.md",
+            "Ankh-Morpork Scramble Rules",
+            "Complete game rules and reference tables.",
+        ),
+        (
+            "resource://docs/readme",
+            DOC_ROOT / "README.md",
+            "Project Overview",
+            "Repository README with setup instructions and project context.",
+        ),
+    ]
+
+    for uri, path, title, description in markdown_files:
+        absolute_path = path.resolve()
+        if not absolute_path.exists():
+            continue
+
+        mcp.add_resource(
+            FileResource(
+                uri=uri,
+                name=_resource_name_from_uri(uri),
+                title=title,
+                description=description,
+                mime_type="text/markdown",
+                path=absolute_path,
+                meta={"source": str(absolute_path.relative_to(REPO_ROOT))},
+            )
+        )
+
+    for md_path in DOC_ROOT.glob("*.md"):
+        if md_path.name.lower() in {"readme.md", "rules.md"}:
+            continue
+
+        content = md_path.read_text(encoding="utf-8")
+        if "Quick Start" not in content:
+            continue
+
+        quick_start_section = _extract_markdown_section(md_path, "Quick Start")
+        if quick_start_section.startswith("Quick Start section not found"):
+            continue
+
+        relative = md_path.relative_to(REPO_ROOT)
+        slug = "-".join(part.lower() for part in relative.with_suffix("").parts)
+        uri = f"resource://docs/{slug}/quick-start"
+        title = f"{md_path.stem.replace('_', ' ').title()} Quick Start"
+
+        def _make_reader(section: str = quick_start_section) -> str:
+            return section
+
+        mcp.add_resource(
+            Resource.from_function(
+                fn=_make_reader,
+                uri=uri,
+                name=_resource_name_from_uri(uri),
+                title=title,
+                description=f"Quick Start guide extracted from {relative}.",
+                mime_type="text/markdown",
+                meta={"source": str(relative)},
+            )
+        )
+
+
+_register_markdown_resources()
+
+
+@mcp.resource(
+    "resource://games/latest-summary",
+    name="latest-game-summary",
+    title="Latest Game Summary",
+    description="Compact summary of the most recently created or default game.",
+    mime_type="text/markdown",
+)
+def latest_game_summary() -> str:
+    """Return a concise summary of the most relevant game state."""
+
+    manager = get_manager()
+    if not manager.games:
+        return "No games are currently active on the server."
+
+    preferred_game_id = os.getenv("DEFAULT_GAME_ID")
+    game_id = None
+    if preferred_game_id and preferred_game_id in manager.games:
+        game_id = preferred_game_id
+    else:
+        game_id = next(reversed(manager.games))
+
+    game_state = manager.games[game_id]
+
+    lines = [
+        f"# Game {game_state.game_id}",
+        f"Phase: **{game_state.phase.value.title()}**",
+        (
+            f"Score: {game_state.team1.name} {game_state.team1.score} "
+            f"- {game_state.team2.score} {game_state.team2.name}"
+        ),
+    ]
+
+    if game_state.turn:
+        try:
+            active_team = game_state.get_active_team().name
+        except Exception:
+            active_team = game_state.turn.active_team_id
+        lines.append(
+            (
+                f"Current Turn: Half {game_state.turn.half}, "
+                f"Turn {game_state.turn.team_turn} — Active Team: {active_team}"
+            )
+        )
+    else:
+        lines.append("Current Turn: The match has not started yet.")
+
+    recent_events = game_state.event_log[-3:]
+    if recent_events:
+        lines.append("\n## Recent Events")
+        lines.extend(f"- {event}" for event in recent_events)
+    else:
+        lines.append("\nNo events recorded yet.")
+
+    return "\n".join(lines)
 
 
 def get_manager() -> GameManager:
