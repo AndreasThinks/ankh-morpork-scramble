@@ -28,18 +28,18 @@ class TurnState(BaseModel):
     half: int = Field(1, ge=1, le=2, description="Current half (1 or 2)")
     team_turn: int = Field(0, ge=0, le=8, description="Turn number for active team")
     active_team_id: str
-    
-    # Action tracking
-    blitz_used: bool = False
-    pass_used: bool = False
-    hand_off_used: bool = False
-    foul_used: bool = False
+
+    # Action tracking (using new Discworld terminology)
+    charge_used: bool = False  # was blitz_used
+    hurl_used: bool = False  # was pass_used
+    quick_pass_used: bool = False  # was hand_off_used
+    boot_used: bool = False  # was foul_used
 
 
 class GameState(BaseModel):
     """Complete game state"""
     game_id: str
-    phase: GamePhase = GamePhase.SETUP
+    phase: GamePhase = GamePhase.DEPLOYMENT
     
     # Teams
     team1: Team
@@ -141,10 +141,10 @@ class GameState(BaseModel):
             player.reset_turn()
         
         # Reset action tracking
-        self.turn.blitz_used = False
-        self.turn.pass_used = False
-        self.turn.hand_off_used = False
-        self.turn.foul_used = False
+        self.turn.charge_used = False
+        self.turn.hurl_used = False
+        self.turn.quick_pass_used = False
+        self.turn.boot_used = False
         
         # Switch to other team
         if self.turn.active_team_id == self.team1.id:
@@ -170,11 +170,11 @@ class GameState(BaseModel):
         if self.turn.half == 1:
             self.turn.half = 2
             self.turn.team_turn = 0
-            self.phase = GamePhase.HALF_TIME
-            self.add_event("Half time!")
+            self.phase = GamePhase.INTERMISSION
+            self.add_event("Intermission!")
         else:
-            self.phase = GamePhase.FINISHED
-            self.add_event("Game finished!")
+            self.phase = GamePhase.CONCLUDED
+            self.add_event("Match concluded!")
     
     def add_message(self, sender_id: str, sender_name: str, content: str) -> GameMessage:
         """Add a message to the game"""
@@ -199,33 +199,33 @@ class GameState(BaseModel):
         return message
     
     def reset_to_setup(self) -> None:
-        """Reset game to setup phase, preserving join status and messages"""
+        """Reset game to deployment phase, preserving join status and messages"""
         # Clear pitch
         self.pitch = Pitch()
-        
+
         # Clear players
         self.players = {}
-        
+
         # Reset phase
-        self.phase = GamePhase.SETUP
+        self.phase = GamePhase.DEPLOYMENT
         self.game_started = False
-        
+
         # Clear turn state
         self.turn = None
-        
+
         # Keep join status and messages (preserve history)
-        self.add_event("Game reset to setup phase")
+        self.add_event("Game reset to deployment phase")
     
     def start_game(self) -> None:
         """Start the game"""
         if not self.players_ready:
             raise ValueError("Both teams must join before starting")
-        
-        self.phase = GamePhase.KICKOFF
+
+        self.phase = GamePhase.OPENING_SCRAMBLE
         self.game_started = True
         self.turn = TurnState(
             half=1,
             team_turn=0,
             active_team_id=self.team1.id
         )
-        self.add_event("Game started!")
+        self.add_event("The Opening Scramble begins!")

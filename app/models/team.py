@@ -143,7 +143,7 @@ class Team(BaseModel):
     team_type: TeamType
 
     # Budget tracking
-    budget_initial: int = 1_000_000  # Standard Blood Bowl budget
+    budget_initial: int = 1_000_000  # Standard team treasury
     budget_spent: int = 0
     purchase_history: list[str] = Field(default_factory=list)
 

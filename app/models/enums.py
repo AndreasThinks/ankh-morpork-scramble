@@ -14,11 +14,11 @@ class PlayerState(str, Enum):
 class ActionType(str, Enum):
     """Available action types per turn"""
     MOVE = "move"
-    BLOCK = "block"
-    BLITZ = "blitz"
-    PASS = "pass"
-    HAND_OFF = "hand_off"
-    FOUL = "foul"
+    SCUFFLE = "scuffle"  # was BLOCK - Discworld street fighting
+    CHARGE = "charge"  # was BLITZ - aggressive rush
+    HURL = "hurl"  # was PASS - throwing the ball
+    QUICK_PASS = "quick_pass"  # was HAND_OFF - short transfer
+    BOOT = "boot"  # was FOUL - Ankh-Morpork street tactics
     STAND_UP = "stand_up"
 
 
@@ -81,11 +81,11 @@ class SkillType(str, Enum):
 
 class GamePhase(str, Enum):
     """Game phases"""
-    SETUP = "setup"
-    KICKOFF = "kickoff"
-    PLAYING = "playing"
-    HALF_TIME = "half_time"
-    FINISHED = "finished"
+    DEPLOYMENT = "deployment"  # was SETUP - teams deploy their forces
+    OPENING_SCRAMBLE = "opening_scramble"  # was KICKOFF - the match begins
+    ACTIVE_PLAY = "active_play"  # was PLAYING - the game in action
+    INTERMISSION = "intermission"  # was HALF_TIME - break between halves
+    CONCLUDED = "concluded"  # was FINISHED - match over
 
 
 class SkillCategory(str, Enum):

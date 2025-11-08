@@ -120,9 +120,9 @@ def get_valid_actions(
     
     This tool tells you:
     - Which team can act right now
-    - Which special actions are still available (blitz, pass, hand-off, foul)
+    - Which special actions are still available (charge, hurl, quick pass, boot)
     - Which players can move
-    - Which players can block which opponents
+    - Which players can scuffle with which opponents
     - Ball location and carrier
     
     Use this before deciding what action to take. It helps you understand your options.
@@ -174,10 +174,10 @@ def get_valid_actions(
     return ValidActionsResponse(
         current_team=active_team.id,
         phase=game_state.phase.value,
-        can_blitz=not game_state.turn.blitz_used,
-        can_pass=not game_state.turn.pass_used,
-        can_hand_off=not game_state.turn.hand_off_used,
-        can_foul=not game_state.turn.foul_used,
+        can_charge=not game_state.turn.charge_used,
+        can_hurl=not game_state.turn.hurl_used,
+        can_quick_pass=not game_state.turn.quick_pass_used,
+        can_boot=not game_state.turn.boot_used,
         movable_players=movable_players,
         blockable_targets=blockable_targets,
         ball_carrier=game_state.pitch.ball_carrier,
@@ -189,7 +189,7 @@ def get_valid_actions(
 @mcp.tool
 def execute_action(
     game_id: Annotated[str, "The unique identifier of the game"],
-    action_type: Annotated[ActionType, "Type of action: MOVE, BLOCK, BLITZ, PASS, HAND_OFF, PICKUP, or FOUL"],
+    action_type: Annotated[ActionType, "Type of action: MOVE, SCUFFLE, CHARGE, HURL, QUICK_PASS, or BOOT"],
     player_id: Annotated[str, "ID of your player who will perform this action"],
     target_position: Annotated[Optional[Position], "Target square coordinates (x, y) for movement"] = None,
     target_player_id: Annotated[Optional[str], "ID of opponent player for blocks/fouls or teammate for passes"] = None,

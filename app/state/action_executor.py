@@ -31,20 +31,20 @@ class ActionExecutor:
         elif action.action_type == ActionType.STAND_UP:
             return self._execute_stand_up(game_state, action)
         
-        elif action.action_type == ActionType.BLOCK:
-            return self._execute_block(game_state, action)
-        
-        elif action.action_type == ActionType.BLITZ:
-            return self._execute_blitz(game_state, action)
-        
-        elif action.action_type == ActionType.PASS:
-            return self._execute_pass(game_state, action)
-        
-        elif action.action_type == ActionType.HAND_OFF:
-            return self._execute_hand_off(game_state, action)
-        
-        elif action.action_type == ActionType.FOUL:
-            return self._execute_foul(game_state, action)
+        elif action.action_type == ActionType.SCUFFLE:
+            return self._execute_scuffle(game_state, action)
+
+        elif action.action_type == ActionType.CHARGE:
+            return self._execute_charge(game_state, action)
+
+        elif action.action_type == ActionType.HURL:
+            return self._execute_hurl(game_state, action)
+
+        elif action.action_type == ActionType.QUICK_PASS:
+            return self._execute_quick_pass(game_state, action)
+
+        elif action.action_type == ActionType.BOOT:
+            return self._execute_boot(game_state, action)
         
         else:
             return ActionResult(
@@ -123,8 +123,8 @@ class ActionExecutor:
             message="Player stood up"
         )
     
-    def _execute_block(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a block action"""
+    def _execute_scuffle(self, game_state: GameState, action: ActionRequest) -> ActionResult:
+        """Execute a scuffle action (block/brawl)"""
         if not action.target_player_id:
             return ActionResult(success=False, message="No target player specified")
         
@@ -170,13 +170,13 @@ class ActionExecutor:
         
         return result
     
-    def _execute_blitz(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a blitz action (move + block)"""
+    def _execute_charge(self, game_state: GameState, action: ActionRequest) -> ActionResult:
+        """Execute a charge action (move + scuffle)"""
         if not game_state.turn:
             return ActionResult(success=False, message="No active turn")
-        
-        if game_state.turn.blitz_used:
-            return ActionResult(success=False, message="Blitz already used this turn")
+
+        if game_state.turn.charge_used:
+            return ActionResult(success=False, message="Charge already used this turn")
         
         player = game_state.get_player(action.player_id)
         all_dice_rolls = []
@@ -194,16 +194,16 @@ class ActionExecutor:
             if not success:
                 return ActionResult(
                     success=False,
-                    message=f"Blitz movement failed: {error}",
+                    message=f"Charge movement failed: {error}",
                     dice_rolls=all_dice_rolls,
                     turnover=True
                 )
-        
-        # Then block
+
+        # Then scuffle
         if not action.target_player_id:
             return ActionResult(
                 success=False,
-                message="No target player for blitz block",
+                message="No target player for charge",
                 dice_rolls=all_dice_rolls
             )
         
@@ -226,36 +226,36 @@ class ActionExecutor:
         
         result = ActionResult(
             success=True,
-            message=f"Blitz! Block result: {block_result.value}",
+            message=f"Charge! Block result: {block_result.value}",
             dice_rolls=all_dice_rolls,
             block_result=block_result,
             defender_knocked_down=defender_down,
             attacker_knocked_down=attacker_down
         )
-        
+
         # Check for turnover
         if defender_down and game_state.pitch.ball_carrier == defender.id:
             game_state.pitch.drop_ball()
             result.ball_dropped = True
-        
+
         if attacker_down and game_state.pitch.ball_carrier == player.id:
             game_state.pitch.drop_ball()
             result.turnover = True
             result.ball_dropped = True
-        
-        game_state.turn.blitz_used = True
+
+        game_state.turn.charge_used = True
         player.has_acted = True
         game_state.add_event(result.message)
         
         return result
     
-    def _execute_pass(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a pass action"""
+    def _execute_hurl(self, game_state: GameState, action: ActionRequest) -> ActionResult:
+        """Execute a hurl action (throw ball)"""
         if not game_state.turn:
             return ActionResult(success=False, message="No active turn")
-        
-        if game_state.turn.pass_used:
-            return ActionResult(success=False, message="Pass already used this turn")
+
+        if game_state.turn.hurl_used:
+            return ActionResult(success=False, message="Hurl already used this turn")
         
         if not action.target_position:
             return ActionResult(success=False, message="No target position for pass")
@@ -305,19 +305,19 @@ class ActionExecutor:
                         result.turnover = True
                     result.ball_dropped = True
         
-        game_state.turn.pass_used = True
+        game_state.turn.hurl_used = True
         passer.has_acted = True
         game_state.add_event(result.message)
-        
+
         return result
-    
-    def _execute_hand_off(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a hand-off action"""
+
+    def _execute_quick_pass(self, game_state: GameState, action: ActionRequest) -> ActionResult:
+        """Execute a quick pass action (short hand-off)"""
         if not game_state.turn:
             return ActionResult(success=False, message="No active turn")
-        
-        if game_state.turn.hand_off_used:
-            return ActionResult(success=False, message="Hand-off already used this turn")
+
+        if game_state.turn.quick_pass_used:
+            return ActionResult(success=False, message="Quick pass already used this turn")
         
         if not action.target_receiver_id:
             return ActionResult(success=False, message="No receiver specified")
@@ -336,19 +336,19 @@ class ActionExecutor:
             ball_caught=True
         )
         
-        game_state.turn.hand_off_used = True
+        game_state.turn.quick_pass_used = True
         giver.has_acted = True
         game_state.add_event(result.message)
-        
+
         return result
-    
-    def _execute_foul(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a foul action"""
+
+    def _execute_boot(self, game_state: GameState, action: ActionRequest) -> ActionResult:
+        """Execute a boot action (foul/kick opponent when down)"""
         if not game_state.turn:
             return ActionResult(success=False, message="No active turn")
-        
-        if game_state.turn.foul_used:
-            return ActionResult(success=False, message="Foul already used this turn")
+
+        if game_state.turn.boot_used:
+            return ActionResult(success=False, message="Boot already used this turn")
         
         if not action.target_player_id:
             return ActionResult(success=False, message="No target player specified")
@@ -371,12 +371,12 @@ class ActionExecutor:
         
         result = ActionResult(
             success=True,
-            message=f"Foul committed! Injury: {injury or 'none'}",
+            message=f"Boot! Injury: {injury or 'none'}",
             dice_rolls=dice_rolls,
             injury_result=injury
         )
-        
-        game_state.turn.foul_used = True
+
+        game_state.turn.boot_used = True
         attacker.has_acted = True
         game_state.add_event(result.message)
         
