@@ -2,205 +2,800 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Ankh-Morpork Scramble Demo</title>
+    <title>Ankh-Morpork Scramble – Match View</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #1f160c;
+            --bg-highlight: #2a1d11;
+            --panel: #24170c;
+            --panel-border: rgba(187, 142, 76, 0.45);
+            --panel-shadow: rgba(8, 4, 0, 0.6);
+            --accent-blue: #3f7cac;
+            --accent-orange: #c46d28;
+            --accent-gold: #d9b45b;
+            --accent-gold-soft: rgba(217, 180, 91, 0.65);
+            --grid: rgba(108, 78, 43, 0.45);
+            --grid-alt: rgba(66, 46, 26, 0.55);
+            --text: #f2e3c6;
+            --muted: rgba(242, 227, 198, 0.7);
+            --paper: #362312;
+            --paper-highlight: rgba(242, 227, 198, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: system-ui, sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: #1f2933;
-            color: #f8fafc;
+            font-family: "Spectral", Georgia, "Times New Roman", serif;
+            background: radial-gradient(circle at 22% 16%, rgba(217, 180, 91, 0.12), transparent 55%),
+                        radial-gradient(circle at 78% 12%, rgba(106, 76, 38, 0.18), transparent 50%),
+                        radial-gradient(circle at 50% 80%, rgba(115, 76, 38, 0.15), transparent 55%),
+                        var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
+
         header {
-            background-color: #0f172a;
-            padding: 1rem 2rem;
+            padding: clamp(1.8rem, 3vw, 3rem) clamp(1.2rem, 4vw, 4rem) clamp(1.2rem, 3vw, 2.2rem);
+            border-bottom: 1px solid rgba(217, 180, 91, 0.25);
+            background: linear-gradient(135deg, rgba(36, 23, 12, 0.85), rgba(15, 9, 4, 0.75));
+            box-shadow: inset 0 -1px 0 rgba(217, 180, 91, 0.15);
         }
+
+        header h1 {
+            margin: 0 0 0.5rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: clamp(2.2rem, 3.4vw, 3.1rem);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        header .score-line {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: clamp(1rem, 5vw, 3rem);
+            flex-wrap: wrap;
+            border: 1px solid rgba(217, 180, 91, 0.35);
+            border-radius: 18px;
+            padding: 0.85rem 1.25rem;
+            background: radial-gradient(circle at 50% 20%, rgba(217, 180, 91, 0.18), rgba(36, 23, 12, 0.85));
+            box-shadow: 0 10px 24px rgba(10, 4, 0, 0.6);
+        }
+
+        header .score-line span {
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+        }
+
+        header .score-line .score-team {
+            color: var(--accent-gold);
+            text-transform: uppercase;
+        }
+
+        header .score-line .score-team--home {
+            color: rgba(198, 212, 223, 0.9);
+        }
+
+        header .score-line .score-team--away {
+            color: rgba(247, 213, 180, 0.92);
+        }
+
+        header .score-line .score-value {
+            color: var(--accent-gold);
+            position: relative;
+        }
+
+        header .score-line .score-value small {
+            display: block;
+            font-size: 0.65em;
+            letter-spacing: 0.2em;
+            color: rgba(242, 227, 198, 0.7);
+        }
+
+        header .score-line .score-divider {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.28em;
+            color: rgba(217, 180, 91, 0.75);
+        }
+
+        header .score-line small {
+            font-size: clamp(0.95rem, 2vw, 1.2rem);
+            color: var(--muted);
+            font-family: "Spectral", Georgia, serif;
+            letter-spacing: 0.04em;
+        }
+
+        header .meta {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        header .meta span {
+            background: rgba(73, 50, 24, 0.65);
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            text-transform: uppercase;
+            font-family: "Cinzel", "Times New Roman", serif;
+            color: rgba(242, 227, 198, 0.8);
+        }
+
+        header .meta span[data-role="ball"] {
+            background: rgba(217, 180, 91, 0.2);
+            color: var(--accent-gold);
+            border-color: rgba(217, 180, 91, 0.35);
+        }
+
         main {
-            padding: 2rem;
+            flex: 1;
+            padding: clamp(1.5rem, 3vw, 3rem);
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: minmax(220px, 1fr) minmax(560px, 2fr) minmax(220px, 1fr);
+            gap: clamp(1rem, 2.5vw, 2rem);
         }
-        section {
-            background-color: #111827;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+        @media (max-width: 1100px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+
+            .thoughts {
+                order: 3;
+            }
         }
-        h1, h2 {
-            margin-top: 0;
+
+        .panel {
+            background: linear-gradient(160deg, rgba(54, 35, 18, 0.85), rgba(30, 19, 10, 0.95));
+            border: 1px solid var(--panel-border);
+            border-radius: 18px;
+            padding: clamp(1.25rem, 2.5vw, 2rem);
+            box-shadow: 0 24px 60px var(--panel-shadow);
+            position: relative;
+            backdrop-filter: blur(2px);
         }
-        .scoreboard {
+
+        .panel h2 {
+            margin: 0 0 1rem;
+            font-size: 1.1rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
+            padding-bottom: 0.35rem;
+        }
+
+        .thoughts ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
         }
-        .score-line {
-            font-size: 1.5rem;
+
+        .thoughts li {
+            background: rgba(46, 30, 16, 0.82);
+            border: 1px solid rgba(217, 180, 91, 0.18);
+            border-radius: 14px;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.95rem;
+            line-height: 1.45;
+            box-shadow: inset 0 1px 0 rgba(217, 180, 91, 0.1);
+        }
+
+        .thoughts .speaker {
+            display: block;
             font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: var(--accent-gold);
+            letter-spacing: 0.05em;
+            font-family: "Cinzel", "Times New Roman", serif;
+            text-transform: uppercase;
         }
-        .meta span {
-            display: inline-block;
-            margin-right: 1rem;
-            margin-bottom: 0.5rem;
-            padding: 0.25rem 0.5rem;
-            background-color: rgba(59, 130, 246, 0.2);
-            border-radius: 6px;
+
+        .pitch-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
         }
-        ul, ol {
-            list-style: none;
-            padding-left: 0;
-            margin: 0;
+
+        .pitch-wrapper {
+            background: radial-gradient(circle at 30% 18%, rgba(217, 180, 91, 0.12), transparent 55%),
+                        radial-gradient(circle at 70% 72%, rgba(115, 76, 38, 0.18), transparent 60%),
+                        rgba(30, 19, 10, 0.9);
+            border-radius: 16px;
+            padding: clamp(1rem, 2vw, 1.75rem);
+            border: 1px solid rgba(217, 180, 91, 0.25);
+            position: relative;
+            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
         }
-        li + li {
-            margin-top: 0.5rem;
+
+        .pitch-canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            aspect-ratio: 26 / 15;
+            filter: saturate(85%);
         }
-        .timestamp {
-            opacity: 0.7;
-            font-size: 0.85rem;
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+            font-style: italic;
         }
-        .turn-flag {
+
+        .legend span {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 0.8rem;
-            background-color: rgba(16, 185, 129, 0.2);
-            border-radius: 999px;
+            gap: 0.4rem;
+        }
+
+        .legend .swatch {
+            width: 0.9rem;
+            height: 0.9rem;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        thead th {
+            text-align: left;
             font-weight: 600;
+            padding: 0.5rem 0.25rem;
+            color: var(--accent-gold);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            font-size: 0.78rem;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.28);
+            font-family: "Cinzel", "Times New Roman", serif;
         }
-        .waiting {
-            background-color: rgba(239, 68, 68, 0.2);
+
+        tbody tr td {
+            padding: 0.5rem 0.25rem;
+            border-top: 1px solid rgba(217, 180, 91, 0.16);
+            color: rgba(242, 227, 198, 0.92);
         }
+
+        tbody tr:first-child td {
+            border-top: none;
+        }
+
+        .team-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            background: rgba(73, 50, 24, 0.5);
+            border: 1px solid rgba(217, 180, 91, 0.28);
+        }
+
+        .team-pill[data-team="team1"] {
+            background: rgba(63, 124, 172, 0.28);
+            color: #c6d4df;
+            border-color: rgba(63, 124, 172, 0.35);
+        }
+
+        .team-pill[data-team="team2"] {
+            background: rgba(196, 109, 40, 0.28);
+            color: #f7d5b4;
+            border-color: rgba(196, 109, 40, 0.35);
+        }
+
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            padding: 0.75rem 0.9rem;
+            background: rgba(36, 23, 12, 0.96);
+            border: 1px solid rgba(217, 180, 91, 0.45);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            max-width: 240px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+            opacity: 0;
+            transform: translate(-50%, -110%);
+            transition: opacity 0.12s ease;
+            z-index: 10;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip .name {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            letter-spacing: 0.05em;
+            font-family: "Cinzel", "Times New Roman", serif;
+        }
+
+        .tooltip .stat-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+            font-size: 0.78rem;
+            color: var(--muted);
+            letter-spacing: 0.05em;
+        }
+
+        .game-log {
+            background: rgba(30, 19, 10, 0.88);
+            border: 1px solid rgba(217, 180, 91, 0.25);
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            box-shadow: inset 0 1px 0 rgba(217, 180, 91, 0.12);
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .game-log h3 {
+            margin: 0 0 0.5rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 1rem;
+            letter-spacing: 0.08em;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+        }
+
+        .game-log .log-entries {
+            flex: 1;
+            font-size: 0.95rem;
+            color: var(--muted);
+            opacity: 0.8;
+        }
+
+        .roster-panel {
+            background: rgba(30, 19, 10, 0.86);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 1rem 1.25rem;
+            box-shadow: inset 0 1px 0 rgba(217, 180, 91, 0.1);
+        }
+
+        .roster-panel h2 {
+            margin-bottom: 0.75rem;
+            font-size: 1.05rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
+            padding-bottom: 0.35rem;
+        }
+
         footer {
+            padding: 1.5rem clamp(1rem, 3vw, 3rem);
             text-align: center;
-            padding: 1rem;
-            background-color: #0f172a;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        code {
-            font-family: ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            color: rgba(217, 180, 91, 0.6);
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            font-style: italic;
         }
     </style>
 </head>
 <body data-game-id="{{ game_id }}">
 <header>
-    <h1>Ankh-Morpork Scramble – Live Demo</h1>
-    <p>Tracking game <code>{{ game_id }}</code>. Data refreshes automatically every 3 seconds.</p>
+    <h1>Ankh-Morpork Scramble</h1>
+    <div class="score-line" id="score-line">
+        <span>Loading match…</span>
+    </div>
+    <div class="meta" id="game-meta"></div>
 </header>
 <main>
-    <section>
-        <h2>Scoreboard</h2>
-        <div class="scoreboard">
-            <div class="score-line" id="score-line">Loading...</div>
-            <div class="meta" id="game-meta"></div>
-            <div id="turn-indicator" class="turn-flag waiting">Awaiting turn data…</div>
+    <aside class="panel thoughts" id="team1-thoughts-panel">
+        <h2 id="team1-thoughts-title">Team 1 Strategy</h2>
+        <ul id="team1-thoughts"></ul>
+    </aside>
+
+    <section class="panel pitch-panel">
+        <h2>Pitch Overview</h2>
+        <div class="pitch-wrapper" id="pitch-container">
+            <svg id="pitch-canvas" class="pitch-canvas" role="img" aria-labelledby="pitch-title"></svg>
+            <div class="tooltip" id="pitch-tooltip" role="status" aria-live="polite"></div>
+        </div>
+        <div class="legend" id="legend">
+            <span><span class="swatch" style="background: var(--accent-blue);"></span> Team 1</span>
+            <span><span class="swatch" style="background: var(--accent-orange);"></span> Team 2</span>
+            <span><span class="swatch" style="background: var(--accent-gold);"></span> Ball</span>
+        </div>
+        <div class="game-log" id="game-log">
+            <h3>Recent Events</h3>
+            <div class="log-entries" id="game-log-entries">The crowd waits for the opening whistle…</div>
+        </div>
+        <div class="roster-panel">
+            <h2>Players on the Pitch</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Team</th>
+                            <th>State</th>
+                            <th>Position</th>
+                            <th>MA</th>
+                            <th>ST</th>
+                            <th>AG</th>
+                            <th>PA</th>
+                            <th>AV</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-body"></tbody>
+                </table>
+            </div>
         </div>
     </section>
-    <section>
-        <h2>Recent Events</h2>
-        <ol id="event-log"></ol>
-    </section>
-    <section>
-        <h2>Team Messages</h2>
-        <ul id="message-log"></ul>
-    </section>
+
+    <aside class="panel thoughts" id="team2-thoughts-panel">
+        <h2 id="team2-thoughts-title">Team 2 Strategy</h2>
+        <ul id="team2-thoughts"></ul>
+    </aside>
 </main>
 <footer>
-    Built for the Ankh-Morpork Scramble demo agents. View the REST API for more details.
+    Live tactical view for the Ankh-Morpork Scramble. Hover players for details, watch the drive unfold.
 </footer>
+
 <script>
     const gameId = document.body.dataset.gameId;
     const scoreLine = document.getElementById('score-line');
     const meta = document.getElementById('game-meta');
-    const turnIndicator = document.getElementById('turn-indicator');
-    const eventLog = document.getElementById('event-log');
-    const messageLog = document.getElementById('message-log');
+    const pitchSvg = document.getElementById('pitch-canvas');
+    const tooltip = document.getElementById('pitch-tooltip');
+    const rosterBody = document.getElementById('roster-body');
+    const team1Thoughts = document.getElementById('team1-thoughts');
+    const team2Thoughts = document.getElementById('team2-thoughts');
+    const team1Title = document.getElementById('team1-thoughts-title');
+    const team2Title = document.getElementById('team2-thoughts-title');
 
-    function formatPosition(ball) {
-        if (!ball) return 'Off pitch';
-        if (ball.carrier) return `Carried by ${ball.carrier}`;
-        if (ball.position) return `Loose at (${ball.position.x}, ${ball.position.y})`;
-        return 'Unknown';
-    }
+    const PITCH_WIDTH = 26;
+    const PITCH_HEIGHT = 15;
 
-    function renderMeta(state) {
-        const turn = state.turn;
-        const chips = [];
-        chips.push(`Phase: ${state.phase}`);
-        chips.push(`Half: ${turn ? turn.half : '-'}`);
-        chips.push(`Turn: ${turn ? turn.team_turn : '-'}`);
-        chips.push(`Ball: ${formatPosition({ carrier: state.pitch.ball_carrier, position: state.pitch.ball_position })}`);
-        meta.innerHTML = chips.map(value => `<span>${value}</span>`).join('');
+    function initPitchGrid() {
+        pitchSvg.setAttribute('viewBox', `0 0 ${PITCH_WIDTH} ${PITCH_HEIGHT}`);
+        pitchSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        pitchSvg.innerHTML = '';
 
-        if (turn && turn.active_team_id) {
-            turnIndicator.textContent = `Active team: ${turn.active_team_id}`;
-            turnIndicator.classList.remove('waiting');
-        } else {
-            turnIndicator.textContent = 'No active team';
-            turnIndicator.classList.add('waiting');
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.setAttribute('id', 'pitch-title');
+        title.textContent = 'Current drive pitch overview';
+        pitchSvg.appendChild(title);
+
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        gradient.setAttribute('id', 'endzone');
+        gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('x2', '100%');
+        gradient.setAttribute('y1', '0%');
+        gradient.setAttribute('y2', '0%');
+
+        const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop1.setAttribute('offset', '0%');
+        stop1.setAttribute('stop-color', 'rgba(63, 124, 172, 0.24)');
+
+        const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop2.setAttribute('offset', '100%');
+        stop2.setAttribute('stop-color', 'rgba(196, 109, 40, 0.24)');
+
+        gradient.appendChild(stop1);
+        gradient.appendChild(stop2);
+        defs.appendChild(gradient);
+        pitchSvg.appendChild(defs);
+
+        const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        background.setAttribute('x', 0);
+        background.setAttribute('y', 0);
+        background.setAttribute('width', PITCH_WIDTH);
+        background.setAttribute('height', PITCH_HEIGHT);
+        background.setAttribute('fill', 'url(#endzone)');
+        background.setAttribute('opacity', '0.3');
+        pitchSvg.appendChild(background);
+
+        const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        gridGroup.setAttribute('id', 'pitch-grid');
+        pitchSvg.appendChild(gridGroup);
+
+        for (let y = 0; y < PITCH_HEIGHT; y += 1) {
+            for (let x = 0; x < PITCH_WIDTH; x += 1) {
+                const cell = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                cell.setAttribute('x', x);
+                cell.setAttribute('y', y);
+                cell.setAttribute('width', 1);
+                cell.setAttribute('height', 1);
+                const isAlt = (x + y) % 2 === 0;
+                cell.setAttribute('fill', isAlt ? 'rgba(76, 54, 30, 0.82)' : 'rgba(52, 35, 20, 0.82)');
+                cell.setAttribute('stroke', 'rgba(217, 180, 91, 0.22)');
+                cell.setAttribute('stroke-width', '0.03');
+                gridGroup.appendChild(cell);
+            }
         }
+
+        const halfway = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        halfway.setAttribute('x1', PITCH_WIDTH / 2);
+        halfway.setAttribute('x2', PITCH_WIDTH / 2);
+        halfway.setAttribute('y1', 0);
+        halfway.setAttribute('y2', PITCH_HEIGHT);
+        halfway.setAttribute('stroke', 'rgba(217, 180, 91, 0.55)');
+        halfway.setAttribute('stroke-dasharray', '0.2 0.8');
+        halfway.setAttribute('stroke-width', '0.12');
+        pitchSvg.appendChild(halfway);
+
+        const tokensGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        tokensGroup.setAttribute('id', 'pitch-tokens');
+        pitchSvg.appendChild(tokensGroup);
     }
 
-    function renderEvents(events) {
-        eventLog.innerHTML = '';
-        events.slice(-10).reverse().forEach(event => {
-            const li = document.createElement('li');
-            li.textContent = event;
-            eventLog.appendChild(li);
+    function updateScoreboard(state) {
+        const team1 = state.team1;
+        const team2 = state.team2;
+        scoreLine.innerHTML = `
+            <span class="score-team score-team--home">${team1.name}</span>
+            <span class="score-value">${team1.score}<small> TD</small></span>
+            <span class="score-divider">VS</span>
+            <span class="score-value">${team2.score}<small> TD</small></span>
+            <span class="score-team score-team--away">${team2.name}</span>
+        `;
+
+        const chips = [];
+        chips.push(`<span>Phase: ${state.phase}</span>`);
+
+        if (state.turn) {
+            chips.push(`<span>Half: ${state.turn.half}</span>`);
+            chips.push(`<span>Turn: ${state.turn.team_turn}</span>`);
+            chips.push(`<span>Active team: ${state.turn.active_team_id}</span>`);
+        } else {
+            chips.push('<span>No active turn</span>');
+        }
+
+        const ballStatus = (() => {
+            const carrier = state.pitch.ball_carrier;
+            const ballPos = state.pitch.ball_position;
+            if (carrier) {
+                return `Carried by ${carrier}`;
+            }
+            if (ballPos) {
+                return `Loose at (${ballPos.x}, ${ballPos.y})`;
+            }
+            return 'Ball off pitch';
+        })();
+        chips.push(`<span data-role="ball">${ballStatus}</span>`);
+
+        meta.innerHTML = chips.join('');
+    }
+
+    function createPlayerTooltip(player, team, position, isCarrier) {
+        const heading = `${player.position.role}`;
+        const status = isCarrier ? 'Carrying the ball' : `State: ${player.state}`;
+        const stats = `MA ${player.position.ma}  ST ${player.position.st}  AG ${player.position.ag}  PA ${player.position.pa}  AV ${player.position.av}`;
+        const location = `Square (${position.x}, ${position.y})`;
+
+        return `
+            <span class="name">${heading}</span>
+            <span>${team.name}</span>
+            <div class="stat-line">${status}</div>
+            <div class="stat-line">${location}</div>
+            <div class="stat-line">${stats}</div>
+        `;
+    }
+
+    function positionTooltip(event) {
+        const bounds = event.currentTarget.ownerSVGElement.getBoundingClientRect();
+        const x = event.clientX - bounds.left;
+        const y = event.clientY - bounds.top;
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+    }
+
+    function bindTooltip(node) {
+        node.addEventListener('mouseenter', (event) => {
+            tooltip.innerHTML = event.currentTarget.dataset.tooltip;
+            tooltip.classList.add('visible');
+            positionTooltip(event);
+        });
+        node.addEventListener('mousemove', positionTooltip);
+        node.addEventListener('mouseleave', () => {
+            tooltip.classList.remove('visible');
         });
     }
 
-    function renderMessages(messages) {
-        messageLog.innerHTML = '';
-        messages.slice(-15).reverse().forEach(entry => {
-            const li = document.createElement('li');
-            const timestamp = new Date(entry.timestamp).toLocaleTimeString();
-            const nameEl = document.createElement('strong');
-            nameEl.textContent = entry.sender_name ?? 'Unknown';
+    function renderPitch(state) {
+        const tokensGroup = document.getElementById('pitch-tokens');
+        tokensGroup.innerHTML = '';
 
-            const timeEl = document.createElement('span');
-            timeEl.className = 'timestamp';
-            timeEl.textContent = `(${timestamp})`;
+        const teamMap = new Map([
+            [state.team1.id, { ...state.team1, color: '--accent-blue' }],
+            [state.team2.id, { ...state.team2, color: '--accent-orange' }]
+        ]);
 
-            const contentEl = document.createElement('div');
-            contentEl.textContent = entry.content ?? '';
+        const playerEntries = Object.entries(state.pitch.player_positions || {});
+        playerEntries.forEach(([playerId, pos]) => {
+            const player = state.players[playerId];
+            if (!player) return;
+            const team = teamMap.get(player.team_id);
+            const token = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            token.setAttribute('class', 'player-token');
 
-            li.appendChild(nameEl);
-            li.append(' ');
-            li.appendChild(timeEl);
-            li.appendChild(document.createElement('br'));
-            li.appendChild(contentEl);
-            messageLog.appendChild(li);
-        });
-    }
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', pos.x + 0.5);
+            circle.setAttribute('cy', pos.y + 0.5);
+            circle.setAttribute('r', 0.45);
+            circle.setAttribute('fill', `var(${team.color})`);
+            circle.setAttribute('stroke', 'rgba(18, 12, 7, 0.9)');
+            circle.setAttribute('stroke-width', '0.08');
+            token.appendChild(circle);
 
-    async function refresh() {
-        try {
-            const [stateRes, msgRes] = await Promise.all([
-                fetch(`/game/${gameId}`),
-                fetch(`/game/${gameId}/messages?limit=20`)
-            ]);
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', pos.x + 0.5);
+            label.setAttribute('y', pos.y + 0.55);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '0.4');
+            label.setAttribute('fill', 'rgba(18, 12, 7, 0.95)');
+            label.setAttribute('font-weight', '600');
+            label.textContent = player.position.role.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
+            token.appendChild(label);
 
-            if (!stateRes.ok || !msgRes.ok) {
-                throw new Error('Failed to fetch game data');
+            const isCarrier = state.pitch.ball_carrier === playerId;
+            token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
+            bindTooltip(token);
+
+            if (isCarrier) {
+                const aura = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                aura.setAttribute('cx', pos.x + 0.5);
+                aura.setAttribute('cy', pos.y + 0.5);
+                aura.setAttribute('r', 0.7);
+                aura.setAttribute('fill', 'none');
+                aura.setAttribute('stroke', 'var(--accent-gold)');
+                aura.setAttribute('stroke-width', '0.12');
+                aura.setAttribute('stroke-dasharray', '0.3 0.2');
+                token.insertBefore(aura, circle);
             }
 
-            const state = await stateRes.json();
-            const messages = await msgRes.json();
+            tokensGroup.appendChild(token);
+        });
 
-            scoreLine.textContent = `${state.team1.name} ${state.team1.score} – ${state.team2.score} ${state.team2.name}`;
-            renderMeta(state);
-            renderEvents(state.event_log);
-            renderMessages(messages.messages || []);
-        } catch (err) {
-            turnIndicator.textContent = 'Unable to reach server';
-            turnIndicator.classList.add('waiting');
-            console.error(err);
+        if (state.pitch.ball_position && !state.pitch.ball_carrier) {
+            const ball = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            ball.setAttribute('cx', state.pitch.ball_position.x + 0.5);
+            ball.setAttribute('cy', state.pitch.ball_position.y + 0.5);
+            ball.setAttribute('r', 0.25);
+            ball.setAttribute('fill', 'var(--accent-gold)');
+            ball.setAttribute('stroke', 'rgba(18, 12, 7, 0.9)');
+            ball.setAttribute('stroke-width', '0.08');
+            tokensGroup.appendChild(ball);
         }
     }
 
-    refresh();
-    setInterval(refresh, 3000);
+    function renderThoughts(state) {
+        const thoughts = {
+            [state.team1.id]: [],
+            [state.team2.id]: []
+        };
+
+        Object.entries(state.pitch.player_positions || {}).forEach(([playerId, pos]) => {
+            const player = state.players[playerId];
+            if (!player) return;
+            const isCarrier = state.pitch.ball_carrier === playerId;
+            const playerState = player.state.replace(/_/g, ' ');
+            const snippet = isCarrier
+                ? `${player.position.role} is charging ahead with the ball at (${pos.x}, ${pos.y}).`
+                : `${player.position.role} holds ${playerState} at (${pos.x}, ${pos.y}).`;
+            thoughts[player.team_id].push({
+                speaker: player.position.role,
+                text: snippet,
+                priority: isCarrier ? 0 : 1
+            });
+        });
+
+        [
+            [state.team1, team1Thoughts, team1Title],
+            [state.team2, team2Thoughts, team2Title]
+        ].forEach(([team, container, title]) => {
+            title.textContent = `${team.name} dugout chatter`;
+            const teamThoughts = thoughts[team.id]
+                .sort((a, b) => a.priority - b.priority)
+                .slice(0, 4);
+
+            if (teamThoughts.length === 0) {
+                container.innerHTML = '<li>No players on the pitch yet. Set your formation!</li>';
+                return;
+            }
+
+            container.innerHTML = teamThoughts.map(({ speaker, text }) => `
+                <li>
+                    <span class="speaker">${speaker}</span>
+                    ${text}
+                </li>
+            `).join('');
+        });
+    }
+
+    function renderRoster(state) {
+        const rows = [];
+        const playerEntries = Object.entries(state.pitch.player_positions || {});
+        playerEntries.sort(([, aPos], [, bPos]) => (aPos.y - bPos.y) || (aPos.x - bPos.x));
+
+        const teamColors = {
+            [state.team1.id]: 'team1',
+            [state.team2.id]: 'team2'
+        };
+
+        playerEntries.forEach(([playerId, pos]) => {
+            const player = state.players[playerId];
+            if (!player) return;
+            const teamAttr = teamColors[player.team_id] || '';
+            const stateLabel = player.state.replace(/_/g, ' ').toLowerCase();
+            rows.push(`
+                <tr>
+                    <td>${player.position.role}</td>
+                    <td><span class="team-pill" data-team="${teamAttr}">${player.team_id}</span></td>
+                    <td>${stateLabel}</td>
+                    <td>(${pos.x}, ${pos.y})</td>
+                    <td>${player.position.ma}</td>
+                    <td>${player.position.st}</td>
+                    <td>${player.position.ag}</td>
+                    <td>${player.position.pa}</td>
+                    <td>${player.position.av}</td>
+                </tr>
+            `);
+        });
+
+        rosterBody.innerHTML = rows.join('');
+    }
+
+    async function fetchState() {
+        try {
+            const response = await fetch(`/game/${gameId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to load state (${response.status})`);
+            }
+            const data = await response.json();
+            updateScoreboard(data);
+            renderPitch(data);
+            renderThoughts(data);
+            renderRoster(data);
+        } catch (error) {
+            scoreLine.innerHTML = `<span style="color: var(--danger);">Unable to load match: ${error.message}</span>`;
+            meta.innerHTML = '';
+            console.error(error);
+        }
+    }
+
+    initPitchGrid();
+    fetchState();
+    setInterval(fetchState, 2500);
 </script>
 </body>
 </html>
