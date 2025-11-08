@@ -4,7 +4,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from app.models.game_state import GameState
 from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
-from app.models.enums import ActionType
+from app.models.enums import ActionType, GamePhase
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
 
@@ -62,7 +62,6 @@ def join_game(
     if game_state.players_ready and not game_state.game_started:
         # Only auto-start for demo games (non-DEPLOYMENT phase)
         # DEPLOYMENT games require teams to buy players, place them, and call ready_to_play()
-        from app.models.enums import GamePhase
         if game_state.phase != GamePhase.DEPLOYMENT:
             manager.start_game(game_id)
             game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
