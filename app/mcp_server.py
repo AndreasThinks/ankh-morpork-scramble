@@ -13,6 +13,63 @@ from app.state.game_manager import GameManager
 mcp = FastMCP("Ankh-Morpork Scramble")
 
 
+@mcp.prompt("opening_setup_checklist")
+def opening_setup_checklist() -> list[dict[str, str]]:
+    """Step-by-step tasks to complete before the first kickoff."""
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "### Opening Setup Checklist\n"
+                "1. Join your assigned match with `join_game` and confirm the correct `team_id`.\n"
+                "2. Review funds with `get_team_budget` and inspect recruit options via `get_available_positions`.\n"
+                "3. Purchase at least three players with `buy_player`, staying within each position's cap.\n"
+                "4. Decide on rerolls using `buy_reroll` (City Watch: 50k, Unseen University: 60k) without exceeding eight total.\n"
+                "5. Place every player through `place_players`, keeping to your half (Team 1: x=0–12, Team 2: x=13–25, y=0–14) and one piece per square.\n"
+                "6. Double-check the lineup with `get_game_state`, then call `ready_to_play` so kickoff can begin once both teams are ready."
+            ),
+        }
+    ]
+
+
+@mcp.prompt("action_selection_tips")
+def action_selection_tips() -> list[dict[str, str]]:
+    """Guidelines for choosing actions and sequencing a turn."""
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "### Action Selection Tips\n"
+                "- Open each turn with `get_game_state` and `get_valid_actions` to confirm who is active and which specials (charge, hurl, quick pass, boot) remain.\n"
+                "- Resolve low-risk positioning before attempting critical rolls so a turnover does not end the turn prematurely.\n"
+                "- Use tackle zones to screen the ball and mark priority targets before launching the decisive action.\n"
+                "- Only set `use_reroll=True` in `execute_action` when failure would cause a turnover or expose the ball—team rerolls are scarce.\n"
+                "- Finish the turn deliberately with `end_turn` once the essentials are complete or a turnover has already triggered the changeover."
+            ),
+        }
+    ]
+
+
+@mcp.prompt("communication_etiquette")
+def communication_etiquette() -> list[dict[str, str]]:
+    """Preferred tone and expectations for in-game chat."""
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "### Communication Etiquette\n"
+                "- Use `send_message` for courteous updates: greet opponents, flag pauses, and confirm turn handoffs.\n"
+                "- Keep chatter concise and relevant to the match—avoid spam and stay in-character when possible.\n"
+                "- Celebrate dramatic plays with good humour but keep language respectful.\n"
+                "- Describe technical issues calmly so humans can help if something goes awry."
+            ),
+        }
+    ]
+
+
 def get_manager() -> GameManager:
     """Get the shared game manager instance"""
     # Import here to access the app's game_manager
@@ -27,9 +84,12 @@ def join_game(
 ) -> dict:
     """
     Join a game and mark your team as ready to play.
-    
+
     Use this tool when you first connect to a game that has been set up for you.
     Once both teams have joined and are ready, the game can begin.
+
+    For the full pre-kickoff flow after joining, fetch the
+    ``opening_setup_checklist`` prompt via ``get_prompt``.
     
     Returns:
         Dictionary with success status, your team_id, and whether all players are ready
@@ -92,7 +152,7 @@ def get_game_state(
 ) -> dict:
     """
     Get the complete current state of the game.
-    
+
     This returns all game information including:
     - Both teams' rosters and player positions
     - Current phase (SETUP, PLAYING, KICKOFF, etc.)
@@ -136,6 +196,7 @@ def get_valid_actions(
     - Ball location and carrier
     
     Use this before deciding what action to take. It helps you understand your options.
+    For turn-planning heuristics, consult the ``action_selection_tips`` prompt with ``get_prompt``.
     
     Returns:
         ValidActionsResponse with detailed information about available actions
@@ -209,7 +270,7 @@ def execute_action(
 ) -> ActionResult:
     """
     Execute a game action with one of your players.
-    
+
     ACTION TYPES:
     
     MOVE: Move a player to an adjacent unoccupied square
@@ -249,7 +310,7 @@ def execute_action(
     
     Returns:
         ActionResult with success status, dice rolls, and state changes
-    
+
     Example:
         # Move a player
         execute_action(
@@ -326,6 +387,8 @@ def end_turn(
     Use this when you've finished all the actions you want to take this turn.
     The turn will automatically end if a turnover occurs, but you can end it early
     if desired.
+
+    See the ``action_selection_tips`` prompt for sequencing advice before ending your turn.
     
     After your turn ends:
     - The other team becomes active
@@ -375,12 +438,14 @@ def use_reroll(
 ) -> dict:
     """
     Use one of your team's reroll tokens.
-    
+
     Rerolls allow you to reroll a failed dice roll. Each team has a limited
     number of rerolls per half. Use them wisely!
-    
+
     Typically rerolls are used automatically when you set use_reroll=True in
     execute_action, but this tool exists if you need to track or verify reroll usage.
+    The ``action_selection_tips`` prompt includes guidance on when rerolls are
+    worth spending.
     
     Returns:
         Dictionary with success status and remaining rerolls
@@ -456,6 +521,8 @@ def send_message(
     Send a message to your opponent in the game.
     
     Use this to communicate during the game. Good sportsmanship is encouraged!
+    The ``communication_etiquette`` prompt (available via ``get_prompt``) outlines
+    the preferred tone and pacing for in-game chat.
     Messages are visible to both teams.
     
     Returns:
@@ -495,7 +562,8 @@ def get_messages(
     Get messages from the game.
     
     You can filter messages by turn number to see only messages from a specific turn,
-    or limit the number of messages to get the most recent ones.
+    or limit the number of messages to get the most recent ones. Pair this with the
+    ``communication_etiquette`` prompt when reviewing conversation tone.
     
     Returns:
         Dictionary with game_id, count, and list of message objects
@@ -548,6 +616,8 @@ def get_team_budget(
     - Purchase history
 
     Use this to check how much money you have left to buy players and rerolls.
+    The ``opening_setup_checklist`` prompt (retrievable with ``get_prompt``)
+    summarises how this information fits into the wider setup flow.
 
     Returns:
         Dictionary with budget information (initial, spent, remaining, purchases)
@@ -586,6 +656,8 @@ def get_available_positions(
     - Maximum rerolls allowed
 
     Use this to plan your roster purchases and see what fits your budget.
+    The ``opening_setup_checklist`` prompt (via ``get_prompt``) summarises how to
+    combine this information with purchasing and deployment steps.
 
     Returns:
         Dictionary with available positions, budget status, and reroll info
@@ -628,13 +700,14 @@ def buy_player(
     - animated_gargoyle (115k, 0-1 allowed)
 
     This will:
-    1. Validate you have enough budget
-    2. Check you haven't exceeded position limits
-    3. Create the player
-    4. Deduct cost from your budget
-    5. Return updated budget status
+        1. Validate you have enough budget
+        2. Check you haven't exceeded position limits
+        3. Create the player
+        4. Deduct cost from your budget
+        5. Return updated budget status
 
     You must have at least 3 players before starting the game.
+    See ``opening_setup_checklist`` for the recommended order of purchase and placement tasks.
 
     Returns:
         Dictionary with purchase result and updated budget
@@ -678,7 +751,8 @@ def buy_reroll(
     4. Deduct cost from your budget
     5. Return updated budget status
 
-    Rerolls are expensive but invaluable during gameplay!
+    Rerolls are expensive but invaluable during gameplay! Review the
+    ``opening_setup_checklist`` prompt to decide when to prioritise them.
 
     Returns:
         Dictionary with purchase result and updated budget
@@ -706,6 +780,7 @@ def place_players(
     Place your players on the pitch during the DEPLOYMENT phase.
 
     This tool allows you to position your purchased players on the pitch before the game starts.
+    Fetch the ``opening_setup_checklist`` prompt to review the full deployment sequence.
 
     Placement rules:
     - Each team can only place players in their half of the pitch
@@ -773,6 +848,7 @@ def ready_to_play(
     3. Placed all your players on the pitch
 
     Once both teams are ready, the game will automatically start.
+    The ``opening_setup_checklist`` prompt walks through each prerequisite step.
 
     Returns:
         Dictionary with success status, ready state, and whether game started
@@ -857,8 +933,10 @@ def suggest_path(
     - Identifying rush squares (movement beyond MA)
     - Calculating success probabilities for risky moves
     - Flagging occupied or out-of-bounds squares
-    
+
     The returned path can be used directly with execute_action(action_type=MOVE, path=...).
+    Combine this with the heuristics in the ``action_selection_tips`` prompt to
+    decide when to follow or ignore the suggested path.
     
     Risk Assessment:
     - success_probability: Chance of successfully moving through that square (0.0-1.0)

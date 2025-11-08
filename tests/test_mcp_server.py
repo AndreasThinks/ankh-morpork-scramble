@@ -52,6 +52,31 @@ async def test_mcp_tools_are_registered():
 
 
 @pytest.mark.asyncio
+async def test_mcp_prompts_are_registered():
+    """Ensure strategic guidance prompts are available to clients."""
+    async with Client(mcp) as client:
+        prompts = await client.list_prompts()
+        prompt_names = {p.name for p in prompts}
+        expected_prompts = {
+            "opening_setup_checklist",
+            "action_selection_tips",
+            "communication_etiquette",
+        }
+
+        missing = expected_prompts - prompt_names
+        assert not missing, f"Missing prompts: {missing}"
+
+        result = await client.get_prompt("opening_setup_checklist")
+        prompt_text = "\n".join(
+            message.content.text
+            for message in result.messages
+            if getattr(message.content, "type", None) == "text"
+        )
+
+        assert "Opening Setup Checklist" in prompt_text
+
+
+@pytest.mark.asyncio
 async def test_join_game_flow(clean_manager):
     """Test joining a game through MCP"""
     # Create a game first (coordinator action)
