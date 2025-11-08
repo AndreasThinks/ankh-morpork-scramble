@@ -775,6 +775,16 @@
         rosterBody.innerHTML = rows.join('');
     }
 
+    // Configuration (poll_interval is configurable via template variable)
+    const POLL_INTERVAL = {{ poll_interval }};
+    const MAX_CONSECUTIVE_FAILURES = 5;
+    const RETRY_DELAYS = [1000, 2000, 4000, 8000, 16000];
+
+    // State tracking
+    let consecutiveFailures = 0;
+    let pollIntervalId = null;
+    let isPolling = true;
+
     async function fetchState() {
         try {
             const response = await fetch(`/game/${gameId}`);
@@ -782,20 +792,68 @@
                 throw new Error(`Failed to load state (${response.status})`);
             }
             const data = await response.json();
+
+            // Reset failure count on success
+            consecutiveFailures = 0;
+
             updateScoreboard(data);
             renderPitch(data);
             renderThoughts(data);
             renderRoster(data);
+
+            // Clear any error messages
+            if (meta.querySelector('.connection-error')) {
+                const errorChip = meta.querySelector('.connection-error');
+                errorChip.remove();
+            }
         } catch (error) {
-            scoreLine.innerHTML = `<span style="color: var(--danger);">Unable to load match: ${error.message}</span>`;
-            meta.innerHTML = '';
-            console.error(error);
+            consecutiveFailures++;
+            console.error(`Failed to fetch state (attempt ${consecutiveFailures}):`, error);
+
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                // Stop polling after too many failures
+                if (pollIntervalId) {
+                    clearInterval(pollIntervalId);
+                    isPolling = false;
+                }
+
+                scoreLine.innerHTML = `<span style="color: #e07856;">Connection lost after ${MAX_CONSECUTIVE_FAILURES} attempts</span>`;
+                meta.innerHTML = `
+                    <span class="connection-error" style="background: rgba(224, 120, 86, 0.3); border-color: rgba(224, 120, 86, 0.5); color: #e07856;">
+                        ⚠ Polling stopped. <a href="javascript:location.reload()" style="color: inherit; text-decoration: underline;">Reload page</a> to retry.
+                    </span>
+                `;
+            } else {
+                // Show temporary error with retry countdown
+                const retryDelay = RETRY_DELAYS[Math.min(consecutiveFailures - 1, RETRY_DELAYS.length - 1)];
+                const retrySeconds = Math.ceil(retryDelay / 1000);
+
+                scoreLine.innerHTML = `<span style="color: #e07856;">Unable to load match: ${error.message}</span>`;
+
+                // Add or update connection warning chip
+                let errorChip = meta.querySelector('.connection-error');
+                if (!errorChip) {
+                    errorChip = document.createElement('span');
+                    errorChip.className = 'connection-error';
+                    errorChip.style.cssText = 'background: rgba(224, 120, 86, 0.25); border-color: rgba(224, 120, 86, 0.4); color: rgba(224, 120, 86, 0.95);';
+                    meta.appendChild(errorChip);
+                }
+                errorChip.textContent = `⚠ Connection issue (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}) - retrying in ${retrySeconds}s...`;
+            }
         }
     }
 
+    function startPolling() {
+        // Initial fetch
+        fetchState();
+
+        // Set up polling interval
+        pollIntervalId = setInterval(fetchState, POLL_INTERVAL);
+    }
+
+    // Initialize
     initPitchGrid();
-    fetchState();
-    setInterval(fetchState, 2500);
+    startPolling();
 </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 """Routes serving a lightweight dashboard for monitoring the demo game."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -20,6 +21,19 @@ def render_dashboard(request: Request, game_id: str = DEFAULT_GAME_ID) -> HTMLRe
 
     The dashboard uses simple JavaScript polling to display the current game
     state, event log, and chat messages for the configured game identifier.
-    """
 
-    return _templates.TemplateResponse(request, "dashboard.html", {"game_id": game_id})
+    Args:
+        request: FastAPI request object
+        game_id: Game identifier to monitor (default: demo-game)
+
+    Returns:
+        HTML response with rendered dashboard
+    """
+    # Allow configuring poll interval via environment variable (in milliseconds)
+    poll_interval = int(os.getenv("UI_POLL_INTERVAL", "2500"))
+
+    return _templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {"game_id": game_id, "poll_interval": poll_interval}
+    )
