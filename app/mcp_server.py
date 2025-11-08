@@ -2,10 +2,28 @@
 from typing import Annotated, Optional
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from app.game.pathfinding import PathSuggestion
 from app.models.game_state import GameState
-from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
+from app.models.actions import (
+    ActionRequest,
+    ActionResult,
+    ValidActionsResponse,
+    BudgetStatus,
+    AvailablePositionsResponse,
+    PurchaseResult,
+)
 from app.models.enums import ActionType
 from app.models.pitch import Position
+from app.models.responses import (
+    JoinGameResponse,
+    EndTurnResponse,
+    UseRerollResponse,
+    HistoryResponse,
+    SendMessageResponse,
+    MessagesResponse,
+    PlacePlayersResponse,
+    ReadyToPlayResponse,
+)
 from app.state.game_manager import GameManager
 
 
@@ -24,7 +42,7 @@ def get_manager() -> GameManager:
 def join_game(
     game_id: Annotated[str, "The unique identifier of the game to join"],
     team_id: Annotated[str, "Your team's unique identifier (usually 'team1' or 'team2')"]
-) -> dict:
+) -> JoinGameResponse:
     """
     Join a game and mark your team as ready to play.
     
@@ -32,7 +50,7 @@ def join_game(
     Once both teams have joined and are ready, the game can begin.
     
     Returns:
-        Dictionary with success status, your team_id, and whether all players are ready
+        JoinGameResponse containing join status details
     
     Example:
         join_game(game_id="game123", team_id="team1")
@@ -68,28 +86,29 @@ def join_game(
             game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
             game_started = True
 
-    return {
-        "success": True,
-        "team_id": team_id,
-        "players_ready": game_state.players_ready,
-        "game_started": game_state.game_started,
-        "phase": game_state.phase.value,
-        "message": (
-            "Game started after both teams joined"
-            if game_started
-            else (
-                f"Successfully joined as {team_id}. In DEPLOYMENT phase - purchase players, place them, then call ready_to_play()"
-                if game_state.phase.value == "deployment"
-                else f"Successfully joined as {team_id}. Waiting for opponent to join..."
-            )
+    if game_started:
+        message = "Game started after both teams joined"
+    elif game_state.phase.value == "deployment":
+        message = (
+            f"Successfully joined as {team_id}. In DEPLOYMENT phase - purchase players, place them, then call ready_to_play()"
         )
-    }
+    else:
+        message = f"Successfully joined as {team_id}. Waiting for opponent to join..."
+
+    return JoinGameResponse(
+        success=True,
+        team_id=team_id,
+        players_ready=game_state.players_ready,
+        game_started=game_state.game_started,
+        phase=game_state.phase.value,
+        message=message,
+    )
 
 
 @mcp.tool
 def get_game_state(
     game_id: Annotated[str, "The unique identifier of the game"]
-) -> dict:
+) -> GameState:
     """
     Get the complete current state of the game.
     
@@ -105,7 +124,7 @@ def get_game_state(
     Use this regularly to understand the current game situation before making decisions.
     
     Returns:
-        Complete GameState object with all current game information
+        GameState object with all current game information
     
     Example:
         state = get_game_state(game_id="game123")
@@ -118,7 +137,7 @@ def get_game_state(
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
     
-    return game_state.model_dump()
+    return game_state
 
 
 @mcp.tool
@@ -319,7 +338,7 @@ def execute_action(
 def end_turn(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier to confirm you're ending your own turn"]
-) -> dict:
+) -> EndTurnResponse:
     """
     Manually end your team's current turn.
     
@@ -333,7 +352,7 @@ def end_turn(
     - Turn number may increment
     
     Returns:
-        Dictionary with success status and new game state information
+        EndTurnResponse with new active team details
     
     Example:
         end_turn(game_id="game123", team_id="team1")
@@ -357,13 +376,13 @@ def end_turn(
         new_state = manager.end_turn(game_id)
         new_active = new_state.get_active_team()
         
-        return {
-            "success": True,
-            "turn_ended": team_id,
-            "new_active_team": new_active.id,
-            "turn_number": new_state.turn.team_turn if new_state.turn else None,
-            "message": f"Turn ended. Now {new_active.id}'s turn."
-        }
+        return EndTurnResponse(
+            success=True,
+            turn_ended=team_id,
+            new_active_team=new_active.id,
+            turn_number=new_state.turn.team_turn if new_state.turn else None,
+            message=f"Turn ended. Now {new_active.id}'s turn."
+        )
     except Exception as e:
         raise ToolError(f"Failed to end turn: {str(e)}")
 
@@ -372,7 +391,7 @@ def end_turn(
 def use_reroll(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
-) -> dict:
+) -> UseRerollResponse:
     """
     Use one of your team's reroll tokens.
     
@@ -383,7 +402,7 @@ def use_reroll(
     execute_action, but this tool exists if you need to track or verify reroll usage.
     
     Returns:
-        Dictionary with success status and remaining rerolls
+        UseRerollResponse showing remaining rerolls
     
     Example:
         use_reroll(game_id="game123", team_id="team1")
@@ -398,12 +417,12 @@ def use_reroll(
         team = game_state.get_team_by_id(team_id)
         team.use_reroll()
         
-        return {
-            "success": True,
-            "team_id": team_id,
-            "rerolls_remaining": team.rerolls_remaining,
-            "message": f"Reroll used. {team.rerolls_remaining} rerolls remaining."
-        }
+        return UseRerollResponse(
+            success=True,
+            team_id=team_id,
+            rerolls_remaining=team.rerolls_remaining,
+            message=f"Reroll used. {team.rerolls_remaining} rerolls remaining."
+        )
     except Exception as e:
         raise ToolError(f"Failed to use reroll: {str(e)}")
 
@@ -412,7 +431,7 @@ def use_reroll(
 def get_history(
     game_id: Annotated[str, "The unique identifier of the game"],
     limit: Annotated[int, "Maximum number of recent events to retrieve"] = 50
-) -> dict:
+) -> HistoryResponse:
     """
     Get the event history log for the game.
     
@@ -426,7 +445,7 @@ def get_history(
     This helps you understand what has happened so far in the game.
     
     Returns:
-        Dictionary with game_id and list of event strings
+        HistoryResponse containing recent events
     
     Example:
         history = get_history(game_id="game123", limit=20)
@@ -438,11 +457,11 @@ def get_history(
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
     
-    return {
-        "game_id": game_id,
-        "total_events": len(game_state.event_log),
-        "events": game_state.event_log[-limit:]
-    }
+    return HistoryResponse(
+        game_id=game_id,
+        total_events=len(game_state.event_log),
+        events=game_state.event_log[-limit:]
+    )
 
 
 @mcp.tool
@@ -451,7 +470,7 @@ def send_message(
     sender_id: Annotated[str, "Your identifier (usually your team_id)"],
     sender_name: Annotated[str, "Your display name"],
     content: Annotated[str, "The message content to send"]
-) -> dict:
+) -> SendMessageResponse:
     """
     Send a message to your opponent in the game.
     
@@ -459,7 +478,7 @@ def send_message(
     Messages are visible to both teams.
     
     Returns:
-        Dictionary with success status and the message that was sent
+        SendMessageResponse containing the stored message
     
     Example:
         send_message(
@@ -477,10 +496,7 @@ def send_message(
     
     try:
         message = game_state.add_message(sender_id, sender_name, content)
-        return {
-            "success": True,
-            "message": message
-        }
+        return SendMessageResponse(success=True, message=message)
     except Exception as e:
         raise ToolError(f"Failed to send message: {str(e)}")
 
@@ -490,7 +506,7 @@ def get_messages(
     game_id: Annotated[str, "The unique identifier of the game"],
     turn_number: Annotated[Optional[int], "Get messages from a specific turn number only"] = None,
     limit: Annotated[Optional[int], "Maximum number of recent messages to retrieve"] = None
-) -> dict:
+) -> MessagesResponse:
     """
     Get messages from the game.
     
@@ -498,7 +514,7 @@ def get_messages(
     or limit the number of messages to get the most recent ones.
     
     Returns:
-        Dictionary with game_id, count, and list of message objects
+        MessagesResponse with filtered chat messages
     
     Example:
         # Get all messages
@@ -526,18 +542,14 @@ def get_messages(
     if limit is not None:
         messages = messages[-limit:]
     
-    return {
-        "game_id": game_id,
-        "count": len(messages),
-        "messages": messages
-    }
+    return MessagesResponse(game_id=game_id, count=len(messages), messages=messages)
 
 
 @mcp.tool
 def get_team_budget(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
-) -> dict:
+) -> BudgetStatus:
     """
     Get your team's budget information during setup phase.
 
@@ -550,7 +562,7 @@ def get_team_budget(
     Use this to check how much money you have left to buy players and rerolls.
 
     Returns:
-        Dictionary with budget information (initial, spent, remaining, purchases)
+        BudgetStatus describing the team's finances
 
     Example:
         budget = get_team_budget(game_id="game123", team_id="team1")
@@ -560,7 +572,7 @@ def get_team_budget(
 
     try:
         budget_status = manager.get_budget_status(game_id, team_id)
-        return budget_status.model_dump()
+        return budget_status
     except Exception as e:
         raise ToolError(f"Failed to get budget: {str(e)}")
 
@@ -569,7 +581,7 @@ def get_team_budget(
 def get_available_positions(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
-) -> dict:
+) -> AvailablePositionsResponse:
     """
     Get available player positions and rerolls you can purchase during setup.
 
@@ -588,7 +600,7 @@ def get_available_positions(
     Use this to plan your roster purchases and see what fits your budget.
 
     Returns:
-        Dictionary with available positions, budget status, and reroll info
+        AvailablePositionsResponse describing purchasable options
 
     Example:
         available = get_available_positions(game_id="game123", team_id="team1")
@@ -600,7 +612,7 @@ def get_available_positions(
 
     try:
         available = manager.get_available_positions(game_id, team_id)
-        return available.model_dump()
+        return available
     except Exception as e:
         raise ToolError(f"Failed to get available positions: {str(e)}")
 
@@ -610,7 +622,7 @@ def buy_player(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"],
     position_key: Annotated[str, "Position to purchase (e.g., 'constable', 'apprentice_wizard')"]
-) -> dict:
+) -> PurchaseResult:
     """
     Purchase a player for your team during the setup phase.
 
@@ -637,7 +649,7 @@ def buy_player(
     You must have at least 3 players before starting the game.
 
     Returns:
-        Dictionary with purchase result and updated budget
+        PurchaseResult with updated budget information
 
     Example:
         result = buy_player(
@@ -651,7 +663,7 @@ def buy_player(
 
     try:
         result = manager.buy_player(game_id, team_id, position_key)
-        return result.model_dump()
+        return result
     except Exception as e:
         raise ToolError(f"Failed to purchase player: {str(e)}")
 
@@ -660,7 +672,7 @@ def buy_player(
 def buy_reroll(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
-) -> dict:
+) -> PurchaseResult:
     """
     Purchase a team reroll during the setup phase.
 
@@ -681,7 +693,7 @@ def buy_reroll(
     Rerolls are expensive but invaluable during gameplay!
 
     Returns:
-        Dictionary with purchase result and updated budget
+        PurchaseResult with updated budget information
 
     Example:
         result = buy_reroll(game_id="game123", team_id="team1")
@@ -691,7 +703,7 @@ def buy_reroll(
 
     try:
         result = manager.buy_reroll(game_id, team_id)
-        return result.model_dump()
+        return result
     except Exception as e:
         raise ToolError(f"Failed to purchase reroll: {str(e)}")
 
@@ -701,7 +713,7 @@ def place_players(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"],
     positions: Annotated[dict[str, dict], "Mapping of player_id to position dict with 'x' and 'y' keys"]
-) -> dict:
+) -> PlacePlayersResponse:
     """
     Place your players on the pitch during the DEPLOYMENT phase.
 
@@ -716,7 +728,7 @@ def place_players(
     - You must place all players you've purchased
 
     Returns:
-        Dictionary with success status and count of placed players
+        PlacePlayersResponse describing placement results
 
     Example:
         place_players(
@@ -749,12 +761,12 @@ def place_players(
 
     try:
         manager.place_players(game_id, team_id, position_map)
-        return {
-            "success": True,
-            "team_id": team_id,
-            "players_placed": len(position_map),
-            "message": f"Successfully placed {len(position_map)} players on the pitch"
-        }
+        return PlacePlayersResponse(
+            success=True,
+            team_id=team_id,
+            players_placed=len(position_map),
+            message=f"Successfully placed {len(position_map)} players on the pitch"
+        )
     except Exception as e:
         raise ToolError(f"Failed to place players: {str(e)}")
 
@@ -763,7 +775,7 @@ def place_players(
 def ready_to_play(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
-) -> dict:
+) -> ReadyToPlayResponse:
     """
     Mark your team as ready to start playing after completing setup.
 
@@ -775,7 +787,7 @@ def ready_to_play(
     Once both teams are ready, the game will automatically start.
 
     Returns:
-        Dictionary with success status, ready state, and whether game started
+        ReadyToPlayResponse describing readiness state
 
     Example:
         ready_to_play(game_id="game123", team_id="team1")
@@ -827,18 +839,18 @@ def ready_to_play(
         manager.start_game(game_id)
         game_started = True
 
-    return {
-        "success": True,
-        "team_id": team_id,
-        "team_ready": True,
-        "both_teams_ready": game_state.both_teams_ready,
-        "game_started": game_started,
-        "message": (
+    return ReadyToPlayResponse(
+        success=True,
+        team_id=team_id,
+        team_ready=True,
+        both_teams_ready=game_state.both_teams_ready,
+        game_started=game_started,
+        message=(
             "Both teams ready - game starting!"
             if game_started
             else f"{team.name} is ready. Waiting for opponent..."
         )
-    }
+    )
 
 
 @mcp.tool
@@ -847,7 +859,7 @@ def suggest_path(
     player_id: Annotated[str, "ID of the player who will move"],
     target_x: Annotated[int, "Target X coordinate (0-25)"],
     target_y: Annotated[int, "Target Y coordinate (0-14)"]
-) -> dict:
+) -> PathSuggestion:
     """
     Suggest a path for a player to reach a target position, with complete risk assessment.
     
@@ -867,15 +879,7 @@ def suggest_path(
     - total_risk_score: Overall path risk (0.0=safe, 1.0=very risky)
     
     Returns:
-        Dictionary with:
-        - path: List of Position objects to follow
-        - movement_cost: Total squares to move
-        - requires_rushing: Whether rushing is needed
-        - rush_squares: Number of rush squares
-        - total_risk_score: Aggregate risk (0.0-1.0)
-        - risks: Detailed risk for each square
-        - is_valid: Whether the path is legal
-        - error_message: Why path is invalid (if applicable)
+        PathSuggestion model with path and risk analysis
     
     Example:
         suggestion = suggest_path(
@@ -885,14 +889,14 @@ def suggest_path(
             target_y=7
         )
         
-        if suggestion["is_valid"]:
+        if suggestion.is_valid:
             # Use the suggested path
             execute_action(
                 game_id="game123",
                 action_type=ActionType.MOVE,
                 player_id="team1_player1",
                 target_position=Position(x=10, y=7),
-                path=suggestion["path"]
+                path=suggestion.path
             )
     """
     manager = get_manager()
@@ -915,4 +919,4 @@ def suggest_path(
     target_pos = Position(x=target_x, y=target_y)
     suggestion = pathfinder.suggest_path(game_state, player_id, target_pos)
     
-    return suggestion.model_dump()
+    return suggestion

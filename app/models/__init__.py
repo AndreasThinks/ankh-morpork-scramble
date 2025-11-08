@@ -13,6 +13,16 @@ from app.models.team import Team, TeamRoster
 from app.models.pitch import Pitch, Position
 from app.models.game_state import GameState, GamePhase
 from app.models.actions import ActionRequest, ActionResult, DiceRoll
+from app.models.responses import (
+    JoinGameResponse,
+    EndTurnResponse,
+    UseRerollResponse,
+    HistoryResponse,
+    SendMessageResponse,
+    MessagesResponse,
+    PlacePlayersResponse,
+    ReadyToPlayResponse,
+)
 
 __all__ = [
     "PlayerState",
@@ -33,4 +43,12 @@ __all__ = [
     "ActionRequest",
     "ActionResult",
     "DiceRoll",
+    "JoinGameResponse",
+    "EndTurnResponse",
+    "UseRerollResponse",
+    "HistoryResponse",
+    "SendMessageResponse",
+    "MessagesResponse",
+    "PlacePlayersResponse",
+    "ReadyToPlayResponse",
 ]

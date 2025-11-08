@@ -1,7 +1,21 @@
 """Tests for data models"""
+from datetime import datetime
+
 import pytest
+
+from app.models.game_state import GameMessage
 from app.models.pitch import Position, Pitch
 from app.models.player import Player, PlayerPosition
+from app.models.responses import (
+    EndTurnResponse,
+    HistoryResponse,
+    JoinGameResponse,
+    MessagesResponse,
+    PlacePlayersResponse,
+    ReadyToPlayResponse,
+    SendMessageResponse,
+    UseRerollResponse,
+)
 from app.models.team import Team, TEAM_ROSTERS
 from app.models.enums import PlayerState, TeamType, SkillType
 
@@ -158,11 +172,138 @@ def test_team_rosters_defined():
     """Test that team rosters are properly defined"""
     assert TeamType.CITY_WATCH in TEAM_ROSTERS
     assert TeamType.UNSEEN_UNIVERSITY in TEAM_ROSTERS
-    
+
     city_watch = TEAM_ROSTERS[TeamType.CITY_WATCH]
     assert "constable" in city_watch.positions
     assert "clerk_runner" in city_watch.positions
-    
+
     wizards = TEAM_ROSTERS[TeamType.UNSEEN_UNIVERSITY]
     assert "apprentice_wizard" in wizards.positions
     assert "senior_wizard" in wizards.positions
+
+
+def test_response_models_serialization():
+    """Ensure newly added response models serialize as expected."""
+
+    timestamp = datetime(2024, 1, 1, 12, 0, 0)
+    message = GameMessage(
+        sender_id="team1",
+        sender_name="Commander Vimes",
+        content="All set!",
+        timestamp=timestamp,
+        turn_number=2,
+        game_phase="deployment",
+    )
+
+    cases = [
+        (
+            JoinGameResponse(
+                success=True,
+                team_id="team1",
+                players_ready=False,
+                game_started=False,
+                phase="deployment",
+                message="Waiting",
+            ),
+            {
+                "success": True,
+                "team_id": "team1",
+                "players_ready": False,
+                "game_started": False,
+                "phase": "deployment",
+                "message": "Waiting",
+            },
+        ),
+        (
+            EndTurnResponse(
+                success=True,
+                turn_ended="team1",
+                new_active_team="team2",
+                turn_number=3,
+                message="Turn passed",
+            ),
+            {
+                "success": True,
+                "turn_ended": "team1",
+                "new_active_team": "team2",
+                "turn_number": 3,
+                "message": "Turn passed",
+            },
+        ),
+        (
+            UseRerollResponse(
+                success=True,
+                team_id="team1",
+                rerolls_remaining=2,
+                message="Reroll used",
+            ),
+            {
+                "success": True,
+                "team_id": "team1",
+                "rerolls_remaining": 2,
+                "message": "Reroll used",
+            },
+        ),
+        (
+            HistoryResponse(
+                game_id="game123",
+                total_events=5,
+                events=["Event 1", "Event 2"],
+            ),
+            {
+                "game_id": "game123",
+                "total_events": 5,
+                "events": ["Event 1", "Event 2"],
+            },
+        ),
+        (
+            SendMessageResponse(success=True, message=message),
+            {
+                "success": True,
+                "message": message.model_dump(),
+            },
+        ),
+        (
+            MessagesResponse(game_id="game123", count=1, messages=[message]),
+            {
+                "game_id": "game123",
+                "count": 1,
+                "messages": [message.model_dump()],
+            },
+        ),
+        (
+            PlacePlayersResponse(
+                success=True,
+                team_id="team1",
+                players_placed=3,
+                message="Placed",
+            ),
+            {
+                "success": True,
+                "team_id": "team1",
+                "players_placed": 3,
+                "message": "Placed",
+            },
+        ),
+        (
+            ReadyToPlayResponse(
+                success=True,
+                team_id="team1",
+                team_ready=True,
+                both_teams_ready=False,
+                game_started=False,
+                message="Ready",
+            ),
+            {
+                "success": True,
+                "team_id": "team1",
+                "team_ready": True,
+                "both_teams_ready": False,
+                "game_started": False,
+                "message": "Ready",
+            },
+        ),
+    ]
+
+    for response, expected in cases:
+        assert response.model_dump() == expected
