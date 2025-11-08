@@ -42,13 +42,14 @@ def basic_game_state():
         game_id="test_game",
         team1=team1,
         team2=team2,
-        phase=GamePhase.PLAYING
+        phase=GamePhase.ACTIVE_PLAY
     )
     
     # Add a test player
     position = PlayerPosition(
         role="Constable",
         cost=50000,
+        max_quantity=16,
         ma=6,
         st=3,
         ag="3+",

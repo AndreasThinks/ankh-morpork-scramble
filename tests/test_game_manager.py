@@ -13,7 +13,7 @@ def test_create_and_get_game():
     game = manager.create_game("test_game_1")
     
     assert game.game_id == "test_game_1"
-    assert game.phase == GamePhase.SETUP
+    assert game.phase == GamePhase.DEPLOYMENT
     assert game.team1 is not None
     assert game.team2 is not None
     
@@ -35,7 +35,7 @@ def test_create_game_with_auto_id():
     
     assert game.game_id is not None
     assert len(game.game_id) > 0
-    assert game.phase == GamePhase.SETUP
+    assert game.phase == GamePhase.DEPLOYMENT
 
 
 def test_setup_team_with_players():
@@ -94,7 +94,7 @@ def test_start_game_transitions_phase():
     manager = GameManager()
     game = manager.create_game("test_game")
     
-    assert game.phase == GamePhase.SETUP
+    assert game.phase == GamePhase.DEPLOYMENT
     
     # Mark teams as joined
     game.team1_joined = True
@@ -103,7 +103,7 @@ def test_start_game_transitions_phase():
     # Start game
     updated_game = manager.start_game("test_game")
     
-    assert updated_game.phase == GamePhase.KICKOFF  # Correct phase after start
+    assert updated_game.phase == GamePhase.OPENING_SCRAMBLE  # Correct phase after start
     assert updated_game.turn is not None
     assert updated_game.turn.half == 1
     assert updated_game.turn.team_turn == 0
