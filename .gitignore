@@ -16,7 +16,6 @@ env/
 ENV/
 
 # UV specific
-uv.lock
 .python-version
 
 # IDE
