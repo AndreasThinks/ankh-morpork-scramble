@@ -19,7 +19,7 @@ def create_test_game_state() -> GameState:
         game_id="test_game",
         team1=team1,
         team2=team2,
-        phase=GamePhase.PLAYING
+        phase=GamePhase.ACTIVE_PLAY
     )
     
     game_state.turn = TurnState(
@@ -36,6 +36,7 @@ def create_test_player(player_id: str, team_id: str, ma: int = 6, st: int = 3) -
     position = PlayerPosition(
         role="Test",
         cost=50000,
+        max_quantity=16,
         ma=ma,
         st=st,
         ag="3+",
@@ -167,7 +168,7 @@ def test_execute_block():
     game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.BLOCK,
+        action_type=ActionType.SCUFFLE,
         player_id="p1",
         target_player_id="p2"
     )
@@ -189,7 +190,7 @@ def test_execute_block_without_target_fails():
     game_state.players["p1"] = attacker
     
     action = ActionRequest(
-        action_type=ActionType.BLOCK,
+        action_type=ActionType.SCUFFLE,
         player_id="p1",
         target_player_id=None
     )
@@ -217,7 +218,7 @@ def test_execute_block_turnover_if_ball_carrier_down():
     game_state.pitch.ball_position = Position(x=6, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.BLOCK,
+        action_type=ActionType.SCUFFLE,
         player_id="p1",
         target_player_id="p2"
     )
@@ -245,7 +246,7 @@ def test_execute_blitz():
     game_state.pitch.player_positions["p2"] = Position(x=7, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.BLITZ,
+        action_type=ActionType.CHARGE,
         player_id="p1",
         path=[Position(x=6, y=7)],  # Move adjacent
         target_player_id="p2"
@@ -254,7 +255,7 @@ def test_execute_blitz():
     result = executor.execute_action(game_state, action)
     
     assert result.success == True
-    assert game_state.turn.blitz_used == True
+    assert game_state.turn.charge_used == True
     assert attacker.has_acted == True
     assert result.block_result is not None
 
@@ -263,13 +264,13 @@ def test_execute_blitz_only_once_per_turn():
     """Test blitz can only be used once per turn"""
     executor = ActionExecutor(DiceRoller(seed=42))
     game_state = create_test_game_state()
-    game_state.turn.blitz_used = True
+    game_state.turn.charge_used = True
     
     attacker = create_test_player("p1", "team1")
     game_state.players["p1"] = attacker
     
     action = ActionRequest(
-        action_type=ActionType.BLITZ,
+        action_type=ActionType.CHARGE,
         player_id="p1",
         target_player_id="p2"
     )
@@ -293,7 +294,7 @@ def test_execute_pass():
     game_state.pitch.ball_position = Position(x=5, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.PASS,
+        action_type=ActionType.HURL,
         player_id="p1",
         target_position=Position(x=10, y=7)
     )
@@ -301,7 +302,7 @@ def test_execute_pass():
     result = executor.execute_action(game_state, action)
     
     assert result.success == True
-    assert game_state.turn.pass_used == True
+    assert game_state.turn.hurl_used == True
     assert passer.has_acted == True
     assert result.pass_result is not None
 
@@ -315,7 +316,7 @@ def test_execute_pass_without_target_fails():
     game_state.players["p1"] = passer
     
     action = ActionRequest(
-        action_type=ActionType.PASS,
+        action_type=ActionType.HURL,
         player_id="p1",
         target_position=None
     )
@@ -329,13 +330,13 @@ def test_execute_pass_only_once_per_turn():
     """Test pass can only be used once per turn"""
     executor = ActionExecutor(DiceRoller(seed=42))
     game_state = create_test_game_state()
-    game_state.turn.pass_used = True
+    game_state.turn.hurl_used = True
     
     passer = create_test_player("p1", "team1")
     game_state.players["p1"] = passer
     
     action = ActionRequest(
-        action_type=ActionType.PASS,
+        action_type=ActionType.HURL,
         player_id="p1",
         target_position=Position(x=10, y=7)
     )
@@ -364,7 +365,7 @@ def test_execute_hand_off():
     game_state.pitch.ball_position = Position(x=5, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.HAND_OFF,
+        action_type=ActionType.QUICK_PASS,
         player_id="p1",
         target_receiver_id="p2"
     )
@@ -372,7 +373,7 @@ def test_execute_hand_off():
     result = executor.execute_action(game_state, action)
     
     # Hand-off might succeed or fail depending on implementation
-    assert game_state.turn.hand_off_used == True or result.success == False
+    assert game_state.turn.quick_pass_used == True or result.success == False
 
 
 def test_execute_hand_off_without_receiver_fails():
@@ -384,7 +385,7 @@ def test_execute_hand_off_without_receiver_fails():
     game_state.players["p1"] = giver
     
     action = ActionRequest(
-        action_type=ActionType.HAND_OFF,
+        action_type=ActionType.QUICK_PASS,
         player_id="p1",
         target_receiver_id=None
     )
@@ -410,7 +411,7 @@ def test_execute_foul():
     game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
     
     action = ActionRequest(
-        action_type=ActionType.FOUL,
+        action_type=ActionType.BOOT,
         player_id="p1",
         target_player_id="p2"
     )
@@ -419,7 +420,7 @@ def test_execute_foul():
     
     # Foul might succeed or fail
     if result.success:
-        assert game_state.turn.foul_used == True
+        assert game_state.turn.boot_used == True
 
 
 def test_foul_without_target_fails():
@@ -431,7 +432,7 @@ def test_foul_without_target_fails():
     game_state.players["p1"] = attacker
     
     action = ActionRequest(
-        action_type=ActionType.FOUL,
+        action_type=ActionType.BOOT,
         player_id="p1",
         target_player_id=None
     )

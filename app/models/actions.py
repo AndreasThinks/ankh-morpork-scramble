@@ -83,11 +83,11 @@ class ValidActionsResponse(BaseModel):
     current_team: str
     phase: str
 
-    # Action limits
-    can_blitz: bool
-    can_pass: bool
-    can_hand_off: bool
-    can_foul: bool
+    # Action limits (using Discworld terminology)
+    can_charge: bool  # was can_blitz
+    can_hurl: bool  # was can_pass
+    can_quick_pass: bool  # was can_hand_off
+    can_boot: bool  # was can_foul
 
     # Players who can act
     movable_players: list[str] = Field(default_factory=list)

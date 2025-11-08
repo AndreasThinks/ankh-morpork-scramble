@@ -40,17 +40,17 @@ A **turnover** immediately ends the active turn.
 
 ---
 
-## 4. Actions (Per Turn)
+## 4. Actions (Per Turn) — Discworld Terminology
 
-| Action | Limit |
-|---|---|
-| Move | Unlimited (1 per player) |
-| Block (Scuffle) | Unlimited |
-| Blitz | **1 per turn** |
-| Pass | **1 per turn** |
-| Hand-off | **1 per turn** |
-| Foul | **1 per turn** |
-| Stand Up | As needed |
+| Action | Limit | Description |
+|---|---|---|
+| Move | Unlimited (1 per player) | Move a player along the pitch |
+| Scuffle | Unlimited | Attack an adjacent opponent (Ankh-Morpork street fighting) |
+| Charge | **1 per turn** | Aggressive rush: Move + Scuffle |
+| Hurl | **1 per turn** | Throw the ball to a teammate |
+| Quick Pass | **1 per turn** | Short transfer to adjacent teammate |
+| Boot | **1 per turn** | Ankh-Morpork street tactics: attack prone opponent |
+| Stand Up | As needed | Stand up from prone (costs 3 MA) |
 
 Players may perform **one action** per turn unless otherwise permitted by skills.
 
@@ -152,6 +152,8 @@ Turn ends immediately if:
 
 ## 13. Teams & Rosters
 
+Each team has a **1,000,000 gold** budget for purchasing players and rerolls during setup.
+
 ### 13.1 City Watch
 
 | Role | Qty | Cost | MA | ST | AG | PA | AV | Skills | Prim | Sec |
@@ -160,6 +162,11 @@ Turn ends immediately if:
 | Clerk-Runner | 0–2 | 80k | 6 | 3 | 3+ | 2+ | 9+ | Pigeon Post, Chain of Custody | G,P | A,S |
 | Fleet Recruit | 0–4 | 65k | 8 | 2 | 3+ | 5+ | 8+ | Quick Grab, Sidestep Shuffle | A,G | P,S |
 | Watch Sergeant | 0–4 | 85k | 7 | 3 | 3+ | 4+ | 9+ | Drill-Hardened | G,S | A,P |
+| Troll Constable | 0–2 | 115k | 4 | 5 | 5+ | 6+ | 10+ | Thick as a Brick, Rock Solid, Really Thick | S | G,A |
+| Street Veteran | 0–4 | 50k | 6 | 2 | 3+ | 5+ | 8+ | Street Fighting, Slippery | G,A | S |
+| Watchdog | 0–2 | 90k | 7 | 3 | 3+ | 4+ | 9+ | Lupine Speed, Keen Senses, Regenerative | G,A | S,P |
+| ⭐ Sergeant Detritus | 0–1 | 150k | 5 | 5 | 4+ | 6+ | 10+ | Cooling Helmet, Rock Solid, Thick as a Brick, Crossbow Training, Break Heads, Kingly Presence | S | G |
+| ⭐ Captain Carrot | 0–1 | 130k | 6 | 4 | 3+ | 3+ | 10+ | True King, Kingly Presence, Honest Fighter, Will Not Back Down, Diplomatic Immunity, Trusted by All | G,P | S,A |
 
 **Team Re-rolls:** 50k each (max 8)
 
@@ -170,20 +177,48 @@ Turn ends immediately if:
 | Apprentice Wizard | 0–12 | 45k | 6 | 2 | 3+ | 4+ | 8+ | Blink, Small & Sneaky, Portable, Pointy Hat Padding | A | G,P,S |
 | Senior Wizard | 0–6 | 90k | 4 | 4 | 4+ | 5+ | 10+ | Reroll the Thesis, Grappling Cantrip | G,S | A,P |
 | Animated Gargoyle | 0–1 | 115k | 4 | 5 | 5+ | 5+ | 10+ | Bound Spirit, Stone-Thick, Pigeon-Proof, Mindless Masonry, Weathered, Lob the Lackey, Occasional Bite Mark | S | A,G,P |
+| Battle Mage | 0–4 | 85k | 5 | 3 | 3+ | 5+ | 9+ | Combat Evocation, Arcane Strike | G,S | A,P |
+| Haste Mage | 0–2 | 75k | 8 | 2 | 3+ | 5+ | 7+ | Haste Spell, Blink Dodge, Fleet Footed | A | G,P |
+| Technomancer | 0–2 | 80k | 6 | 2 | 3+ | 3+ | 8+ | Hex-Assisted, Calculated Trajectory | G,P | A |
+| Orangutan Scholar | 0–1 | 115k | 7 | 4 | 3+ | 6+ | 9+ | Simian Agility, Four Limbs, Independent | G,S | A,P |
+| ⭐ The Librarian | 0–1 | 145k | 8 | 4 | 2+ | 5+ | 9+ | Prehensile Everything, Library Swinging, Protective Instinct, Bibliophile Rage, Independent, Terrifying Glare | G,S | A,P |
+| ⭐ Archchancellor Ridcully | 0–1 | 140k | 5 | 4 | 3+ | 4+ | 10+ | Archchancellor, Robust Physique, Booming Voice, Arcane Mastery, Headology Expert, Stubborn | G,P,S | A |
 
 **Team Re-rolls:** 60k each (max 8)
 
 ---
 
-## 14. Skills (Thematic Names)
+## 14. Skills (Thematic Names → Blood Bowl Equivalents)
 
-| Themed Name | Effect |
+### City Watch Skills
+| Themed Name | Blood Bowl Effect |
 |---|---|
 | Drill-Hardened | Block |
 | Pigeon Post | Pass |
 | Chain of Custody | Sure Hands |
 | Quick Grab | Catch |
 | Sidestep Shuffle | Dodge |
+| Thick as a Brick | Thick Skull |
+| Rock Solid | Stand Firm |
+| Really Thick | Bone Head |
+| Cooling Helmet | Bone Head (2+ only) |
+| Crossbow Training | Mighty Blow +1 |
+| Break Heads | Break Tackle |
+| Street Fighting | Dirty Player +1 |
+| Slippery | Dodge |
+| Lupine Speed | Sure Feet |
+| Keen Senses | Catch |
+| Regenerative | Regeneration |
+| True King | Leader |
+| Kingly Presence | Guard |
+| Honest Fighter | Block |
+| Will Not Back Down | Dauntless |
+| Diplomatic Immunity | Fend |
+| Trusted by All | Inspiring Presence |
+
+### Wizard Skills
+| Themed Name | Blood Bowl Effect |
+|---|---|
 | Blink | Dodge |
 | Small & Sneaky | Stunty |
 | Portable | Right Stuff |
@@ -197,6 +232,31 @@ Turn ends immediately if:
 | Weathered | Regeneration |
 | Lob the Lackey | Throw Team-Mate |
 | Occasional Bite Mark | Always Hungry |
+| Combat Evocation | Block |
+| Arcane Strike | Mighty Blow +1 |
+| Battle Hardened | Thick Skull |
+| Aggressive Casting | Juggernaut |
+| Haste Spell | Sprint |
+| Blink Dodge | Dodge |
+| Fleet Footed | Sure Feet |
+| Hex-Assisted | Sure Hands |
+| Calculated Trajectory | Pass |
+| Safe Pair of Hands | Safe Pass |
+| Dump-Off Spell | Dump-Off |
+| Prehensile Everything | Extra Arms |
+| Library Swinging | Leap |
+| Protective Instinct | Guard |
+| Bibliophile Rage | Frenzy |
+| Terrifying Glare | Disturbing Presence |
+| Archchancellor | Leader |
+| Robust Physique | Block |
+| Booming Voice | Guard |
+| Arcane Mastery | Pass |
+| Headology Expert | Hypnotic Gaze |
+| Stubborn | Stand Firm |
+| Simian Agility | Leap |
+| Four Limbs | Extra Arms |
+| Independent | Loner 4+ |
 
 ---
 

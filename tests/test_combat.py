@@ -18,7 +18,7 @@ def create_test_game_state() -> GameState:
         game_id="test_game",
         team1=team1,
         team2=team2,
-        phase=GamePhase.PLAYING
+        phase=GamePhase.ACTIVE_PLAY
     )
     
     game_state.turn = TurnState(
@@ -35,6 +35,7 @@ def create_test_player(player_id: str, team_id: str, st: int = 3, av: str = "9+"
     position = PlayerPosition(
         role="Test",
         cost=50000,
+        max_quantity=16,
         ma=6,
         st=st,
         ag="3+",

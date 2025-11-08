@@ -8,6 +8,7 @@ class PlayerPosition(BaseModel):
     """Player roster position definition"""
     role: str
     cost: int
+    max_quantity: int = Field(..., description="Maximum allowed of this position (e.g., 16 for constables, 1 for stars)")
     ma: int = Field(..., description="Movement Allowance")
     st: int = Field(..., description="Strength")
     ag: str = Field(..., description="Agility (e.g., '3+')")
@@ -16,6 +17,7 @@ class PlayerPosition(BaseModel):
     skills: list[SkillType] = Field(default_factory=list)
     primary: list[str] = Field(default_factory=list, description="Primary skill categories")
     secondary: list[str] = Field(default_factory=list, description="Secondary skill categories")
+    is_star_player: bool = Field(default=False, description="True for unique named star players")
 
 
 class Player(BaseModel):

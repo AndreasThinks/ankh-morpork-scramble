@@ -143,7 +143,7 @@ def test_full_game_flow():
     assert response.status_code == 200
     data = response.json()
     assert "movable_players" in data
-    assert data["can_blitz"] == True
+    assert data["can_charge"] == True
     
     # 7. Execute a move action
     response = client.post(

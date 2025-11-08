@@ -7,9 +7,11 @@ from app.models.player import PlayerPosition
 
 # City Watch Roster
 CITY_WATCH_POSITIONS = {
+    # Basic positions
     "constable": PlayerPosition(
         role="Constable",
         cost=50000,
+        max_quantity=16,
         ma=6,
         st=3,
         ag="3+",
@@ -22,6 +24,7 @@ CITY_WATCH_POSITIONS = {
     "clerk_runner": PlayerPosition(
         role="Clerk-Runner",
         cost=80000,
+        max_quantity=2,
         ma=6,
         st=3,
         ag="3+",
@@ -34,6 +37,7 @@ CITY_WATCH_POSITIONS = {
     "fleet_recruit": PlayerPosition(
         role="Fleet Recruit",
         cost=65000,
+        max_quantity=4,
         ma=8,
         st=2,
         ag="3+",
@@ -46,6 +50,7 @@ CITY_WATCH_POSITIONS = {
     "watch_sergeant": PlayerPosition(
         role="Watch Sergeant",
         cost=85000,
+        max_quantity=4,
         ma=7,
         st=3,
         ag="3+",
@@ -54,14 +59,101 @@ CITY_WATCH_POSITIONS = {
         skills=[SkillType.DRILL_HARDENED],
         primary=["G", "S"],
         secondary=["A", "P"]
+    ),
+
+    # NEW: Special positions
+    "troll_constable": PlayerPosition(
+        role="Troll Constable",
+        cost=115000,
+        max_quantity=2,
+        ma=4,
+        st=5,
+        ag="5+",
+        pa="6+",
+        av="10+",
+        skills=[SkillType.THICK_AS_A_BRICK, SkillType.ROCK_SOLID, SkillType.REALLY_THICK],
+        primary=["S"],
+        secondary=["G", "A"]
+    ),
+    "street_veteran": PlayerPosition(
+        role="Street Veteran",
+        cost=50000,
+        max_quantity=4,
+        ma=6,
+        st=2,
+        ag="3+",
+        pa="5+",
+        av="8+",
+        skills=[SkillType.STREET_FIGHTING, SkillType.SLIPPERY],
+        primary=["G", "A"],
+        secondary=["S"]
+    ),
+    "watchdog": PlayerPosition(
+        role="Watchdog",
+        cost=90000,
+        max_quantity=2,
+        ma=7,
+        st=3,
+        ag="3+",
+        pa="4+",
+        av="9+",
+        skills=[SkillType.LUPINE_SPEED, SkillType.KEEN_SENSES, SkillType.REGENERATIVE],
+        primary=["G", "A"],
+        secondary=["S", "P"]
+    ),
+
+    # NEW: Star players (max 1 each)
+    "sergeant_detritus": PlayerPosition(
+        role="Sergeant Detritus",
+        cost=150000,
+        max_quantity=1,
+        ma=5,
+        st=5,
+        ag="4+",
+        pa="6+",
+        av="10+",
+        skills=[
+            SkillType.COOLING_HELMET,
+            SkillType.ROCK_SOLID,
+            SkillType.THICK_AS_A_BRICK,
+            SkillType.CROSSBOW_TRAINING,
+            SkillType.BREAK_HEADS,
+            SkillType.KINGLY_PRESENCE  # Using as GUARD
+        ],
+        primary=["S"],
+        secondary=["G"],
+        is_star_player=True
+    ),
+    "captain_carrot": PlayerPosition(
+        role="Captain Carrot Ironfoundersson",
+        cost=130000,
+        max_quantity=1,
+        ma=6,
+        st=4,
+        ag="3+",
+        pa="3+",
+        av="10+",
+        skills=[
+            SkillType.TRUE_KING,
+            SkillType.KINGLY_PRESENCE,
+            SkillType.HONEST_FIGHTER,
+            SkillType.WILL_NOT_BACK_DOWN,
+            SkillType.DIPLOMATIC_IMMUNITY,
+            SkillType.TRUSTED_BY_ALL
+        ],
+        primary=["G", "P"],
+        secondary=["S", "A"],
+        is_star_player=True
     )
 }
 
 # Unseen University Roster
 UNSEEN_UNIVERSITY_POSITIONS = {
+    # Basic positions
     "apprentice_wizard": PlayerPosition(
         role="Apprentice Wizard",
         cost=45000,
+        max_quantity=12,
         ma=6,
         st=2,
         ag="3+",
@@ -79,6 +171,7 @@ UNSEEN_UNIVERSITY_POSITIONS = {
     "senior_wizard": PlayerPosition(
         role="Senior Wizard",
         cost=90000,
+        max_quantity=6,
         ma=4,
         st=4,
         ag="4+",
@@ -91,6 +184,7 @@ UNSEEN_UNIVERSITY_POSITIONS = {
     "animated_gargoyle": PlayerPosition(
         role="Animated Gargoyle",
         cost=115000,
+        max_quantity=1,
         ma=4,
         st=5,
         ag="5+",
@@ -107,6 +201,104 @@ UNSEEN_UNIVERSITY_POSITIONS = {
         ],
         primary=["S"],
         secondary=["A", "G", "P"]
+    ),
+
+    # NEW: Special positions
+    "battle_mage": PlayerPosition(
+        role="Battle Mage",
+        cost=85000,
+        max_quantity=4,
+        ma=5,
+        st=3,
+        ag="3+",
+        pa="5+",
+        av="9+",
+        skills=[SkillType.COMBAT_EVOCATION, SkillType.ARCANE_STRIKE],
+        primary=["G", "S"],
+        secondary=["A", "P"]
+    ),
+    "haste_mage": PlayerPosition(
+        role="Haste Mage",
+        cost=75000,
+        max_quantity=2,
+        ma=8,
+        st=2,
+        ag="3+",
+        pa="5+",
+        av="7+",
+        skills=[SkillType.HASTE_SPELL, SkillType.BLINK_DODGE, SkillType.FLEET_FOOTED],
+        primary=["A"],
+        secondary=["G", "P"]
+    ),
+    "technomancer": PlayerPosition(
+        role="Technomancer",
+        cost=80000,
+        max_quantity=2,
+        ma=6,
+        st=2,
+        ag="3+",
+        pa="3+",
+        av="8+",
+        skills=[SkillType.HEX_ASSISTED, SkillType.CALCULATED_TRAJECTORY],
+        primary=["G", "P"],
+        secondary=["A"]
+    ),
+    "orangutan_scholar": PlayerPosition(
+        role="Orangutan Scholar",
+        cost=115000,
+        max_quantity=1,
+        ma=7,
+        st=4,
+        ag="3+",
+        pa="6+",
+        av="9+",
+        skills=[SkillType.SIMIAN_AGILITY, SkillType.FOUR_LIMBS, SkillType.INDEPENDENT],
+        primary=["G", "S"],
+        secondary=["A", "P"]
+    ),
+
+    # NEW: Star players (max 1 each)
+    "the_librarian": PlayerPosition(
+        role="The Librarian",
+        cost=145000,
+        max_quantity=1,
+        ma=8,
+        st=4,
+        ag="2+",
+        pa="5+",
+        av="9+",
+        skills=[
+            SkillType.PREHENSILE_EVERYTHING,
+            SkillType.LIBRARY_SWINGING,
+            SkillType.PROTECTIVE_INSTINCT,
+            SkillType.BIBLIOPHILE_RAGE,
+            SkillType.INDEPENDENT,
+            SkillType.TERRIFYING_GLARE
+        ],
+        primary=["G", "S"],
+        secondary=["A", "P"],
+        is_star_player=True
+    ),
+    "archchancellor_ridcully": PlayerPosition(
+        role="Archchancellor Ridcully",
+        cost=140000,
+        max_quantity=1,
+        ma=5,
+        st=4,
+        ag="3+",
+        pa="4+",
+        av="10+",
+        skills=[
+            SkillType.ARCHCHANCELLOR,
+            SkillType.ROBUST_PHYSIQUE,
+            SkillType.BOOMING_VOICE,
+            SkillType.ARCANE_MASTERY,
+            SkillType.HEADOLOGY_EXPERT,
+            SkillType.STUBBORN
+        ],
+        primary=["G", "P", "S"],
+        secondary=["A"],
+        is_star_player=True
     )
 }
 
@@ -143,7 +335,7 @@ class Team(BaseModel):
     team_type: TeamType
 
     # Budget tracking
-    budget_initial: int = 1_000_000  # Standard Blood Bowl budget
+    budget_initial: int = 1_000_000  # Standard team treasury
     budget_spent: int = 0
     purchase_history: list[str] = Field(default_factory=list)
 

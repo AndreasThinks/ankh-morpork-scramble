@@ -32,7 +32,7 @@ class GameManager:
             game_id = str(uuid.uuid4())
         
         # Create placeholder teams - will be set during join
-        # Teams start with no rerolls; they must purchase them during setup
+        # Teams start with no rerolls; they must purchase them during deployment
         team1 = Team(
             id="team1",
             name="Team 1",
@@ -47,7 +47,7 @@ class GameManager:
         
         game_state = GameState(
             game_id=game_id,
-            phase=GamePhase.SETUP,
+            phase=GamePhase.DEPLOYMENT,
             team1=team1,
             team2=team2
         )
@@ -114,7 +114,7 @@ class GameManager:
         team_id: str,
         positions: dict[str, Position]
     ) -> GameState:
-        """Place players on the pitch during setup"""
+        """Place players on the pitch during deployment"""
         game_state = self.get_game(game_id)
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
@@ -142,8 +142,8 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
         
-        if game_state.phase != GamePhase.SETUP:
-            raise ValueError(f"Game must be in setup phase to start")
+        if game_state.phase != GamePhase.DEPLOYMENT:
+            raise ValueError(f"Game must be in deployment phase to start")
 
         game_state.start_game()
 
@@ -260,22 +260,14 @@ class GameManager:
         return "unknown"
 
     def _get_position_limit(self, position_key: str, team_type: TeamType) -> int:
-        """Get the quantity limit for a position based on rules"""
-        # From rules.md section 13
-        limits = {
-            TeamType.CITY_WATCH: {
-                "constable": 16,
-                "clerk_runner": 2,
-                "fleet_recruit": 4,
-                "watch_sergeant": 4
-            },
-            TeamType.UNSEEN_UNIVERSITY: {
-                "apprentice_wizard": 12,
-                "senior_wizard": 6,
-                "animated_gargoyle": 1
-            }
-        }
-        return limits.get(team_type, {}).get(position_key, 0)
+        """Get the quantity limit for a position from roster definition"""
+        roster = TEAM_ROSTERS.get(team_type)
+        if not roster:
+            return 0
+        position = roster.positions.get(position_key)
+        if not position:
+            return 0
+        return position.max_quantity
 
     def buy_player(
         self,
@@ -288,8 +280,8 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
 
-        if game_state.phase != GamePhase.SETUP:
-            raise ValueError("Can only purchase players during setup phase")
+        if game_state.phase != GamePhase.DEPLOYMENT:
+            raise ValueError("Can only purchase players during deployment phase")
 
         team = game_state.get_team_by_id(team_id)
         roster = TEAM_ROSTERS[team.team_type]
@@ -357,8 +349,8 @@ class GameManager:
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
 
-        if game_state.phase != GamePhase.SETUP:
-            raise ValueError("Can only purchase rerolls during setup phase")
+        if game_state.phase != GamePhase.DEPLOYMENT:
+            raise ValueError("Can only purchase rerolls during deployment phase")
 
         team = game_state.get_team_by_id(team_id)
         roster = TEAM_ROSTERS[team.team_type]

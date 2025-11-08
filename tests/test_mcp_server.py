@@ -22,7 +22,7 @@ async def test_mcp_tools_are_registered():
         tools = await client.list_tools()
         tool_names = [t.name for t in tools]
 
-        # Verify all expected tools are present (10 original + 4 setup phase tools)
+        # Verify all expected tools are present (10 original + 6 setup phase tools)
         expected_tools = [
             # Gameplay tools
             "join_game",
@@ -39,7 +39,9 @@ async def test_mcp_tools_are_registered():
             "get_team_budget",
             "get_available_positions",
             "buy_player",
-            "buy_reroll"
+            "buy_reroll",
+            "place_players",
+            "ready_to_play"
         ]
 
         for tool in expected_tools:
@@ -217,8 +219,8 @@ async def test_get_valid_actions_during_game(clean_manager):
         actions = result.data
         assert hasattr(actions, "current_team")
         assert hasattr(actions, "movable_players")
-        assert actions.can_blitz is True  # First turn, everything available
-        assert actions.can_pass is True
+        assert actions.can_charge is True  # First turn, everything available
+        assert actions.can_hurl is True
 
 
 @pytest.mark.asyncio

@@ -87,6 +87,7 @@ def test_player_movement_tracking():
     position = PlayerPosition(
         role="Test",
         cost=50000,
+        max_quantity=16,
         ma=6,
         st=3,
         ag="3+",
@@ -112,6 +113,7 @@ def test_player_state_transitions():
     position = PlayerPosition(
         role="Test",
         cost=50000,
+        max_quantity=16,
         ma=6,
         st=3,
         ag="3+",

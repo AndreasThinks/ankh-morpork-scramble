@@ -42,6 +42,14 @@ sample file will spin up the demo match (`DEFAULT_GAME_ID=demo-game`) and assign
 the first agent as `team1`. Duplicate the agent section in `.env` with a unique
 `TEAM_ID` / `TEAM_NAME` pair if you want to run multiple local agents.
 
+### Game Mode Configuration
+
+**DEMO_MODE** (default: `true`)
+- `DEMO_MODE=true`: Pre-configured demo game with rosters ready to play
+- `DEMO_MODE=false`: Interactive setup where agents must purchase and place players using their 1,000,000 gold budget
+
+When using interactive mode, agents must use the MCP budget tools to build their rosters before playing.
+
 ## Web Dashboard
 
 A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It refreshes
@@ -122,34 +130,59 @@ The server includes an MCP (Model Context Protocol) interface at `http://localho
 
 ### Available MCP Tools
 
-LLM agents have access to 9 specialized tools:
+LLM agents have access to 15 specialized tools:
 
-1. **join_game** - Join a game that's been set up
-2. **get_game_state** - View complete game state
-3. **get_valid_actions** - Check available moves
-4. **execute_action** - Perform game actions (move, block, pass, etc.)
-5. **end_turn** - Finish your turn
-6. **use_reroll** - Use a team reroll token
-7. **get_history** - View event log
-8. **send_message** - Chat with opponent
-9. **get_messages** - Read messages
+**Setup & Budget Tools** (for DEMO_MODE=false):
+1. **get_team_budget** - Check remaining budget and purchase history
+2. **get_available_positions** - View purchasable players and rerolls with costs
+3. **buy_player** - Purchase a player position (costs gold)
+4. **buy_reroll** - Purchase a team reroll (costs gold)
+5. **place_players** - Position players on the pitch
+6. **ready_to_play** - Mark team as ready after setup completion
+
+**Core Gameplay Tools**:
+7. **join_game** - Join a game that's been set up
+8. **get_game_state** - View complete game state
+9. **get_valid_actions** - Check available moves
+10. **execute_action** - Perform game actions (move, scuffle, charge, etc.)
+11. **end_turn** - Finish your turn
+12. **use_reroll** - Use a team reroll token
+13. **get_history** - View event log
+14. **send_message** - Chat with opponent
+15. **get_messages** - Read messages
+16. **suggest_path** - Get movement path suggestions with risk assessment
 
 ### How LLM Agents Play
 
-**Setup (done by coordinator):**
-1. Create game with `POST /game`
-2. Setup both teams with `POST /game/{game_id}/setup-team`
-3. Place all players with `POST /game/{game_id}/place-players`
-4. Start game with `POST /game/{game_id}/start`
+**Demo Mode (DEMO_MODE=true):**
+1. Server creates pre-configured game at startup
+2. Agents join using `join_game(game_id, team_id)`
+3. Game starts automatically when both teams join
+4. Proceed to gameplay phase
 
-**Gameplay (LLM agents):**
-1. Connect to MCP server at `http://localhost:8000/mcp`
-2. Join game using `join_game(game_id, team_id)`
-3. Wait for your turn
-4. Check options with `get_valid_actions(game_id)`
-5. Execute moves with `execute_action(...)`
-6. End turn with `end_turn(game_id, team_id)`
-7. Communicate with `send_message` and `get_messages`
+**Interactive Mode (DEMO_MODE=false):**
+1. Server creates empty game in DEPLOYMENT phase
+2. Agents join using `join_game(game_id, team_id)`
+3. Each agent builds their roster:
+   - Check budget: `get_team_budget(game_id, team_id)`
+   - View options: `get_available_positions(game_id, team_id)`
+   - Purchase players: `buy_player(game_id, team_id, position_key)` (minimum 3)
+   - Purchase rerolls: `buy_reroll(game_id, team_id)` (optional)
+   - Place players: `place_players(game_id, team_id, positions)`
+   - Mark ready: `ready_to_play(game_id, team_id)`
+4. Game starts automatically when both teams are ready
+
+**Gameplay Phase (both modes):**
+1. Wait for your turn
+2. Check options with `get_valid_actions(game_id)`
+3. Execute actions with `execute_action(...)` using Discworld terminology:
+   - **SCUFFLE** (was BLOCK) - Attack adjacent opponent
+   - **CHARGE** (was BLITZ) - Move + attack (once per turn)
+   - **HURL** (was PASS) - Throw the ball (once per turn)
+   - **QUICK_PASS** (was HAND_OFF) - Give ball to adjacent teammate (once per turn)
+   - **BOOT** (was FOUL) - Attack prone opponent (once per turn)
+4. End turn with `end_turn(game_id, team_id)`
+5. Communicate with `send_message` and `get_messages`
 
 ### MCP Client Example
 
@@ -324,37 +357,55 @@ curl -X POST http://localhost:8000/game/{game_id}/end-turn
 
 - ✅ Turn-based gameplay with automatic turnover detection
 - ✅ Player movement with dodge and rush mechanics
-- ✅ Ball handling (pickup, pass, catch, hand-off, scatter)
-- ✅ Combat system (block, armor, injury rolls)
-- ✅ Special actions (blitz, foul)
-- ✅ Team rosters (City Watch, Unseen University)
-- ✅ Skill system with themed abilities
-- ✅ Score tracking and game phases
+- ✅ Ball handling (pickup, hurl, catch, quick pass, scatter)
+- ✅ Combat system (scuffle, armor, injury rolls)
+- ✅ Special actions (charge, boot) using Discworld terminology
+- ✅ Team rosters (City Watch with 9 positions, Unseen University with 9 positions)
+- ✅ Star players (Captain Carrot, Sergeant Detritus, The Librarian, Archchancellor Ridcully)
+- ✅ 60+ Discworld-themed skills
+- ✅ Budget system (1M gold treasury with purchase tracking)
+- ✅ Interactive setup mode (agents build rosters from scratch)
+- ✅ Demo mode (pre-configured rosters for instant play)
+- ✅ Score tracking and game phases (DEPLOYMENT → OPENING_SCRAMBLE → ACTIVE_PLAY)
 - ✅ Team re-rolls
 - ✅ Complete game state management
+- ✅ MCP interface for LLM agents
 
-### Action Types
+### Action Types (Discworld Terminology)
 
-- **Move**: Move a player along a path (with dodge rolls if needed)
-- **Stand Up**: Stand up from prone (costs 3 MA)
-- **Block**: Attack an adjacent opponent
-- **Blitz**: Move + Block (once per turn)
-- **Pass**: Throw the ball (once per turn)
-- **Hand-off**: Give ball to adjacent teammate (once per turn)
-- **Foul**: Attack a prone opponent (once per turn)
+- **MOVE**: Move a player along a path (with dodge rolls if needed)
+- **STAND_UP**: Stand up from prone (costs 3 MA)
+- **SCUFFLE** (was BLOCK): Attack an adjacent opponent in Ankh-Morpork street fighting style
+- **CHARGE** (was BLITZ): Aggressive rush - Move + Scuffle (once per turn)
+- **HURL** (was PASS): Throw the ball to a teammate (once per turn)
+- **QUICK_PASS** (was HAND_OFF): Short transfer to adjacent teammate (once per turn)
+- **BOOT** (was FOUL): Ankh-Morpork street tactics - attack a prone opponent (once per turn)
 
 ### Teams
 
-**City Watch**
-- Constable: Basic lineman (MA 6, ST 3, AG 3+, AV 9+)
-- Clerk-Runner: Fast passer with ball handling skills
-- Fleet Recruit: Speedy catcher (MA 8)
-- Watch Sergeant: Stronger blocker with Drill-Hardened skill
+**City Watch** (1M gold budget)
+- **Constable** (50k, 0-16): Basic lineman (MA 6, ST 3, AG 3+, AV 9+)
+- **Clerk-Runner** (80k, 0-2): Fast passer with Pigeon Post & Chain of Custody
+- **Fleet Recruit** (65k, 0-4): Speedy catcher (MA 8) with Quick Grab & Sidestep Shuffle
+- **Watch Sergeant** (85k, 0-4): Disciplined blocker with Drill-Hardened
+- **Troll Constable** (115k, 0-2): Massive strength (ST 5) with Thick as a Brick & Rock Solid
+- **Street Veteran** (50k, 0-4): Street Fighter with Slippery movement
+- **Watchdog** (90k, 0-2): Werewolf with Lupine Speed, Keen Senses & Regenerative
+- ⭐ **Sergeant Detritus** (150k, 0-1): Star troll with Cooling Helmet & Crossbow Training
+- ⭐ **Captain Carrot** (130k, 0-1): True King with Kingly Presence & Diplomatic Immunity
+- **Team Reroll**: 50k (max 8)
 
-**Unseen University Wizards**
-- Apprentice Wizard: Small and sneaky with dodge abilities
-- Senior Wizard: Slow but strong with grappling skills
-- Animated Gargoyle: Extremely strong but mindless (ST 5)
+**Unseen University Wizards** (1M gold budget)
+- **Apprentice Wizard** (45k, 0-12): Small & sneaky with Blink dodge (MA 6, ST 2, AG 3+, AV 8+)
+- **Senior Wizard** (90k, 0-6): Slow but strong with Reroll the Thesis & Grappling Cantrip
+- **Animated Gargoyle** (115k, 0-1): Stone construct (ST 5) with Bound Spirit & Weathered
+- **Battle Mage** (85k, 0-4): Combat specialist with Combat Evocation & Arcane Strike
+- **Haste Mage** (75k, 0-2): Speed specialist (MA 8) with Haste Spell & Blink Dodge
+- **Technomancer** (80k, 0-2): Precision passer with Hex-Assisted & Calculated Trajectory
+- **Orangutan Scholar** (115k, 0-1): Simian Agility with Four Limbs & Independent
+- ⭐ **The Librarian** (145k, 0-1): Ook! Prehensile Everything, Library Swinging & Bibliophile Rage
+- ⭐ **Archchancellor Ridcully** (140k, 0-1): Leader with Robust Physique, Booming Voice & Arcane Mastery
+- **Team Reroll**: 60k (max 8)
 
 ## Architecture
 

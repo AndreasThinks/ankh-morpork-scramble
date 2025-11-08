@@ -124,7 +124,7 @@ def test_get_available_positions_city_watch():
 
     assert available.team_id == "team1"
     assert available.team_type == "city_watch"
-    assert len(available.positions) == 4  # 4 City Watch positions
+    assert len(available.positions) == 9  # 9 City Watch positions
 
     # Check constable details
     constable = next(p for p in available.positions if p.position_key == "constable")
@@ -289,9 +289,9 @@ def test_buy_player_only_in_setup_phase():
     game = manager.create_game("test_game")
 
     # Move to different phase
-    game.phase = GamePhase.PLAYING
+    game.phase = GamePhase.ACTIVE_PLAY
 
-    with pytest.raises(ValueError, match="only purchase players during setup"):
+    with pytest.raises(ValueError, match="only purchase players during deployment"):
         manager.buy_player("test_game", "team1", "constable")
 
 
@@ -355,9 +355,9 @@ def test_buy_reroll_only_in_setup_phase():
     """Test buying rerolls only allowed in setup phase"""
     manager = GameManager()
     game = manager.create_game("test_game")
-    game.phase = GamePhase.PLAYING
+    game.phase = GamePhase.ACTIVE_PLAY
 
-    with pytest.raises(ValueError, match="only purchase rerolls during setup"):
+    with pytest.raises(ValueError, match="only purchase rerolls during deployment"):
         manager.buy_reroll("test_game", "team1")
 
 
@@ -423,7 +423,7 @@ def test_api_get_available_positions():
     data = response.json()
     assert data["team_id"] == "team1"
     assert data["team_type"] == "city_watch"
-    assert len(data["positions"]) == 4
+    assert len(data["positions"]) == 9
     assert data["reroll_cost"] == 50000
     assert data["can_afford_reroll"] is True
 
