@@ -119,8 +119,8 @@ async def test_join_game_flow(clean_manager):
 
 
 @pytest.mark.asyncio
-async def test_join_game_starts_match(clean_manager):
-    """Joining both teams should automatically start the game."""
+async def test_join_game_marks_teams_joined(clean_manager):
+    """Joining both teams should update join status without auto-starting."""
     clean_manager.create_game("auto_game")
     clean_manager.setup_team("auto_game", "team1", TeamType.CITY_WATCH, {"constable": "2"})
     clean_manager.setup_team("auto_game", "team2", TeamType.CITY_WATCH, {"constable": "2"})
@@ -139,8 +139,10 @@ async def test_join_game_starts_match(clean_manager):
         await client.call_tool("join_game", {"game_id": "auto_game", "team_id": "team2"})
 
     game_state = clean_manager.get_game("auto_game")
-    assert game_state.game_started is True
-    assert game_state.turn is not None
+    assert game_state.team1_joined is True
+    assert game_state.team2_joined is True
+    assert game_state.game_started is False
+    assert game_state.turn is None
 
 
 @pytest.mark.asyncio

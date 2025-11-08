@@ -107,7 +107,7 @@ def test_send_and_receive_messages():
     assert message["sender_id"] == "player1"
     assert message["sender_name"] == "Alice"
     assert message["content"] == "Hello, ready to play?"
-    assert message["game_phase"] == "setup"
+    assert message["game_phase"] == "deployment"
     
     # Send another message
     response = client.post(
@@ -272,7 +272,7 @@ def test_reset_game():
     data = response.json()
     
     # Verify reset state
-    assert data["phase"] == "setup"
+    assert data["phase"] == "deployment"
     assert data["game_started"] == False
     assert data["turn"] is None
     assert len(data["players"]) == 0
