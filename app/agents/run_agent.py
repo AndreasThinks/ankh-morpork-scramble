@@ -284,7 +284,7 @@ class ClineAgentRunner:
                 "cline",
                 "config",
                 "set",
-                "yolo=true",
+                "yolo-mode-toggled=true",
             ],
             description="enable YOLO mode",
         )
