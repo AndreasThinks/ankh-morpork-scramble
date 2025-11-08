@@ -142,12 +142,26 @@ class SkillType(str, Enum):
 
 
 class GamePhase(str, Enum):
-    """Game phases"""
-    DEPLOYMENT = "deployment"  # was SETUP - teams deploy their forces
-    OPENING_SCRAMBLE = "opening_scramble"  # was KICKOFF - the match begins
-    ACTIVE_PLAY = "active_play"  # was PLAYING - the game in action
-    INTERMISSION = "intermission"  # was HALF_TIME - break between halves
-    CONCLUDED = "concluded"  # was FINISHED - match over
+    """Game phases.
+
+    The enum keeps Discworld-flavoured names as aliases but exposes the
+    original Blood Bowl terminology (setup/kickoff/etc.) as the canonical
+    values so that existing API clients and tests continue to work.
+    """
+
+    # Canonical phase names expected by the public API/tests
+    SETUP = "setup"
+    KICKOFF = "kickoff"
+    PLAYING = "playing"
+    HALF_TIME = "half_time"
+    FINISHED = "finished"
+
+    # Aliases preserved for backwards compatibility with themed code
+    DEPLOYMENT = "setup"
+    OPENING_SCRAMBLE = "kickoff"
+    ACTIVE_PLAY = "playing"
+    INTERMISSION = "half_time"
+    CONCLUDED = "finished"
 
 
 class SkillCategory(str, Enum):

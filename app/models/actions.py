@@ -1,6 +1,6 @@
 """Action request and result models"""
 from typing import Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from app.models.enums import ActionType, BlockResult, PassResult
 from app.models.pitch import Position
 
@@ -89,6 +89,12 @@ class ValidActionsResponse(BaseModel):
     can_quick_pass: bool  # was can_hand_off
     can_boot: bool  # was can_foul
 
+    # Legacy field names maintained for backwards compatibility with the API
+    can_blitz: bool | None = None
+    can_pass: bool | None = None
+    can_hand_off: bool | None = None
+    can_foul: bool | None = None
+
     # Players who can act
     movable_players: list[str] = Field(default_factory=list)
     blockable_targets: dict[str, list[str]] = Field(
@@ -100,6 +106,16 @@ class ValidActionsResponse(BaseModel):
     ball_carrier: Optional[str] = None
     ball_on_ground: bool = False
     ball_position: Optional[Position] = None
+
+    @model_validator(mode="after")
+    def populate_legacy_flags(self) -> "ValidActionsResponse":
+        """Ensure legacy flag names mirror the new Discworld terminology."""
+
+        self.can_blitz = self.can_charge
+        self.can_pass = self.can_hurl
+        self.can_hand_off = self.can_quick_pass
+        self.can_foul = self.can_boot
+        return self
 
 
 class BudgetStatus(BaseModel):
