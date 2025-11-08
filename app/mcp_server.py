@@ -60,17 +60,12 @@ def join_game(
             f"'{game_state.team1.id}' and '{game_state.team2.id}'"
         )
     
-    # Automatically start the match once both teams are ready - but only for non-DEPLOYMENT games.
-    # For DEPLOYMENT games, teams must use ready_to_play() after purchasing/placing players.
+    # Automatically start the match once both teams are ready (players joined and placed)
     game_started = False
     if game_state.players_ready and not game_state.game_started:
-        # Only auto-start for demo games (non-DEPLOYMENT phase)
-        # DEPLOYMENT games require teams to buy players, place them, and call ready_to_play()
-        from app.models.enums import GamePhase
-        if game_state.phase != GamePhase.DEPLOYMENT:
-            manager.start_game(game_id)
-            game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
-            game_started = True
+        manager.start_game(game_id)
+        game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
+        game_started = True
 
     return {
         "success": True,
@@ -82,8 +77,8 @@ def join_game(
             "Game started after both teams joined"
             if game_started
             else (
-                f"Successfully joined as {team_id}. In DEPLOYMENT phase - purchase players, place them, then call ready_to_play()"
-                if game_state.phase.value == "deployment"
+                f"Successfully joined as {team_id}. In setup phase - purchase players, place them, then call ready_to_play()"
+                if game_state.phase.value == "setup"
                 else f"Successfully joined as {team_id}. Waiting for opponent to join..."
             )
         )

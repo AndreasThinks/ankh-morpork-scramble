@@ -39,7 +39,7 @@ class TurnState(BaseModel):
 class GameState(BaseModel):
     """Complete game state"""
     game_id: str
-    phase: GamePhase = GamePhase.DEPLOYMENT
+    phase: GamePhase = GamePhase.SETUP
     
     # Teams
     team1: Team
@@ -208,7 +208,7 @@ class GameState(BaseModel):
         return message
     
     def reset_to_setup(self) -> None:
-        """Reset game to deployment phase, preserving join status and messages"""
+        """Reset game to setup phase, preserving join status and messages"""
         # Clear pitch
         self.pitch = Pitch()
 
@@ -216,25 +216,25 @@ class GameState(BaseModel):
         self.players = {}
 
         # Reset phase
-        self.phase = GamePhase.DEPLOYMENT
+        self.phase = GamePhase.SETUP
         self.game_started = False
 
         # Clear turn state
         self.turn = None
 
         # Keep join status and messages (preserve history)
-        self.add_event("Game reset to deployment phase")
+        self.add_event("Game reset to setup phase")
     
     def start_game(self) -> None:
         """Start the game"""
         if not self.players_ready:
             raise ValueError("Both teams must join before starting")
 
-        self.phase = GamePhase.OPENING_SCRAMBLE
+        self.phase = GamePhase.KICKOFF
         self.game_started = True
         self.turn = TurnState(
             half=1,
             team_turn=0,
             active_team_id=self.team1.id
         )
-        self.add_event("The Opening Scramble begins!")
+        self.add_event("Kickoff! The match begins.")
