@@ -149,7 +149,7 @@ def test_get_available_positions_unseen_university():
     available = manager.get_available_positions("test_game", "team2")
 
     assert available.team_type == "unseen_university"
-    assert len(available.positions) == 3  # 3 UU positions
+    assert len(available.positions) == 9  # 9 UU positions
 
     # Check gargoyle details
     gargoyle = next(p for p in available.positions if p.position_key == "animated_gargoyle")

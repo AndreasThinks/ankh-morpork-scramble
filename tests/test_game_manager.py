@@ -137,8 +137,8 @@ def test_cannot_start_game_twice():
     # Start once
     manager.start_game("test_game")
     
-    # Try to start again (phase is no longer SETUP)
-    with pytest.raises(ValueError, match="setup phase"):
+    # Try to start again (phase is no longer deployment)
+    with pytest.raises(ValueError, match="deployment phase"):
         manager.start_game("test_game")
 
 

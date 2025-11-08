@@ -24,7 +24,7 @@ def test_create_game():
     
     data = response.json()
     assert "game_id" in data
-    assert data["phase"] == "setup"
+    assert data["phase"] == "deployment"
     assert "team1" in data
     assert "team2" in data
 
@@ -135,7 +135,7 @@ def test_full_game_flow():
     response = client.post(f"/game/{game_id}/start")
     assert response.status_code == 200
     data = response.json()
-    assert data["phase"] == "kickoff"
+    assert data["phase"] == "opening_scramble"
     assert data["turn"] is not None
     
     # 6. Get valid actions
@@ -481,8 +481,8 @@ def test_valid_actions_endpoint():
 
     data = response.json()
     assert "movable_players" in data
-    assert "can_blitz" in data
-    assert "can_pass" in data
+    assert "can_charge" in data
+    assert "can_hurl" in data
 
 
 def test_valid_actions_invalid_game():
