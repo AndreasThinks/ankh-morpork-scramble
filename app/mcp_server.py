@@ -1,10 +1,13 @@
 """MCP server for LLM agents to play Ankh-Morpork Scramble"""
 from typing import Annotated, Optional
+from textwrap import dedent
+
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from app.models.game_state import GameState
+
 from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
 from app.models.enums import ActionType
+from app.models.game_state import GameState
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
 
@@ -13,61 +16,61 @@ from app.state.game_manager import GameManager
 mcp = FastMCP("Ankh-Morpork Scramble")
 
 
+def _system_prompt(content: str) -> list[dict[str, str]]:
+    """Return a single system message for FastMCP prompts."""
+
+    return [{"role": "system", "content": dedent(content).strip()}]
+
+
+OPENING_SETUP_PROMPT = """
+    ### Opening Setup Checklist
+    1. Join your assigned match with `join_game` and confirm the correct `team_id`.
+    2. Review funds with `get_team_budget` and inspect recruit options via `get_available_positions`.
+    3. Purchase at least three players with `buy_player`, staying within each position's cap.
+    4. Decide on rerolls using `buy_reroll` (City Watch: 50k, Unseen University: 60k) without exceeding eight total.
+    5. Place every player through `place_players`, keeping to your half (Team 1: x=0–12, Team 2: x=13–25, y=0–14) and one piece per square.
+    6. Double-check the lineup with `get_game_state`, then call `ready_to_play` so kickoff can begin once both teams are ready.
+"""
+
+
+ACTION_SELECTION_PROMPT = """
+    ### Action Selection Tips
+    - Open each turn with `get_game_state` and `get_valid_actions` to confirm who is active and which specials (charge, hurl, quick pass, boot) remain.
+    - Resolve low-risk positioning before attempting critical rolls so a turnover does not end the turn prematurely.
+    - Use tackle zones to screen the ball and mark priority targets before launching the decisive action.
+    - Only set `use_reroll=True` in `execute_action` when failure would cause a turnover or expose the ball—team rerolls are scarce.
+    - Finish the turn deliberately with `end_turn` once the essentials are complete or a turnover has already triggered the changeover.
+"""
+
+
+COMMUNICATION_ETIQUETTE_PROMPT = """
+    ### Communication Etiquette
+    - Use `send_message` for courteous updates: greet opponents, flag pauses, and confirm turn handoffs.
+    - Keep chatter concise and relevant to the match—avoid spam and stay in-character when possible.
+    - Celebrate dramatic plays with good humour but keep language respectful.
+    - Describe technical issues calmly so humans can help if something goes awry.
+"""
+
+
 @mcp.prompt("opening_setup_checklist")
 def opening_setup_checklist() -> list[dict[str, str]]:
     """Step-by-step tasks to complete before the first kickoff."""
 
-    return [
-        {
-            "role": "system",
-            "content": (
-                "### Opening Setup Checklist\n"
-                "1. Join your assigned match with `join_game` and confirm the correct `team_id`.\n"
-                "2. Review funds with `get_team_budget` and inspect recruit options via `get_available_positions`.\n"
-                "3. Purchase at least three players with `buy_player`, staying within each position's cap.\n"
-                "4. Decide on rerolls using `buy_reroll` (City Watch: 50k, Unseen University: 60k) without exceeding eight total.\n"
-                "5. Place every player through `place_players`, keeping to your half (Team 1: x=0–12, Team 2: x=13–25, y=0–14) and one piece per square.\n"
-                "6. Double-check the lineup with `get_game_state`, then call `ready_to_play` so kickoff can begin once both teams are ready."
-            ),
-        }
-    ]
+    return _system_prompt(OPENING_SETUP_PROMPT)
 
 
 @mcp.prompt("action_selection_tips")
 def action_selection_tips() -> list[dict[str, str]]:
     """Guidelines for choosing actions and sequencing a turn."""
 
-    return [
-        {
-            "role": "system",
-            "content": (
-                "### Action Selection Tips\n"
-                "- Open each turn with `get_game_state` and `get_valid_actions` to confirm who is active and which specials (charge, hurl, quick pass, boot) remain.\n"
-                "- Resolve low-risk positioning before attempting critical rolls so a turnover does not end the turn prematurely.\n"
-                "- Use tackle zones to screen the ball and mark priority targets before launching the decisive action.\n"
-                "- Only set `use_reroll=True` in `execute_action` when failure would cause a turnover or expose the ball—team rerolls are scarce.\n"
-                "- Finish the turn deliberately with `end_turn` once the essentials are complete or a turnover has already triggered the changeover."
-            ),
-        }
-    ]
+    return _system_prompt(ACTION_SELECTION_PROMPT)
 
 
 @mcp.prompt("communication_etiquette")
 def communication_etiquette() -> list[dict[str, str]]:
     """Preferred tone and expectations for in-game chat."""
 
-    return [
-        {
-            "role": "system",
-            "content": (
-                "### Communication Etiquette\n"
-                "- Use `send_message` for courteous updates: greet opponents, flag pauses, and confirm turn handoffs.\n"
-                "- Keep chatter concise and relevant to the match—avoid spam and stay in-character when possible.\n"
-                "- Celebrate dramatic plays with good humour but keep language respectful.\n"
-                "- Describe technical issues calmly so humans can help if something goes awry."
-            ),
-        }
-    ]
+    return _system_prompt(COMMUNICATION_ETIQUETTE_PROMPT)
 
 
 def get_manager() -> GameManager:
