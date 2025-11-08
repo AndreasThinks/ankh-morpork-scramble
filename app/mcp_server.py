@@ -12,7 +12,7 @@ from app.models.actions import (
     AvailablePositionsResponse,
     PurchaseResult,
 )
-from app.models.enums import ActionType
+from app.models.enums import ActionType, GamePhase
 from app.models.pitch import Position
 from app.models.responses import (
     JoinGameResponse,
@@ -78,10 +78,19 @@ def join_game(
     # For DEPLOYMENT games, teams must use ready_to_play() after purchasing/placing players.
     game_started = False
     if game_state.players_ready and not game_state.game_started:
-        # Only auto-start for demo games (non-DEPLOYMENT phase)
-        # DEPLOYMENT games require teams to buy players, place them, and call ready_to_play()
-        from app.models.enums import GamePhase
-        if game_state.phase != GamePhase.DEPLOYMENT:
+        # Allow auto-start for non-deployment games or if both teams have fully deployed rosters
+        auto_start_allowed = game_state.phase != GamePhase.DEPLOYMENT
+
+        if not auto_start_allowed:
+            def team_fully_deployed(team) -> bool:
+                return team.player_ids and all(
+                    player_id in game_state.pitch.player_positions
+                    for player_id in team.player_ids
+                )
+
+            auto_start_allowed = team_fully_deployed(game_state.team1) and team_fully_deployed(game_state.team2)
+
+        if auto_start_allowed:
             manager.start_game(game_id)
             game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
             game_started = True

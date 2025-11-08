@@ -7,6 +7,15 @@ from app.models.enums import ActionType
 from app.models.pitch import Position
 
 
+def as_dict(data):
+    """Convert tool responses to dictionaries for assertion convenience."""
+    if hasattr(data, "model_dump"):
+        return data.model_dump()
+    if hasattr(data, "__dict__"):
+        return dict(data.__dict__)
+    return data
+
+
 @pytest.fixture
 def clean_manager():
     """Clean game manager before each test"""
@@ -77,11 +86,12 @@ async def test_join_game_flow(clean_manager):
             "join_game",
             {"game_id": "test_game", "team_id": "team1"}
         )
-        
-        assert result.data["success"] is True
-        assert result.data["team_id"] == "team1"
-        assert result.data["players_ready"] is False
-        
+
+        team1_payload = as_dict(result.data)
+        assert team1_payload["success"] is True
+        assert team1_payload["team_id"] == "team1"
+        assert team1_payload["players_ready"] is False
+
         # Team 2 joins
         result = await client.call_tool(
             "join_game",
@@ -156,9 +166,9 @@ async def test_get_game_state(clean_manager):
             "get_game_state",
             {"game_id": "test_game"}
         )
-        
+
         # Result should contain GameState data
-        state = result.data
+        state = as_dict(result.data)
         assert state["game_id"] == "test_game"
         assert "team1" in state
         assert "team2" in state
@@ -337,10 +347,11 @@ async def test_end_turn(clean_manager):
                 "team_id": initial_active_team
             }
         )
-        
-        assert result.data["success"] is True
-        assert result.data["turn_ended"] == initial_active_team
-        assert result.data["new_active_team"] != initial_active_team
+
+        end_payload = as_dict(result.data)
+        assert end_payload["success"] is True
+        assert end_payload["turn_ended"] == initial_active_team
+        assert end_payload["new_active_team"] != initial_active_team
 
 
 @pytest.mark.asyncio
@@ -396,21 +407,23 @@ async def test_send_and_get_messages(clean_manager):
                 "content": "Good luck!"
             }
         )
-        
-        assert result.data["success"] is True
-        assert "message" in result.data
+
+        message_payload = as_dict(result.data)
+        assert message_payload["success"] is True
+        assert "message" in message_payload
         
         # Get messages
         result = await client.call_tool(
             "get_messages",
             {"game_id": "test_game"}
         )
-        
-        messages = result.data
+
+        messages = as_dict(result.data)
+        message_list = [as_dict(item) for item in messages["messages"]]
         assert messages["count"] == 1
-        assert len(messages["messages"]) == 1
-        assert messages["messages"][0]["content"] == "Good luck!"
-        assert messages["messages"][0]["sender_name"] == "Watch Commander"
+        assert len(message_list) == 1
+        assert message_list[0]["content"] == "Good luck!"
+        assert message_list[0]["sender_name"] == "Watch Commander"
 
 
 @pytest.mark.asyncio
@@ -428,13 +441,14 @@ async def test_get_messages_with_limit(clean_manager):
             "get_messages",
             {"game_id": "test_game", "limit": 3}
         )
-        
-        messages = result.data
+
+        messages = as_dict(result.data)
+        message_list = [as_dict(item) for item in messages["messages"]]
         assert messages["count"] == 3
-        assert len(messages["messages"]) == 3
+        assert len(message_list) == 3
         # Should get the last 3 messages
-        assert messages["messages"][0]["content"] == "Message 2"
-        assert messages["messages"][2]["content"] == "Message 4"
+        assert message_list[0]["content"] == "Message 2"
+        assert message_list[2]["content"] == "Message 4"
 
 
 @pytest.mark.asyncio
@@ -453,8 +467,8 @@ async def test_get_history(clean_manager):
             "get_history",
             {"game_id": "test_game", "limit": 10}
         )
-        
-        history = result.data
+
+        history = as_dict(result.data)
         assert "events" in history
         assert "total_events" in history
         assert len(history["events"]) > 0
@@ -482,8 +496,9 @@ async def test_use_reroll(clean_manager):
             {"game_id": "test_game", "team_id": "team1"}
         )
 
-        assert result.data["success"] is True
-        assert result.data["rerolls_remaining"] == initial_rerolls - 1
+        reroll_payload = as_dict(result.data)
+        assert reroll_payload["success"] is True
+        assert reroll_payload["rerolls_remaining"] == initial_rerolls - 1
 
 
 @pytest.mark.asyncio
@@ -516,12 +531,13 @@ async def test_integration_two_llm_agents_playing(clean_manager):
         
         # Get game state
         state_result = await client1.call_tool("get_game_state", {"game_id": "test_game"})
-        state = state_result.data
+        state = as_dict(state_result.data)
         assert state["team1_joined"] is True
         assert state["team2_joined"] is True
-        
+
         # Active team checks valid actions
-        active_team = state["turn"]["active_team_id"]
+        turn_state = as_dict(state["turn"])
+        active_team = turn_state["active_team_id"]
         active_client = client1 if active_team == "team1" else client2
         active_player = f"{active_team}_player_0"
         
@@ -550,7 +566,10 @@ async def test_integration_two_llm_agents_playing(clean_manager):
             "get_messages",
             {"game_id": "test_game"}
         )
-        assert messages_result.data["count"] > 0
+        messages_payload = as_dict(messages_result.data)
+        message_entries = [as_dict(item) for item in messages_payload["messages"]]
+        assert messages_payload["count"] > 0
+        assert len(message_entries) == messages_payload["count"]
         
         # Active team makes a move
         move_result = await active_client.call_tool(
@@ -570,7 +589,8 @@ async def test_integration_two_llm_agents_playing(clean_manager):
             "end_turn",
             {"game_id": "test_game", "team_id": active_team}
         )
-        assert end_result.data["success"] is True
+        end_payload = as_dict(end_result.data)
+        assert end_payload["success"] is True
 
 
 if __name__ == "__main__":

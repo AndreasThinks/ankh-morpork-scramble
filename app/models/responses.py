@@ -1,6 +1,6 @@
 """Pydantic response models used by MCP tool handlers."""
 
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +44,7 @@ class HistoryResponse(BaseModel):
 
     game_id: str = Field(..., description="Game identifier")
     total_events: int = Field(..., description="Total number of events recorded")
-    events: List[str] = Field(default_factory=list, description="Recent event log entries")
+    events: list[str] = Field(default_factory=list, description="Recent event log entries")
 
 
 class SendMessageResponse(BaseModel):
@@ -59,7 +59,7 @@ class MessagesResponse(BaseModel):
 
     game_id: str = Field(..., description="Game identifier")
     count: int = Field(..., description="Number of messages returned")
-    messages: List[GameMessage] = Field(default_factory=list, description="Messages returned")
+    messages: list[GameMessage] = Field(default_factory=list, description="Messages returned")
 
 
 class PlacePlayersResponse(BaseModel):
