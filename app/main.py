@@ -23,6 +23,7 @@ from app.models.actions import (
 )
 from app.models.pitch import Position
 from app.setup.default_game import DEFAULT_GAME_ID, bootstrap_default_game
+from app.setup.interactive_game import INTERACTIVE_GAME_ID, bootstrap_interactive_game
 from app.state.game_manager import GameManager
 
 # Global game manager instance (must be created before importing mcp_server)
@@ -40,10 +41,24 @@ logger = logging.getLogger("app.main")
 if _LOG_FILE:
     logger.info("API log file initialised at %s", _LOG_FILE)
 
-# Initialize demo game immediately at module load time
-game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
-demo_game_state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
-logger.info("Demo game '%s' is ready with %d players", game_id, len(demo_game_state.players))
+# Initialize game based on DEMO_MODE setting
+# DEMO_MODE=true (default): Pre-configured demo game ready to play
+# DEMO_MODE=false: Interactive setup where agents must buy and place players
+demo_mode = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+
+if demo_mode:
+    # Demo mode: Create pre-configured game ready to play
+    game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
+    demo_game_state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
+    logger.info("Demo game '%s' is ready with %d players", game_id, len(demo_game_state.players))
+else:
+    # Interactive mode: Create empty game requiring setup
+    game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
+    demo_game_state = bootstrap_interactive_game(game_manager, game_id=game_id, logger=logger)
+    logger.info(
+        "Interactive game '%s' created in DEPLOYMENT phase. Agents must purchase and place players.",
+        game_id
+    )
 
 # Create FastAPI app with MCP lifespan
 app = FastAPI(

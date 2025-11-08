@@ -49,6 +49,10 @@ class GameState(BaseModel):
     team1_joined: bool = False
     team2_joined: bool = False
     game_started: bool = False
+
+    # Setup completion status (for interactive setup)
+    team1_ready: bool = False
+    team2_ready: bool = False
     
     # Players (all players in the game)
     players: dict[str, Player] = Field(default_factory=dict)
@@ -67,6 +71,11 @@ class GameState(BaseModel):
     def players_ready(self) -> bool:
         """Check if both teams have joined"""
         return self.team1_joined and self.team2_joined
+
+    @property
+    def both_teams_ready(self) -> bool:
+        """Check if both teams have completed setup and are ready to play"""
+        return self.team1_ready and self.team2_ready
     
     def get_active_team(self) -> Team:
         """Get the currently active team"""

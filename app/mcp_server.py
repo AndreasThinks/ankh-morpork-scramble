@@ -56,22 +56,32 @@ def join_game(
             f"'{game_state.team1.id}' and '{game_state.team2.id}'"
         )
     
-    # Automatically start the match once both teams are ready.
+    # Automatically start the match once both teams are ready - but only for non-DEPLOYMENT games.
+    # For DEPLOYMENT games, teams must use ready_to_play() after purchasing/placing players.
     game_started = False
     if game_state.players_ready and not game_state.game_started:
-        manager.start_game(game_id)
-        game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
-        game_started = True
+        # Only auto-start for demo games (non-DEPLOYMENT phase)
+        # DEPLOYMENT games require teams to buy players, place them, and call ready_to_play()
+        from app.models.enums import GamePhase
+        if game_state.phase != GamePhase.DEPLOYMENT:
+            manager.start_game(game_id)
+            game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
+            game_started = True
 
     return {
         "success": True,
         "team_id": team_id,
         "players_ready": game_state.players_ready,
         "game_started": game_state.game_started,
+        "phase": game_state.phase.value,
         "message": (
             "Game started after both teams joined"
             if game_started
-            else f"Successfully joined as {team_id}"
+            else (
+                f"Successfully joined as {team_id}. In DEPLOYMENT phase - purchase players, place them, then call ready_to_play()"
+                if game_state.phase.value == "deployment"
+                else f"Successfully joined as {team_id}. Waiting for opponent to join..."
+            )
         )
     }
 
@@ -684,6 +694,151 @@ def buy_reroll(
         return result.model_dump()
     except Exception as e:
         raise ToolError(f"Failed to purchase reroll: {str(e)}")
+
+
+@mcp.tool
+def place_players(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"],
+    positions: Annotated[dict[str, dict], "Mapping of player_id to position dict with 'x' and 'y' keys"]
+) -> dict:
+    """
+    Place your players on the pitch during the DEPLOYMENT phase.
+
+    This tool allows you to position your purchased players on the pitch before the game starts.
+
+    Placement rules:
+    - Each team can only place players in their half of the pitch
+    - Team 1 (left side): x coordinates 0-12
+    - Team 2 (right side): x coordinates 13-25
+    - Y coordinates are always 0-14 (full pitch height)
+    - Each square can only have one player
+    - You must place all players you've purchased
+
+    Returns:
+        Dictionary with success status and count of placed players
+
+    Example:
+        place_players(
+            game_id="game123",
+            team_id="team1",
+            positions={
+                "team1_player_0": {"x": 5, "y": 7},
+                "team1_player_1": {"x": 6, "y": 6},
+                "team1_player_2": {"x": 6, "y": 8}
+            }
+        )
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+    if game_state.phase != GamePhase.DEPLOYMENT:
+        raise ToolError(
+            f"Can only place players during DEPLOYMENT phase. Current phase: {game_state.phase.value}"
+        )
+
+    # Convert dict positions to Position objects
+    position_map = {}
+    for player_id, pos_dict in positions.items():
+        if "x" not in pos_dict or "y" not in pos_dict:
+            raise ToolError(f"Position for {player_id} must have 'x' and 'y' keys")
+        position_map[player_id] = Position(x=pos_dict["x"], y=pos_dict["y"])
+
+    try:
+        manager.place_players(game_id, team_id, position_map)
+        return {
+            "success": True,
+            "team_id": team_id,
+            "players_placed": len(position_map),
+            "message": f"Successfully placed {len(position_map)} players on the pitch"
+        }
+    except Exception as e:
+        raise ToolError(f"Failed to place players: {str(e)}")
+
+
+@mcp.tool
+def ready_to_play(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    team_id: Annotated[str, "Your team's identifier"]
+) -> dict:
+    """
+    Mark your team as ready to start playing after completing setup.
+
+    Call this tool after you've:
+    1. Purchased players (at least 3 required)
+    2. Optionally purchased team rerolls
+    3. Placed all your players on the pitch
+
+    Once both teams are ready, the game will automatically start.
+
+    Returns:
+        Dictionary with success status, ready state, and whether game started
+
+    Example:
+        ready_to_play(game_id="game123", team_id="team1")
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+    if game_state.phase != GamePhase.DEPLOYMENT:
+        raise ToolError(
+            f"Can only mark ready during DEPLOYMENT phase. Current phase: {game_state.phase.value}"
+        )
+
+    # Get team and validate setup
+    team = game_state.get_team_by_id(team_id)
+
+    # Check minimum player requirement
+    if len(team.player_ids) < 3:
+        raise ToolError(
+            f"Must have at least 3 players before marking ready. Current: {len(team.player_ids)}"
+        )
+
+    # Check all players are placed
+    placed_count = sum(
+        1 for player_id in team.player_ids
+        if player_id in game_state.pitch.player_positions
+    )
+    if placed_count < len(team.player_ids):
+        raise ToolError(
+            f"Must place all {len(team.player_ids)} players before marking ready. "
+            f"Currently placed: {placed_count}"
+        )
+
+    # Mark team as ready
+    if team_id == game_state.team1.id:
+        game_state.team1_ready = True
+        game_state.add_event(f"{team.name} is ready to play")
+    elif team_id == game_state.team2.id:
+        game_state.team2_ready = True
+        game_state.add_event(f"{team.name} is ready to play")
+    else:
+        raise ToolError(f"Invalid team_id: {team_id}")
+
+    # Check if both teams are ready to start
+    game_started = False
+    if game_state.both_teams_ready and not game_state.game_started:
+        manager.start_game(game_id)
+        game_started = True
+
+    return {
+        "success": True,
+        "team_id": team_id,
+        "team_ready": True,
+        "both_teams_ready": game_state.both_teams_ready,
+        "game_started": game_started,
+        "message": (
+            "Both teams ready - game starting!"
+            if game_started
+            else f"{team.name} is ready. Waiting for opponent..."
+        )
+    }
 
 
 @mcp.tool
