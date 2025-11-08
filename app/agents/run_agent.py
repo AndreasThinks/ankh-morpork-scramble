@@ -277,7 +277,7 @@ class ClineAgentRunner:
 
     async def _enable_yolo_mode(self) -> None:
         """Enable YOLO mode for complete auto-approval of all actions including MCP tools."""
-        
+
         self.agent_logger.info("Enabling YOLO mode for auto-approval")
         await self._run_cli_command(
             [
