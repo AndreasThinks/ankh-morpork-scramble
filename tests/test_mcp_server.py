@@ -573,5 +573,36 @@ async def test_integration_two_llm_agents_playing(clean_manager):
         assert end_result.data["success"] is True
 
 
+@pytest.mark.asyncio
+async def test_mcp_resources_list_and_read(clean_manager):
+    """Resources should expose documentation and dynamic summaries."""
+
+    clean_manager.create_game("resource_game")
+
+    async with Client(mcp) as client:
+        resources = await client.list_resources()
+        resource_map = {str(res.uri): res for res in resources}
+
+        assert "resource://docs/rules" in resource_map
+        assert resource_map["resource://docs/rules"].mimeType == "text/markdown"
+        assert "resource://docs/readme" in resource_map
+        assert "resource://docs/testing/quick-start" in resource_map
+
+        rules_contents = await client.read_resource("resource://docs/rules")
+        assert any("Ankh-Morpork" in item.text for item in rules_contents)
+
+        quick_start_contents = await client.read_resource(
+            "resource://docs/testing/quick-start"
+        )
+        assert any("Quick Start" in item.text for item in quick_start_contents)
+
+        summary_contents = await client.read_resource(
+            "resource://games/latest-summary"
+        )
+        summary_text = "\n".join(item.text for item in summary_contents)
+        assert "resource_game" in summary_text
+        assert "Score:" in summary_text
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
