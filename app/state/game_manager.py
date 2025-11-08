@@ -260,22 +260,14 @@ class GameManager:
         return "unknown"
 
     def _get_position_limit(self, position_key: str, team_type: TeamType) -> int:
-        """Get the quantity limit for a position based on rules"""
-        # From rules.md section 13
-        limits = {
-            TeamType.CITY_WATCH: {
-                "constable": 16,
-                "clerk_runner": 2,
-                "fleet_recruit": 4,
-                "watch_sergeant": 4
-            },
-            TeamType.UNSEEN_UNIVERSITY: {
-                "apprentice_wizard": 12,
-                "senior_wizard": 6,
-                "animated_gargoyle": 1
-            }
-        }
-        return limits.get(team_type, {}).get(position_key, 0)
+        """Get the quantity limit for a position from roster definition"""
+        roster = TEAM_ROSTERS.get(team_type)
+        if not roster:
+            return 0
+        position = roster.positions.get(position_key)
+        if not position:
+            return 0
+        return position.max_quantity
 
     def buy_player(
         self,
