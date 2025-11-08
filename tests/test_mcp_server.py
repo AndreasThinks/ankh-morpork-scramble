@@ -1,7 +1,9 @@
 """Tests for MCP server integration"""
+import logging
 import pytest
 from fastmcp.client import Client
-from app.mcp_server import mcp
+from fastmcp.exceptions import ToolError
+from app.mcp_server import mcp, use_reroll
 from app.models.team import TeamType
 from app.models.enums import ActionType
 from app.models.pitch import Position
@@ -144,6 +146,20 @@ async def test_join_game_invalid_team_id(clean_manager):
             )
         
         assert "invalid" in str(exc_info.value).lower()
+
+
+def test_use_reroll_logs_stack_trace(clean_manager, caplog):
+    """`use_reroll` should log a stack trace when reroll usage fails."""
+    clean_manager.create_game("log_game")
+
+    with caplog.at_level(logging.ERROR, logger="app.mcp_server"):
+        with pytest.raises(ToolError) as exc_info:
+            use_reroll.fn("log_game", "team1")
+
+    assert "Failed to use reroll" in str(exc_info.value)
+    log_messages = [record.getMessage() for record in caplog.records]
+    assert any("Failed to use reroll" in message for message in log_messages)
+    assert any(record.exc_info for record in caplog.records)
 
 
 @pytest.mark.asyncio

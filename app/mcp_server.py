@@ -1,4 +1,5 @@
 """MCP server for LLM agents to play Ankh-Morpork Scramble"""
+import logging
 from typing import Annotated, Optional
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -7,6 +8,9 @@ from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
 from app.models.enums import ActionType
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
+
+
+logger = logging.getLogger(__name__)
 
 
 # Create MCP server
@@ -307,6 +311,13 @@ def execute_action(
         return result
         
     except Exception as e:
+        action_name = getattr(action_type, "value", str(action_type))
+        logger.exception(
+            "Failed to execute action '%s' for player %s in game %s",
+            action_name,
+            player_id,
+            game_id,
+        )
         raise ToolError(f"Action failed: {str(e)}")
 
 
@@ -360,6 +371,11 @@ def end_turn(
             "message": f"Turn ended. Now {new_active.id}'s turn."
         }
     except Exception as e:
+        logger.exception(
+            "Failed to end turn for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to end turn: {str(e)}")
 
 
@@ -400,6 +416,11 @@ def use_reroll(
             "message": f"Reroll used. {team.rerolls_remaining} rerolls remaining."
         }
     except Exception as e:
+        logger.exception(
+            "Failed to use reroll for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to use reroll: {str(e)}")
 
 
@@ -477,6 +498,12 @@ def send_message(
             "message": message
         }
     except Exception as e:
+        logger.exception(
+            "Failed to send message from %s (%s) in game %s",
+            sender_id,
+            sender_name,
+            game_id,
+        )
         raise ToolError(f"Failed to send message: {str(e)}")
 
 
@@ -557,6 +584,11 @@ def get_team_budget(
         budget_status = manager.get_budget_status(game_id, team_id)
         return budget_status.model_dump()
     except Exception as e:
+        logger.exception(
+            "Failed to fetch budget for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to get budget: {str(e)}")
 
 
@@ -597,6 +629,11 @@ def get_available_positions(
         available = manager.get_available_positions(game_id, team_id)
         return available.model_dump()
     except Exception as e:
+        logger.exception(
+            "Failed to fetch available positions for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to get available positions: {str(e)}")
 
 
@@ -648,6 +685,12 @@ def buy_player(
         result = manager.buy_player(game_id, team_id, position_key)
         return result.model_dump()
     except Exception as e:
+        logger.exception(
+            "Failed to purchase position %s for team %s in game %s",
+            position_key,
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to purchase player: {str(e)}")
 
 
@@ -688,6 +731,11 @@ def buy_reroll(
         result = manager.buy_reroll(game_id, team_id)
         return result.model_dump()
     except Exception as e:
+        logger.exception(
+            "Failed to purchase reroll for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to purchase reroll: {str(e)}")
 
 
@@ -751,6 +799,11 @@ def place_players(
             "message": f"Successfully placed {len(position_map)} players on the pitch"
         }
     except Exception as e:
+        logger.exception(
+            "Failed to place players for team %s in game %s",
+            team_id,
+            game_id,
+        )
         raise ToolError(f"Failed to place players: {str(e)}")
 
 
