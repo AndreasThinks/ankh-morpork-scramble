@@ -8,7 +8,7 @@ services:
       - "8000:8000"
     environment:
       - DEFAULT_GAME_ID=demo-game
-      - openrouter_api_key=${openrouter_api_key:-}
+      - openrouter_api_key=${openrouter_api_key:-${OPENROUTER_API_KEY}}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/game/demo-game"]
       interval: 10s
@@ -26,8 +26,8 @@ services:
       - GAME_ID=demo-game
       - MCP_SERVER_URL=http://game-server:8000/mcp
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      - openrouter_api_key=${openrouter_api_key:-}
-      - OPENROUTER_API_KEY=${openrouter_api_key:-}
+      - openrouter_api_key=${openrouter_api_key:-${OPENROUTER_API_KEY}}
+      - OPENROUTER_API_KEY=${openrouter_api_key:-${OPENROUTER_API_KEY}}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
       - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
@@ -47,8 +47,8 @@ services:
       - GAME_ID=demo-game
       - MCP_SERVER_URL=http://game-server:8000/mcp
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      - openrouter_api_key=${openrouter_api_key:-}
-      - OPENROUTER_API_KEY=${openrouter_api_key:-}
+      - openrouter_api_key=${openrouter_api_key:-${OPENROUTER_API_KEY}}
+      - OPENROUTER_API_KEY=${openrouter_api_key:-${OPENROUTER_API_KEY}}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
       - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
