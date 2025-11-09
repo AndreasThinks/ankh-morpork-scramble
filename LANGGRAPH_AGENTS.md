@@ -2,6 +2,8 @@
 
 This guide shows you how to use the new LangGraph-based agents to play Ankh-Morpork Scramble.
 
+> **⚠️ IMPORTANT**: This implementation is **not yet fully functional**. The MCP client integration needs to be completed before agents can play games. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for details on what's working and what needs to be fixed.
+
 ## Overview
 
 The new agent system replaces Cline CLI with a native Python implementation using LangChain and LangGraph. Key improvements:
@@ -329,6 +331,30 @@ app/agents/langgraph/
 ├── launch.py             # CLI entry point
 └── README.md             # Detailed documentation
 ```
+
+## Known Issues
+
+### ⚠️ MCP Client Not Implemented
+
+**Status**: Critical blocker
+
+The agents cannot currently communicate with the game server because the MCP client integration is incomplete. The code in `scramble_agent.py` uses placeholder HTTP endpoints that don't match FastMCP's actual protocol.
+
+**What needs fixing**:
+- Replace placeholder `call_mcp_tool` with proper MCP client
+- Use MCP Python SDK to call tools correctly
+- Test integration with running game server
+
+**Estimated time**: 2-4 hours
+
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete details and fix instructions.
+
+### Other Limitations
+
+- Game state structure not validated against actual `GameState` model
+- Setup phase logic not tested
+- Error handling is basic
+- No integration tests yet
 
 ## Troubleshooting
 
