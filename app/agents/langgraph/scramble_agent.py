@@ -13,7 +13,7 @@ from datetime import datetime
 from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_core.tools import Tool
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from .narrator import ScrambleNarrator
 from .memory_policy import ScrambleMemoryPolicy
@@ -71,20 +71,50 @@ class ScrambleAgent:
         self.narrator = ScrambleNarrator()
         self.memory_policy = ScrambleMemoryPolicy(max_tokens=max_tokens)
 
-        # Setup tools
-        self.tools = self._create_mcp_tools()
+        # Initialize MCP client (following ai-at-risk pattern)
+        self.mcp_client = MultiServerMCPClient({
+            "scramble": {
+                "transport": "sse",
+                "url": mcp_url
+            }
+        })
 
-        # Build React agent
-        self.agent = create_react_agent(
-            self.llm, self.tools, state_modifier=self._get_system_message()
-        )
+        # Tools will be loaded during initialize()
+        self.tools = []
+        self.agent = None
 
         # Track conversation history
         self.messages: List = []
 
         print(f"[Agent] {team_name} initialized (model: {model})")
 
-    def _create_mcp_tools(self) -> List[Tool]:
+    async def initialize(self):
+        """
+        Connect to MCP server and initialize agent with tools.
+
+        This must be called before using the agent (following ai-at-risk pattern).
+        """
+        print(f"[Agent] {self.team_name} connecting to MCP server at {self.mcp_url}...")
+
+        try:
+            # Get tools from MCP server
+            self.tools = await self.mcp_client.get_tools()
+            print(f"[Agent] Loaded {len(self.tools)} MCP tools")
+
+            # Build React agent with MCP tools
+            self.agent = create_react_agent(
+                self.llm,
+                self.tools,
+                state_modifier=self._get_system_message()
+            )
+
+            print(f"[Agent] {self.team_name} ready to play!")
+
+        except Exception as e:
+            print(f"[Agent] Error initializing {self.team_name}: {e}")
+            raise
+
+    def _create_mcp_tools_OLD(self) -> List[Tool]:
         """
         Create LangChain tools from MCP endpoints.
 
