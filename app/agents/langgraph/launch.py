@@ -16,7 +16,7 @@ from .game_runner import GameRunner, TournamentRunner
 async def launch_match(
     game_id: str = "demo_game",
     mcp_url: str = "http://localhost:8000/mcp",
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "openrouter/auto",
     api_key: Optional[str] = None,
     poll_interval: float = 2.0,
     tournament_mode: bool = False,
@@ -28,17 +28,17 @@ async def launch_match(
     Args:
         game_id: Game identifier
         mcp_url: MCP server URL
-        model: LLM model to use
-        api_key: Anthropic API key (or use ANTHROPIC_API_KEY env var)
+        model: LLM model to use (e.g., "openrouter/auto", "anthropic/claude-3.5-sonnet")
+        api_key: OpenRouter API key (or use OPENROUTER_API_KEY env var)
         poll_interval: Seconds between game state polls
         tournament_mode: Run multiple games in sequence
         num_games: Number of games (if tournament_mode=True)
     """
     # Get API key
     if not api_key:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
-            print("Error: ANTHROPIC_API_KEY not set!")
+            print("Error: OPENROUTER_API_KEY not set!")
             print("Set it via environment variable or pass as argument")
             sys.exit(1)
 
@@ -113,7 +113,7 @@ async def launch_single_agent(
     team_id: str,
     team_name: str,
     mcp_url: str = "http://localhost:8000/mcp",
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "openrouter/auto",
     api_key: Optional[str] = None,
 ):
     """
@@ -124,11 +124,11 @@ async def launch_single_agent(
         team_id: Team identifier (e.g., "team1")
         team_name: Human-readable team name
         mcp_url: MCP server URL
-        model: LLM model to use
-        api_key: Anthropic API key
+        model: LLM model to use (e.g., "openrouter/auto", "anthropic/claude-3.5-sonnet")
+        api_key: OpenRouter API key
     """
     if not api_key:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
 
     print(f"🎮 Launching single agent: {team_name}")
 
@@ -179,14 +179,14 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-sonnet-4-5-20250929",
-        help="LLM model to use (default: claude-sonnet-4-5-20250929)",
+        default="openrouter/auto",
+        help="LLM model to use (default: openrouter/auto)",
     )
 
     parser.add_argument(
         "--api-key",
         type=str,
-        help="Anthropic API key (or set ANTHROPIC_API_KEY env var)",
+        help="OpenRouter API key (or set OPENROUTER_API_KEY env var)",
     )
 
     parser.add_argument(

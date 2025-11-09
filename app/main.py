@@ -35,8 +35,8 @@ game_manager = GameManager()
 # Import MCP server after game_manager is created
 from app.mcp_server import mcp
 
-# Create MCP ASGI app
-mcp_app = mcp.http_app(path='/')
+# Create MCP ASGI app with streamable-http transport for langchain-mcp-adapters compatibility
+mcp_app = mcp.http_app(path='/', transport='streamable-http')
 
 # Configure logging early so startup hooks can log useful information
 _LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
