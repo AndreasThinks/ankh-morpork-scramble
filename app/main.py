@@ -76,7 +76,7 @@ async def combined_lifespan(app: FastAPI):
     """
     # FastAPI startup logic
     logger.info("FastAPI application starting up...")
-    logger.info("Game manager initialized with %d active games", len(game_manager._games))
+    logger.info("Game manager initialized with %d active games", len(game_manager.games))
 
     # Nested MCP startup/shutdown
     async with mcp_app.lifespan(app):
