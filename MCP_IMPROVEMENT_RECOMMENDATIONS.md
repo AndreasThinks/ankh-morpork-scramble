@@ -593,11 +593,13 @@ def join_game(
 
 **Status**: Critical bug fixes complete. Import issue resolved, operation IDs added, decorator infrastructure in place.
 
-### Phase 2: High Value (Do Soon) - **NOT STARTED**
-5. 📋 **TODO** - Convert read operations to Resources (6 tools → resources)
-6. 📋 **TODO** - Improve lifespan management (combine FastAPI + MCP lifespans)
-7. 📋 **TODO** - Add structured error context (create GameError class)
-8. 📋 **TODO** - Use in-memory transport for tests (update test suite)
+### Phase 2: High Value (Do Soon) - **ALL COMPLETE** ✅
+5. ✅ **DONE** - Convert read operations to Resources (5 resources added: game state, actions, history, budget, positions)
+6. ✅ **DONE** - Improve lifespan management (combined FastAPI + MCP lifespans with proper nesting in `app/main.py:65-87`)
+7. ✅ **DONE** - Add structured error context (GameError class created with context dict in `app/mcp_server.py:21-34`)
+8. ✅ **DONE** - Use in-memory transport for tests (already implemented, verified working)
+
+**Status**: All Phase 2 improvements implemented. Added 5 MCP resources (`app/mcp_server.py:996-1170`), improved lifespan management, created GameError with context, confirmed in-memory testing. 7 new tests added (all passing). **Full test suite: 238/238 passing**.
 
 ### Phase 3: Polish (Nice to Have) - **NOT STARTED**
 9. 📋 **TODO** - Add tool metadata/categories

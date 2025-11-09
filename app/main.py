@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -60,12 +61,38 @@ else:
         game_id
     )
 
-# Create FastAPI app with MCP lifespan
+# Create combined lifespan that properly manages both FastAPI and MCP startup/shutdown
+@asynccontextmanager
+async def combined_lifespan(app: FastAPI):
+    """
+    Combined lifespan context manager for FastAPI and MCP.
+
+    Ensures proper ordering of startup and shutdown:
+    1. FastAPI startup logic runs first
+    2. MCP server startup runs nested within
+    3. Application yields (runs)
+    4. MCP server shutdown runs first
+    5. FastAPI shutdown runs last
+    """
+    # FastAPI startup logic
+    logger.info("FastAPI application starting up...")
+    logger.info("Game manager initialized with %d active games", len(game_manager._games))
+
+    # Nested MCP startup/shutdown
+    async with mcp_app.lifespan(app):
+        logger.info("MCP server is ready at /mcp")
+        yield  # Application runs here
+
+    # FastAPI shutdown logic
+    logger.info("FastAPI application shutting down...")
+
+
+# Create FastAPI app with combined lifespan
 app = FastAPI(
     title="Ankh-Morpork Scramble API",
     description="Turn-based sports game server based on Blood Bowl mechanics",
     version="0.1.0",
-    lifespan=mcp_app.lifespan
+    lifespan=combined_lifespan
 )
 
 # Mount the MCP server at /mcp

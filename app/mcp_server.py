@@ -14,6 +14,26 @@ from app.state.game_manager import GameManager
 logger = logging.getLogger(__name__)
 
 
+# ==============================================================================
+# Custom Exceptions for MCP Tools
+# ==============================================================================
+
+class GameError(ToolError):
+    """
+    Game-specific MCP error with structured context.
+
+    This error provides additional context to help LLMs understand
+    what went wrong and make better decisions about how to proceed.
+
+    Args:
+        message: Human-readable error message
+        context: Additional structured information about the error
+    """
+    def __init__(self, message: str, context: dict | None = None):
+        super().__init__(message)
+        self.context = context or {}
+
+
 # Create MCP server
 mcp = FastMCP("Ankh-Morpork Scramble")
 
@@ -299,9 +319,16 @@ def execute_action(
     # Verify player belongs to active team
     if not game_state.is_player_on_active_team(player_id):
         active_team = game_state.get_active_team()
-        raise ToolError(
+        raise GameError(
             f"Not your turn! It's {active_team.id}'s turn. "
-            f"Player '{player_id}' cannot act right now."
+            f"Player '{player_id}' cannot act right now.",
+            context={
+                "active_team": active_team.id,
+                "requested_player": player_id,
+                "turn_number": game_state.turn.team_turn if game_state.turn else None,
+                "phase": game_state.phase.value,
+                "error_type": "wrong_turn"
+            }
         )
     
     # Create action request
@@ -983,5 +1010,188 @@ def suggest_path(
     # Generate path suggestion
     target_pos = Position(x=target_x, y=target_y)
     suggestion = pathfinder.suggest_path(game_state, player_id, target_pos)
-    
+
     return suggestion.model_dump()
+
+
+# ==============================================================================
+# MCP RESOURCES (Read-Only Operations)
+# ==============================================================================
+# Resources provide URI-based access to read-only game data.
+# These are semantically correct for data retrieval without side effects.
+
+@mcp.resource("game://{game_id}/state")
+def game_state_resource(game_id: str) -> str:
+    """
+    Get the complete current state of the game as a resource.
+
+    This resource provides read-only access to all game information including:
+    - Both teams' rosters and player positions
+    - Current phase (SETUP, PLAYING, KICKOFF, etc.)
+    - Active team and turn number
+    - Ball location and carrier
+    - Player states and scores
+
+    Returns:
+        JSON string representation of the complete GameState
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+    return game_state.model_dump_json()
+
+
+@mcp.resource("game://{game_id}/actions")
+def valid_actions_resource(game_id: str) -> str:
+    """
+    Get all valid actions available for the current active team as a resource.
+
+    Provides read-only access to:
+    - Which team can act right now
+    - Available special actions (charge, hurl, quick pass, boot)
+    - Movable players
+    - Blockable targets
+    - Ball location and carrier
+
+    Returns:
+        JSON string representation of available actions
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+    if not game_state.turn:
+        raise ToolError("Game has not started yet. Wait for the game to begin.")
+
+    active_team = game_state.get_active_team()
+
+    # Get movable players (standing, has movement)
+    movable_players = []
+    blockable_targets = {}
+
+    for player_id in active_team.player_ids:
+        player = game_state.get_player(player_id)
+
+        if player.is_standing and player.movement_remaining > 0:
+            movable_players.append(player_id)
+
+        # Find blockable targets for this player
+        if player.is_standing:
+            player_pos = game_state.pitch.player_positions.get(player_id)
+            if player_pos:
+                targets = []
+                for adj_player_id in game_state.pitch.get_adjacent_players(player_pos):
+                    adj_player = game_state.get_player(adj_player_id)
+                    if adj_player.team_id != player.team_id and adj_player.is_active:
+                        targets.append(adj_player_id)
+
+                if targets:
+                    blockable_targets[player_id] = targets
+
+    response = ValidActionsResponse(
+        current_team=active_team.id,
+        phase=game_state.phase.value,
+        can_charge=not game_state.turn.charge_used,
+        can_hurl=not game_state.turn.hurl_used,
+        can_quick_pass=not game_state.turn.quick_pass_used,
+        can_boot=not game_state.turn.boot_used,
+        movable_players=movable_players,
+        blockable_targets=blockable_targets,
+        ball_carrier=game_state.pitch.ball_carrier,
+        ball_on_ground=game_state.pitch.ball_position is not None and game_state.pitch.ball_carrier is None,
+        ball_position=game_state.pitch.ball_position
+    )
+
+    return response.model_dump_json()
+
+
+@mcp.resource("game://{game_id}/history")
+def history_resource(game_id: str) -> str:
+    """
+    Get the event history log for the game as a resource.
+
+    Provides read-only access to all significant game events in chronological order:
+    - Player movements and actions
+    - Dice rolls and outcomes
+    - Turnovers and scoring
+    - Player injuries and knockdowns
+    - Turn changes
+
+    Returns the last 50 events by default.
+
+    Returns:
+        JSON string with game_id, total_events count, and event list
+    """
+    manager = get_manager()
+    game_state = manager.get_game(game_id)
+
+    if not game_state:
+        raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+    import json
+    return json.dumps({
+        "game_id": game_id,
+        "total_events": len(game_state.event_log),
+        "events": game_state.event_log[-50:]
+    })
+
+
+@mcp.resource("game://{game_id}/team/{team_id}/budget")
+def team_budget_resource(game_id: str, team_id: str) -> str:
+    """
+    Get team budget information during setup phase as a resource.
+
+    Provides read-only access to:
+    - Initial budget (usually 1,000,000 gold)
+    - Amount spent so far
+    - Remaining budget
+    - Purchase history
+
+    Returns:
+        JSON string representation of budget status
+    """
+    manager = get_manager()
+
+    try:
+        budget_status = manager.get_budget_status(game_id, team_id)
+        return budget_status.model_dump_json()
+    except Exception as e:
+        logger.exception(
+            "Failed to fetch budget for team %s in game %s",
+            team_id,
+            game_id,
+        )
+        raise ToolError(f"Failed to get budget: {str(e)}")
+
+
+@mcp.resource("game://{game_id}/team/{team_id}/positions")
+def available_positions_resource(game_id: str, team_id: str) -> str:
+    """
+    Get available player positions and rerolls for purchase as a resource.
+
+    Provides read-only access to:
+    - Position types with stats, costs, and limits
+    - Quantities owned vs. allowed
+    - Budget affordability
+    - Team reroll information
+
+    Returns:
+        JSON string representation of available positions
+    """
+    manager = get_manager()
+
+    try:
+        available = manager.get_available_positions(game_id, team_id)
+        return available.model_dump_json()
+    except Exception as e:
+        logger.exception(
+            "Failed to fetch available positions for team %s in game %s",
+            team_id,
+            game_id,
+        )
+        raise ToolError(f"Failed to get available positions: {str(e)}")
