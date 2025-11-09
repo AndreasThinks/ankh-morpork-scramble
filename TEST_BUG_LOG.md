@@ -51,14 +51,16 @@
 ### Minor Bugs
 <!-- Small issues, UI problems, or edge cases -->
 
-#### BUG #3: Failed pass doesn't trigger turnover
-- **Location**: Ball handling logic
-- **Severity**: Minor/Design Question - affects game flow
-- **Description**: When a pass (hurl) fails with "wildly_inaccurate" result, the action returns `turnover: false` and team1 remains active
-- **Expected**: In standard Blood Bowl, a failed pass should cause an immediate turnover
-- **Observed**: Ball scattered to (7, 7), but team1 can continue their turn
-- **Impact**: May allow teams to continue acting after failed passes, which could be overpowered
-- **Status**: NEEDS REVIEW - may be intentional design choice or bug
+#### BUG #3: Failed pass doesn't trigger turnover (FIXED)
+- **Location**: `app/state/action_executor.py:252-312` (_execute_hurl method)
+- **Severity**: Major - violates Blood Bowl rules for pass turnovers
+- **Description**: When a pass (hurl) fails with "wildly_inaccurate" result and lands where no one can catch it, the action returns `turnover: false` and team can continue acting
+- **Root Cause**: Code only checked for turnover on fumble or failed catch attempts, but didn't check if ball ended up on ground with no carrier
+- **Rules Reference**: Section 11 states "Failed pass (fumble or no valid catch after scatter)" should cause turnover
+- **Observed Behavior**: Ball scattered to (7, 7) with no player there, but team1 could continue their turn
+- **Fix**: Added check after catch attempt: `if not game_state.pitch.ball_carrier: result.turnover = True`
+- **Impact**: Now correctly triggers turnover when pass results in ball on ground, matching Blood Bowl rules
+- **Status**: FIXED
 
 ### Observations & Improvements
 <!-- Non-bug observations for future enhancement -->
@@ -166,7 +168,7 @@
 2. ✅ **Bug #2**: Fixed - MOVE validation now checks for `path`
 
 ### Important (Should Fix)
-3. **Bug #3**: Review pass turnover logic - determine if intentional design or bug
+3. ✅ **Bug #3**: Fixed - pass turnover now correctly triggers when ball lands on ground
 
 ### Nice to Have
 4. Add better error messages for movement restrictions (e.g., "Can only move X more squares")
@@ -181,5 +183,10 @@
 
 **Playability**: The game can be played from start to finish with all major actions working (move, scuffle, charge, boot, ball handling).
 
-**Bugs Fixed**: 2/3 bugs fixed
+**Bugs Fixed**: 3/3 bugs fixed (100%)
 **Test Coverage**: ~70% of game features tested successfully
+
+### Bug Fixes Applied
+1. ✅ Server startup AttributeError - fixed `_games` vs `games` attribute
+2. ✅ MOVE action validation mismatch - validator now checks for `path` parameter
+3. ✅ Failed pass turnover - now correctly triggers turnover when ball lands on ground with no carrier
