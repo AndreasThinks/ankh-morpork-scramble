@@ -11,8 +11,6 @@ from typing import Iterable, Optional
 _DEFAULT_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 _NOISY_LOGGERS: Iterable[str] = (
     "httpx",
-    "langchain",
-    "langgraph",
     "uvicorn",
     "uvicorn.error",
     "uvicorn.access",

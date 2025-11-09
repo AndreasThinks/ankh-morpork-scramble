@@ -58,10 +58,10 @@ tests/
 ├── test_setup_phase.py       # Setup phase & budget management (32 tests)
 ├── test_frontend.py          # Web dashboard (8 tests)
 ├── test_default_game_setup.py # Demo game initialization (2 tests)
-└── test_agents.py            # Agent configuration (15 tests)
+└── test_agents.py            # Cline CLI agent configuration (11 tests)
 ```
 
-**Total: 275 tests** (270 passing, 98.2% success rate)
+**Total: 271 tests** covering all core game mechanics and agent configuration
 
 ## Current Test Coverage
 
