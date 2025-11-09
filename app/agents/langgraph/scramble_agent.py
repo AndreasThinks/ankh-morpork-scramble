@@ -6,7 +6,6 @@ Adapted from ai-at-risk's RiskAgent implementation.
 """
 
 import os
-import httpx
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -14,6 +13,7 @@ from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
+import httpx  # Still needed for join_game
 
 from .narrator import ScrambleNarrator
 from .memory_policy import ScrambleMemoryPolicy
@@ -114,134 +114,6 @@ class ScrambleAgent:
             print(f"[Agent] Error initializing {self.team_name}: {e}")
             raise
 
-    def _create_mcp_tools_OLD(self) -> List[Tool]:
-        """
-        Create LangChain tools from MCP endpoints.
-
-        Returns:
-            List of LangChain Tool objects
-        """
-
-        async def call_mcp_tool(tool_name: str, **kwargs) -> Dict:
-            """Make MCP tool call via HTTP"""
-            try:
-                # Prepare request
-                request_data = {
-                    "game_id": self.game_id,
-                    "team_id": self.team_id,
-                    **kwargs,
-                }
-
-                # Remove None values
-                request_data = {k: v for k, v in request_data.items() if v is not None}
-
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    # Note: Actual MCP endpoint structure may vary
-                    # Adjust URL pattern based on your mcp_server.py implementation
-                    response = await client.post(
-                        f"{self.mcp_url}/call/{tool_name}", json=request_data
-                    )
-                    response.raise_for_status()
-                    return response.json()
-
-            except Exception as e:
-                return {"error": str(e), "tool": tool_name}
-
-        # Define all MCP tools as LangChain Tools
-        tools = [
-            Tool(
-                name="get_game_state",
-                description="Get complete current game state including pitch, players, ball position, phase, score",
-                func=lambda: None,  # Placeholder for sync
-                coroutine=lambda: call_mcp_tool("get_game_state"),
-            ),
-            Tool(
-                name="get_valid_actions",
-                description="Get all valid actions available right now. Returns list of possible moves, scuffles, charges, passes, etc.",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("get_valid_actions"),
-            ),
-            Tool(
-                name="execute_action",
-                description="Execute a game action. Required params: action_type (MOVE/SCUFFLE/CHARGE/HURL/QUICK_PASS/BOOT), player_id. Optional: target_position, target_player_id",
-                func=lambda **kwargs: None,
-                coroutine=lambda **kwargs: call_mcp_tool("execute_action", **kwargs),
-            ),
-            Tool(
-                name="end_turn",
-                description="End your current turn. Call this when you've completed your desired actions for this turn.",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("end_turn"),
-            ),
-            Tool(
-                name="use_reroll",
-                description="Use a team reroll to reroll a failed dice roll. Limited supply!",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("use_reroll"),
-            ),
-            Tool(
-                name="send_message",
-                description="Send a message to your opponent. Use for strategic communication or trash talk.",
-                func=lambda message: None,
-                coroutine=lambda message: call_mcp_tool("send_message", message=message),
-            ),
-            Tool(
-                name="get_messages",
-                description="Get recent messages from opponent",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("get_messages"),
-            ),
-            Tool(
-                name="suggest_path",
-                description="Get suggested movement path with risk assessment. Params: player_id, target_position",
-                func=lambda **kwargs: None,
-                coroutine=lambda **kwargs: call_mcp_tool("suggest_path", **kwargs),
-            ),
-            # SETUP phase tools
-            Tool(
-                name="get_team_budget",
-                description="Check remaining budget and purchase history during setup phase",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("get_team_budget"),
-            ),
-            Tool(
-                name="get_available_positions",
-                description="View purchasable player positions and rerolls during setup",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("get_available_positions"),
-            ),
-            Tool(
-                name="buy_player",
-                description="Purchase a player position during setup. Params: position_name",
-                func=lambda position_name: None,
-                coroutine=lambda position_name: call_mcp_tool(
-                    "buy_player", position_name=position_name
-                ),
-            ),
-            Tool(
-                name="buy_reroll",
-                description="Purchase a team reroll during setup (expensive but valuable!)",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("buy_reroll"),
-            ),
-            Tool(
-                name="place_players",
-                description="Position players on pitch after purchasing. Params: placements (dict of player_id: position)",
-                func=lambda placements: None,
-                coroutine=lambda placements: call_mcp_tool(
-                    "place_players", placements=placements
-                ),
-            ),
-            Tool(
-                name="ready_to_play",
-                description="Mark team as ready after completing setup phase",
-                func=lambda: None,
-                coroutine=lambda: call_mcp_tool("ready_to_play"),
-            ),
-        ]
-
-        return tools
-
     def _get_system_message(self) -> SystemMessage:
         """
         Build strategic system prompt for the agent.
@@ -329,6 +201,12 @@ Play smart, be aggressive when ahead, and protect the ball at all costs!
         Returns:
             Agent's response with actions taken
         """
+        # Ensure agent is initialized
+        if self.agent is None:
+            raise RuntimeError(
+                f"{self.team_name} not initialized! Call await agent.initialize() first."
+            )
+
         turn_start = datetime.now()
 
         # Generate narrative context from state changes

@@ -72,6 +72,18 @@ async def launch_match(
 
     agents = [agent1, agent2]
 
+    # Initialize agents (connect to MCP server and load tools)
+    print("\n🔌 Initializing agents (connecting to MCP server)...")
+    init_tasks = [agent.initialize() for agent in agents]
+    init_results = await asyncio.gather(*init_tasks, return_exceptions=True)
+
+    for agent, result in zip(agents, init_results):
+        if isinstance(result, Exception):
+            print(f"   ✗ {agent.team_name} initialization failed: {result}")
+            sys.exit(1)
+        else:
+            print(f"   ✓ {agent.team_name} initialized with {len(agent.tools)} tools")
+
     # Join game
     print("\n🔗 Agents joining game...")
     join_tasks = [agent.join_game() for agent in agents]
@@ -128,6 +140,11 @@ async def launch_single_agent(
         model=model,
         api_key=api_key,
     )
+
+    # Initialize agent
+    print("🔌 Initializing agent...")
+    await agent.initialize()
+    print(f"✓ Loaded {len(agent.tools)} MCP tools")
 
     # Join game
     await agent.join_game()

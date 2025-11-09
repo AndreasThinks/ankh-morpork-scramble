@@ -2,7 +2,7 @@
 
 This guide shows you how to use the new LangGraph-based agents to play Ankh-Morpork Scramble.
 
-> **⚠️ IMPORTANT**: This implementation is **not yet fully functional**. The MCP client integration needs to be completed before agents can play games. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for details on what's working and what needs to be fixed.
+> **✅ STATUS**: MCP client integration is complete! The agents are ready to test. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for implementation details.
 
 ## Overview
 
@@ -332,29 +332,37 @@ app/agents/langgraph/
 └── README.md             # Detailed documentation
 ```
 
-## Known Issues
+## Current Status
 
-### ⚠️ MCP Client Not Implemented
+### ✅ MCP Client Integration Complete
 
-**Status**: Critical blocker
+**Status**: Implemented and ready for testing
 
-The agents cannot currently communicate with the game server because the MCP client integration is incomplete. The code in `scramble_agent.py` uses placeholder HTTP endpoints that don't match FastMCP's actual protocol.
+The agents can now communicate with the game server using `langchain-mcp-adapters`. The implementation follows the proven ai-at-risk pattern.
 
-**What needs fixing**:
-- Replace placeholder `call_mcp_tool` with proper MCP client
-- Use MCP Python SDK to call tools correctly
-- Test integration with running game server
+**What's working**:
+- ✅ MCP client connects via SSE transport
+- ✅ Tools loaded automatically from server
+- ✅ React agent built with MCP tools
+- ✅ Integration test script available
 
-**Estimated time**: 2-4 hours
+**Test before using**:
+```bash
+# Start game server
+uv run uvicorn app.main:app --reload
 
-See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete details and fix instructions.
+# Test MCP connection
+uv run python test_mcp_integration.py
+```
 
-### Other Limitations
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete details.
 
-- Game state structure not validated against actual `GameState` model
+### Known Limitations
+
+- Game state structure not yet validated with real game server
 - Setup phase logic not tested
-- Error handling is basic
-- No integration tests yet
+- Error handling could be improved
+- Integration tests pending
 
 ## Troubleshooting
 
