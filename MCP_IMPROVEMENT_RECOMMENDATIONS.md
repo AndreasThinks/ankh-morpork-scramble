@@ -601,6 +601,11 @@ def join_game(
 
 **Status**: All Phase 2 improvements implemented. Added 5 MCP resources (`app/mcp_server.py:996-1170`), improved lifespan management, created GameError with context, confirmed in-memory testing. 7 new tests added (all passing). **Full test suite: 238/238 passing**.
 
+**Documentation**: ✅ **ALL UPDATED**
+- ✅ `README.md` - Added MCP Resources section, updated tool count to 16, clarified UV as package manager with installation examples
+- ✅ `TESTING.md` - Updated test counts (238 total, 25 MCP tests), added Phase 2 improvements section, corrected tool count to 16
+- ✅ UV package manager - Verified working with `uv sync`, `uv run pytest`, and `uv pip install` commands
+
 ### Phase 3: Polish (Nice to Have) - **NOT STARTED**
 9. 📋 **TODO** - Add tool metadata/categories
 10. 📋 **TODO** - Add correlation IDs
