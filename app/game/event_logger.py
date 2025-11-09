@@ -76,12 +76,12 @@ class EventLogger:
         player_name = None
         if player_id and player_id in self.game_state.players:
             player = self.game_state.players[player_id]
-            player_name = f"{player.position_name} #{player.number}"
+            player_name = player.display_name
 
         target_player_name = None
         if target_player_id and target_player_id in self.game_state.players:
             target = self.game_state.players[target_player_id]
-            target_player_name = f"{target.position_name} #{target.number}"
+            target_player_name = target.display_name
 
         # Create event
         event = GameEvent(
@@ -656,7 +656,7 @@ class EventLogger:
         """Get a formatted player name."""
         if player_id in self.game_state.players:
             player = self.game_state.players[player_id]
-            return f"{player.position_name} #{player.number}"
+            return player.display_name
         return f"Player {player_id}"
 
     def _get_team_name(self, team_id: str) -> str:

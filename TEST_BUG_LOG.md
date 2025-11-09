@@ -27,6 +27,19 @@
 ### Critical Bugs
 <!-- Bugs that break core functionality -->
 
+#### BUG #4: Game server fails to start due to Pydantic forward reference
+- **Date**: 2025-11-09 (Interactive mode retest)
+- **Severity**: Critical - prevents any gameplay or log validation
+- **Steps to Reproduce**:
+  1. Activate the project virtualenv (`source .venv/bin/activate`).
+  2. Run the FastAPI server with either demo or interactive mode (e.g. `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`).
+- **Observed Behavior**: Uvicorn crashes during startup with `pydantic.errors.PydanticUserError: 'GameState' is not fully defined; you should define 'GameEvent', then call 'GameState.model_rebuild()'.`
+- **Expected Behavior**: Server should finish bootstrapping (creating either the demo or interactive game) and begin serving requests so a full end-to-end game can be tested.
+- **Impact**: Blocks the new logging verification request—no endpoints are available, and log files only contain the initialisation message. Prevents purchasing players or progressing through any turns.
+- **Logs / Evidence**: See `uvicorn` stack trace in test session (`chunk 92da3e†L1-L36`) and `logs/api.log` containing only the startup banner entries.
+- **Notes**: Appears to be a regression from earlier fixes—the FastAPI app now instantiates `GameState` before Pydantic can resolve the `GameEvent` forward reference. Calling `GameState.model_rebuild()` (or importing `GameEvent` earlier) during startup should resolve the issue.
+- **Status**: FIXED on 2025-11-09 by importing `GameEvent` at runtime and invoking `GameState.model_rebuild()` to resolve the forward reference.
+
 #### BUG #1: AttributeError in server startup (FIXED)
 - **Location**: `app/main.py:79`
 - **Severity**: Critical - prevents server from starting
@@ -47,6 +60,20 @@
 - **Impact**: Cannot execute MOVE actions - contradictory requirements
 - **Fix**: Change validator to check for `path` instead of `target_position`
 - **Status**: FIXED
+
+#### BUG #5: LogSaver crashes when persisting turn summaries (FIXED)
+- **Date**: 2025-11-09 (post-fix full game retest)
+- **Severity**: Major - prevents log exports after each turn
+- **Steps to Reproduce**:
+  1. Start the server: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+  2. Create a new game (`POST /game?game_id=e2e-game`), purchase at least four players for each team via `/buy-player`, place them with `/place-players`, and join both teams.
+  3. Start the game and repeatedly call `/game/{game_id}/end-turn` until the match concludes (36 calls).
+- **Observed Behavior**: Every turn transition triggers `ERROR app.game.manager | Failed to save logs for game e2e-game: 'Player' object has no attribute 'position_name'` and no markdown/JSON/statistics files are generated.
+- **Expected Behavior**: Auto-save should succeed and produce log artifacts without raising exceptions; the log saver should derive display names from existing `Player` fields (e.g., `player.position.role`).
+- **Impact**: Core logging deliverable fails—the server completes the match but cannot persist the enhanced logs requested for this project.
+- **Logs / Evidence**: See repeated stack traces in the server console (`chunk 4c9311†L1-L140`) and `logs/api.log` (`chunk 2a2fcd†L1-L20`).
+- **Notes**: `Player` models expose `position.role` but not `position_name`; LogSaver should avoid referencing the missing attribute or add a helper when constructing summaries.
+- **Status**: FIXED on 2025-11-09 by giving `Player` instances jersey numbers plus `position_name`/`display_name` helpers and teaching the event/stat logging pipeline to use them. Confirmed by saving a post-move log via `LogSaver.save_game_log` (no AttributeError, markdown/JSON/stat files created).
 
 ### Minor Bugs
 <!-- Small issues, UI problems, or edge cases -->
@@ -128,6 +155,16 @@
 ---
 
 ## Test Log
+
+### 2025-11-09 Retest (API-driven full match)
+- ✅ Created game `e2e-game` via REST, purchased four players for each roster using `/game/{id}/team/{team}/buy-player`.
+- ✅ Placed all eight players on the pitch and joined both teams, then started the match.
+- ✅ Advanced through 36 `/game/{id}/end-turn` calls until the phase switched to `finished` (half 2, turn 9).
+- ❌ LogSaver raised `AttributeError: 'Player' object has no attribute 'position_name'` on every auto-save attempt, leaving no markdown/JSON/stat summary artifacts (`chunk 4c9311†L1-L140`).
+
+### 2025-11-09 Regression Suite
+- ✅ `uv run pytest`
+- ✅ Manual script created a short demo drive and called `LogSaver.save_game_log`; markdown/JSON/statistics outputs were generated without raising AttributeError (`chunk ddc845†L1-L26`).
 
 ### Setup Phase
 - ✅ Server started successfully after fixing Bug #1

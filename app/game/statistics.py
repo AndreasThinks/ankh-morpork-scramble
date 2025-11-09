@@ -65,7 +65,7 @@ class StatisticsAggregator:
         for player_id, player in self.game_state.players.items():
             stats.player_stats[player_id] = PlayerStats(
                 player_id=player_id,
-                player_name=f"{player.position_name} #{player.number}",
+                player_name=player.display_name,
                 team_id=player.team_id,
             )
 
@@ -258,7 +258,7 @@ class StatisticsAggregator:
         if player:
             return PlayerStats(
                 player_id=player_id,
-                player_name=f"{player.position_name} #{player.number}",
+                player_name=player.display_name,
                 team_id=player.team_id,
             )
 
