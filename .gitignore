@@ -45,3 +45,4 @@ Thumbs.db
 
 # Cline rules (project-specific)
 .clinerules/
+test_langraph_quick.sh
