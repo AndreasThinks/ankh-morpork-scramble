@@ -210,20 +210,91 @@ class ClineAgentRunner:
         )
     
     async def _follow_task(self, instance_address: str) -> None:
-        """Follow the task execution until completion."""
+        """Follow the task execution until completion with auto-approval of MCP tools."""
         
-        await self._run_cli_command(
-            [
+        self.agent_logger.info("Following task with auto-approval enabled...")
+        
+        process = await asyncio.create_subprocess_exec(
+            "cline",
+            "task",
+            "view",
+            "--follow-complete",
+            "--address",
+            instance_address,
+            env=self.env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        
+        # Create tasks to monitor both stdout and stderr
+        tasks = []
+        if process.stdout is not None:
+            tasks.append(asyncio.create_task(
+                self._monitor_and_approve(process.stdout, instance_address)
+            ))
+        if process.stderr is not None:
+            tasks.append(asyncio.create_task(
+                self._stream_output(process.stderr, self.cline_logger.error)
+            ))
+        
+        # Wait for all tasks to complete
+        if tasks:
+            await asyncio.gather(*tasks)
+        
+        return_code = await process.wait()
+        if return_code != 0:
+            raise RuntimeError(f"Failed to follow task; exit code {return_code}")
+    
+    async def _monitor_and_approve(self, stream: asyncio.StreamReader, instance_address: str) -> None:
+        """Monitor output stream for approval requests and automatically approve them."""
+        
+        approval_pending = False
+        
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            
+            text = line.decode(errors="ignore").rstrip()
+            masked_text = self._mask_text(text)
+            self.cline_logger.info(masked_text)
+            
+            # Detect approval request pattern
+            if "Cline is requesting approval" in text or "requesting approval to use this tool" in text:
+                approval_pending = True
+                self.agent_logger.info("Detected approval request - auto-approving...")
+            
+            # Auto-approve when we see the approval request
+            if approval_pending and ("Use cline task send --approve" in text or "cline task send --approve" in text):
+                approval_pending = False
+                await self._auto_approve(instance_address)
+    
+    async def _auto_approve(self, instance_address: str) -> None:
+        """Automatically approve the pending tool use request."""
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
                 "cline",
                 "task",
-                "view",
-                "--follow-complete",
+                "send",
+                "--approve",
                 "--address",
                 instance_address,
-            ],
-            mask_args=[self.config.api_key],
-            description="follow task",
-        )
+                env=self.env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                self.agent_logger.info("Successfully auto-approved MCP tool request")
+            else:
+                error_text = stderr.decode(errors="ignore") if stderr else "Unknown error"
+                self.agent_logger.error(f"Failed to auto-approve: {error_text}")
+                
+        except Exception as e:
+            self.agent_logger.error(f"Exception during auto-approval: {e}")
 
     def _write_mcp_settings(self) -> None:
         """Write the MCP server configuration consumed by Cline core."""
@@ -282,11 +353,9 @@ class ClineAgentRunner:
             You are an autonomous coach for Ankh-Morpork Scramble controlling team {self.config.team_name}
             (ID {self.config.team_id}). The current game identifier is {self.config.game_id}.
 
-            The Cline CLI is preconfigured with a remote MCP server named "{MCP_SERVER_NAME}" at
-            {self.config.mcp_server_url}. Use only this server's tools to interact with the game. Available tools:
-            join_game, get_game_state, get_team_budget, get_available_positions, buy_player, buy_reroll,
-            place_players, ready_to_play, get_valid_actions, execute_action, end_turn, use_reroll, get_history,
-            send_message, get_messages.
+            You have access to MCP tools to interact with the game server.  Use them to play the game.  You should also be able to use resources.  
+
+            If you cannot access these tools, explain the issue in your status updates.
 
             Workflow:
             1. Call get_game_state to confirm connectivity. If the team is not yet registered, call join_game exactly
