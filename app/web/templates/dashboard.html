@@ -212,6 +212,14 @@
             text-transform: uppercase;
         }
 
+        .thoughts .timestamp {
+            display: inline-block;
+            font-size: 0.75rem;
+            color: rgba(217, 180, 91, 0.6);
+            margin-left: 0.5rem;
+            font-style: italic;
+        }
+
         .pitch-panel {
             display: flex;
             flex-direction: column;
@@ -1004,7 +1012,61 @@
         }
     }
 
-    function renderThoughts(state) {
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function renderThoughts(state) {
+        try {
+            // Fetch the latest messages from the API
+            const response = await fetch(`/game/${gameId}/messages?limit=20`);
+            if (!response.ok) {
+                console.error('Failed to fetch messages:', response.status);
+                renderFallbackThoughts(state);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Group messages by team and get the last 4 per team
+            const messagesByTeam = {
+                [state.team1.id]: data.messages.filter(m => m.sender_id === state.team1.id).slice(-4),
+                [state.team2.id]: data.messages.filter(m => m.sender_id === state.team2.id).slice(-4)
+            };
+
+            [
+                [state.team1, team1Thoughts, team1Title],
+                [state.team2, team2Thoughts, team2Title]
+            ].forEach(([team, container, title]) => {
+                title.textContent = `${team.name} Strategy`;
+                const messages = messagesByTeam[team.id] || [];
+
+                if (messages.length === 0) {
+                    container.innerHTML = '<li><span class="speaker">Coaching Staff</span>Awaiting team communication...</li>';
+                    return;
+                }
+
+                container.innerHTML = messages.map(msg => {
+                    const turnInfo = msg.turn_number ? `[Turn ${msg.turn_number}]` : '[Setup]';
+                    return `
+                        <li>
+                            <span class="speaker">${escapeHtml(msg.sender_name)}</span>
+                            <span class="timestamp">${turnInfo}</span>
+                            ${escapeHtml(msg.content)}
+                        </li>
+                    `;
+                }).join('');
+            });
+        } catch (error) {
+            console.error('Failed to fetch messages:', error);
+            renderFallbackThoughts(state);
+        }
+    }
+
+    function renderFallbackThoughts(state) {
+        // Fallback to player-based observations if message fetching fails
         const thoughts = {
             [state.team1.id]: [],
             [state.team2.id]: []
