@@ -1,7 +1,13 @@
 """MCP server for LLM agents to play Ankh-Morpork Scramble"""
 import logging
+import re
+import uuid
+import contextvars
 from functools import wraps
 from typing import Annotated, Callable, Optional
+from datetime import datetime, timedelta
+from collections import defaultdict
+
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from app.models.game_state import GameState
@@ -9,9 +15,23 @@ from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
 from app.models.enums import ActionType, GamePhase
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
+from app.models.mcp_responses import (
+    JoinGameResponse,
+    EndTurnResponse,
+    UseRerollResponse,
+    GameHistoryResponse,
+    SendMessageResponse,
+    GetMessagesResponse,
+    PlacePlayersResponse,
+    ReadyToPlayResponse,
+    HealthCheckResponse,
+)
 
 
 logger = logging.getLogger(__name__)
+
+# Context variable for correlation IDs
+correlation_id_var = contextvars.ContextVar('correlation_id', default=None)
 
 
 # ==============================================================================
@@ -32,6 +52,115 @@ class GameError(ToolError):
     def __init__(self, message: str, context: dict | None = None):
         super().__init__(message)
         self.context = context or {}
+
+
+# ==============================================================================
+# Input Sanitization
+# ==============================================================================
+
+def sanitize_id(id_value: str, id_type: str = "ID") -> str:
+    """
+    Sanitize game/team/player IDs to prevent injection attacks.
+
+    Args:
+        id_value: The ID to sanitize
+        id_type: Type of ID for error messages (e.g., "game_id", "team_id")
+
+    Returns:
+        Sanitized ID value
+
+    Raises:
+        ToolError: If the ID contains invalid characters
+    """
+    if not re.match(r'^[a-zA-Z0-9_-]+$', id_value):
+        raise ToolError(
+            f"Invalid {id_type} format. Use only alphanumeric characters, dash, and underscore."
+        )
+    return id_value
+
+
+# ==============================================================================
+# Rate Limiting
+# ==============================================================================
+
+class RateLimiter:
+    """
+    Simple in-memory rate limiter to prevent abuse.
+
+    Tracks calls per key within a time window and blocks excessive requests.
+    """
+    def __init__(self, max_calls: int, window: timedelta):
+        self.max_calls = max_calls
+        self.window = window
+        self.calls = defaultdict(list)
+
+    def check(self, key: str) -> None:
+        """
+        Check if a request should be allowed.
+
+        Args:
+            key: Unique key to rate limit on (e.g., "execute_action:game123:player1")
+
+        Raises:
+            ToolError: If rate limit is exceeded
+        """
+        now = datetime.now()
+
+        # Clean old calls outside the window
+        self.calls[key] = [
+            call_time for call_time in self.calls[key]
+            if now - call_time < self.window
+        ]
+
+        if len(self.calls[key]) >= self.max_calls:
+            raise ToolError(
+                f"Rate limit exceeded. Maximum {self.max_calls} calls per {self.window.total_seconds()}s. Please wait."
+            )
+
+        self.calls[key].append(now)
+
+
+# Global rate limiter: 100 calls per minute per action
+rate_limiter = RateLimiter(max_calls=100, window=timedelta(minutes=1))
+
+
+# ==============================================================================
+# Correlation ID Tracking
+# ==============================================================================
+
+def get_or_create_correlation_id() -> str:
+    """
+    Get the current correlation ID or create a new one.
+
+    Correlation IDs help track related MCP calls across agent workflows.
+
+    Returns:
+        Correlation ID string
+    """
+    corr_id = correlation_id_var.get()
+    if corr_id is None:
+        corr_id = str(uuid.uuid4())
+        correlation_id_var.set(corr_id)
+    return corr_id
+
+
+def log_tool_call(tool_name: str, **kwargs) -> None:
+    """
+    Log an MCP tool call with correlation ID for tracing.
+
+    Args:
+        tool_name: Name of the tool being called
+        **kwargs: Additional context to log
+    """
+    corr_id = get_or_create_correlation_id()
+    logger.info(
+        f"MCP tool '{tool_name}' called",
+        extra={
+            "correlation_id": corr_id,
+            "tool_name": tool_name,
+            **kwargs
+        }
+    )
 
 
 # Create MCP server
@@ -65,23 +194,36 @@ def require_game(func: Callable) -> Callable:
     return wrapper
 
 
-@mcp.tool(name="join_game")
+@mcp.tool(
+    name="join_game",
+    description="Join a game and mark your team as ready to play.",
+)
 def join_game(
     game_id: Annotated[str, "The unique identifier of the game to join"],
     team_id: Annotated[str, "Your team's unique identifier (usually 'team1' or 'team2')"]
 ) -> dict:
     """
     Join a game and mark your team as ready to play.
-    
+
     Use this tool when you first connect to a game that has been set up for you.
     Once both teams have joined and are ready, the game can begin.
-    
+
     Returns:
-        Dictionary with success status, your team_id, and whether all players are ready
-    
+        JoinGameResponse with success status, your team_id, and whether all players are ready
+
     Example:
         join_game(game_id="game123", team_id="team1")
     """
+    # Sanitize inputs
+    game_id = sanitize_id(game_id, "game_id")
+    team_id = sanitize_id(team_id, "team_id")
+
+    # Log with correlation ID
+    log_tool_call("join_game", game_id=game_id, team_id=team_id)
+
+    # Rate limiting
+    rate_limiter.check(f"join_game:{game_id}:{team_id}")
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
     
@@ -108,13 +250,13 @@ def join_game(
         game_state.add_event("Both teams joined via MCP; kickoff initiated automatically")
         game_started = True
 
-    return {
-        "success": True,
-        "team_id": team_id,
-        "players_ready": game_state.players_ready,
-        "game_started": game_state.game_started,
-        "phase": game_state.phase.value,
-        "message": (
+    response = JoinGameResponse(
+        success=True,
+        team_id=team_id,
+        players_ready=game_state.players_ready,
+        game_started=game_state.game_started,
+        phase=game_state.phase.value,
+        message=(
             "Game started after both teams joined"
             if game_started
             else (
@@ -123,16 +265,20 @@ def join_game(
                 else f"Successfully joined as {team_id}. Waiting for opponent to join..."
             )
         )
-    }
+    )
+    return response.model_dump()
 
 
-@mcp.tool(name="get_game_state")
+@mcp.tool(
+    name="get_game_state",
+    description="Get the complete current state of the game.",
+)
 def get_game_state(
     game_id: Annotated[str, "The unique identifier of the game"]
 ) -> dict:
     """
     Get the complete current state of the game.
-    
+
     This returns all game information including:
     - Both teams' rosters and player positions
     - Current phase (SETUP, PLAYING, KICKOFF, etc.)
@@ -141,17 +287,20 @@ def get_game_state(
     - Player states (standing, prone, stunned, KO'd)
     - Available rerolls
     - Score
-    
+
     Use this regularly to understand the current game situation before making decisions.
-    
+
     Returns:
         Complete GameState object with all current game information
-    
+
     Example:
         state = get_game_state(game_id="game123")
         print(f"Current turn: {state.turn.number if state.turn else 'Not started'}")
         print(f"Active team: {state.turn.active_team if state.turn else 'None'}")
     """
+    game_id = sanitize_id(game_id, "game_id")
+    log_tool_call("get_game_state", game_id=game_id)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
     
@@ -236,7 +385,10 @@ def get_valid_actions(
     )
 
 
-@mcp.tool(name="execute_action")
+@mcp.tool(
+    name="execute_action",
+    description="Execute a game action with one of your players.",
+)
 def execute_action(
     game_id: Annotated[str, "The unique identifier of the game"],
     action_type: Annotated[ActionType, "Type of action: MOVE, SCUFFLE, CHARGE, HURL, QUICK_PASS, or BOOT"],
@@ -307,9 +459,23 @@ def execute_action(
             target_player_id="team2_player3"
         )
     """
+    # Sanitize inputs
+    game_id = sanitize_id(game_id, "game_id")
+    player_id = sanitize_id(player_id, "player_id")
+    if target_player_id:
+        target_player_id = sanitize_id(target_player_id, "target_player_id")
+    if target_receiver_id:
+        target_receiver_id = sanitize_id(target_receiver_id, "target_receiver_id")
+
+    # Log with correlation ID
+    log_tool_call("execute_action", game_id=game_id, player_id=player_id, action_type=action_type.value if hasattr(action_type, 'value') else str(action_type))
+
+    # Rate limiting - critical action
+    rate_limiter.check(f"execute_action:{game_id}:{player_id}")
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
-    
+
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
     
@@ -369,29 +535,36 @@ def execute_action(
         raise ToolError(f"Action failed: {str(e)}")
 
 
-@mcp.tool(name="end_turn")
+@mcp.tool(
+    name="end_turn",
+    description="Manually end your team's current turn.",
+)
 def end_turn(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier to confirm you're ending your own turn"]
 ) -> dict:
     """
     Manually end your team's current turn.
-    
+
     Use this when you've finished all the actions you want to take this turn.
     The turn will automatically end if a turnover occurs, but you can end it early
     if desired.
-    
+
     After your turn ends:
     - The other team becomes active
     - Your players' movement is reset for next turn
     - Turn number may increment
-    
+
     Returns:
-        Dictionary with success status and new game state information
-    
+        EndTurnResponse with success status and new game state information
+
     Example:
         end_turn(game_id="game123", team_id="team1")
     """
+    game_id = sanitize_id(game_id, "game_id")
+    team_id = sanitize_id(team_id, "team_id")
+    log_tool_call("end_turn", game_id=game_id, team_id=team_id)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
     
@@ -410,14 +583,15 @@ def end_turn(
     try:
         new_state = manager.end_turn(game_id)
         new_active = new_state.get_active_team()
-        
-        return {
-            "success": True,
-            "turn_ended": team_id,
-            "new_active_team": new_active.id,
-            "turn_number": new_state.turn.team_turn if new_state.turn else None,
-            "message": f"Turn ended. Now {new_active.id}'s turn."
-        }
+
+        response = EndTurnResponse(
+            success=True,
+            turn_ended=team_id,
+            new_active_team=new_active.id,
+            turn_number=new_state.turn.team_turn if new_state.turn else None,
+            message=f"Turn ended. Now {new_active.id}'s turn."
+        )
+        return response.model_dump()
     except Exception as e:
         logger.exception(
             "Failed to end turn for team %s in game %s",
@@ -427,7 +601,10 @@ def end_turn(
         raise ToolError(f"Failed to end turn: {str(e)}")
 
 
-@mcp.tool(name="use_reroll")
+@mcp.tool(
+    name="use_reroll",
+    description="Use one of your team's reroll tokens.",
+)
 def use_reroll(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -447,22 +624,27 @@ def use_reroll(
     Example:
         use_reroll(game_id="game123", team_id="team1")
     """
+    game_id = sanitize_id(game_id, "game_id")
+    team_id = sanitize_id(team_id, "team_id")
+    log_tool_call("use_reroll", game_id=game_id, team_id=team_id)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
-    
+
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
-    
+
     try:
         team = game_state.get_team_by_id(team_id)
         team.use_reroll()
-        
-        return {
-            "success": True,
-            "team_id": team_id,
-            "rerolls_remaining": team.rerolls_remaining,
-            "message": f"Reroll used. {team.rerolls_remaining} rerolls remaining."
-        }
+
+        response = UseRerollResponse(
+            success=True,
+            team_id=team_id,
+            rerolls_remaining=team.rerolls_remaining,
+            message=f"Reroll used. {team.rerolls_remaining} rerolls remaining."
+        )
+        return response.model_dump()
     except Exception as e:
         logger.exception(
             "Failed to use reroll for team %s in game %s",
@@ -472,7 +654,10 @@ def use_reroll(
         raise ToolError(f"Failed to use reroll: {str(e)}")
 
 
-@mcp.tool(name="get_history")
+@mcp.tool(
+    name="get_history",
+    description="Get the event history log for the game.",
+)
 def get_history(
     game_id: Annotated[str, "The unique identifier of the game"],
     limit: Annotated[int, "Maximum number of recent events to retrieve"] = 50
@@ -496,20 +681,27 @@ def get_history(
         history = get_history(game_id="game123", limit=20)
         print("Recent events:", history["events"])
     """
+    game_id = sanitize_id(game_id, "game_id")
+    log_tool_call("get_history", game_id=game_id, limit=limit)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
-    
+
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
-    
-    return {
-        "game_id": game_id,
-        "total_events": len(game_state.event_log),
-        "events": game_state.event_log[-limit:]
-    }
+
+    response = GameHistoryResponse(
+        game_id=game_id,
+        total_events=len(game_state.event_log),
+        events=game_state.event_log[-limit:]
+    )
+    return response.model_dump()
 
 
-@mcp.tool(name="send_message")
+@mcp.tool(
+    name="send_message",
+    description="Send a message to your opponent in the game.",
+)
 def send_message(
     game_id: Annotated[str, "The unique identifier of the game"],
     sender_id: Annotated[str, "Your identifier (usually your team_id)"],
@@ -533,18 +725,23 @@ def send_message(
             content="Good luck and have fun!"
         )
     """
+    game_id = sanitize_id(game_id, "game_id")
+    sender_id = sanitize_id(sender_id, "sender_id")
+    log_tool_call("send_message", game_id=game_id, sender_id=sender_id)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
-    
+
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
-    
+
     try:
         message = game_state.add_message(sender_id, sender_name, content)
-        return {
-            "success": True,
-            "message": message
-        }
+        response = SendMessageResponse(
+            success=True,
+            message=message.model_dump() if hasattr(message, 'model_dump') else message
+        )
+        return response.model_dump()
     except Exception as e:
         logger.exception(
             "Failed to send message from %s (%s) in game %s",
@@ -555,7 +752,10 @@ def send_message(
         raise ToolError(f"Failed to send message: {str(e)}")
 
 
-@mcp.tool(name="get_messages")
+@mcp.tool(
+    name="get_messages",
+    description="Get messages from the game.",
+)
 def get_messages(
     game_id: Annotated[str, "The unique identifier of the game"],
     turn_number: Annotated[Optional[int], "Get messages from a specific turn number only"] = None,
@@ -580,27 +780,31 @@ def get_messages(
         # Get messages from turn 3
         messages = get_messages(game_id="game123", turn_number=3)
     """
+    game_id = sanitize_id(game_id, "game_id")
+    log_tool_call("get_messages", game_id=game_id, turn_number=turn_number, limit=limit)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
-    
+
     if not game_state:
         raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
-    
+
     messages = game_state.messages
-    
+
     # Filter by turn if specified
     if turn_number is not None:
         messages = [m for m in messages if m.turn_number == turn_number]
-    
+
     # Apply limit if specified
     if limit is not None:
         messages = messages[-limit:]
-    
-    return {
-        "game_id": game_id,
-        "count": len(messages),
-        "messages": messages
-    }
+
+    response = GetMessagesResponse(
+        game_id=game_id,
+        count=len(messages),
+        messages=messages
+    )
+    return response.model_dump()
 
 
 @mcp.tool(name="get_team_budget")
@@ -787,7 +991,10 @@ def buy_reroll(
         raise ToolError(f"Failed to purchase reroll: {str(e)}")
 
 
-@mcp.tool(name="place_players")
+@mcp.tool(
+    name="place_players",
+    description="Place your players on the pitch during the DEPLOYMENT phase.",
+)
 def place_players(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"],
@@ -820,6 +1027,10 @@ def place_players(
             }
         )
     """
+    game_id = sanitize_id(game_id, "game_id")
+    team_id = sanitize_id(team_id, "team_id")
+    log_tool_call("place_players", game_id=game_id, team_id=team_id, player_count=len(positions))
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
 
@@ -840,12 +1051,13 @@ def place_players(
 
     try:
         manager.place_players(game_id, team_id, position_map)
-        return {
-            "success": True,
-            "team_id": team_id,
-            "players_placed": len(position_map),
-            "message": f"Successfully placed {len(position_map)} players on the pitch"
-        }
+        response = PlacePlayersResponse(
+            success=True,
+            team_id=team_id,
+            players_placed=len(position_map),
+            message=f"Successfully placed {len(position_map)} players on the pitch"
+        )
+        return response.model_dump()
     except Exception as e:
         logger.exception(
             "Failed to place players for team %s in game %s",
@@ -855,7 +1067,10 @@ def place_players(
         raise ToolError(f"Failed to place players: {str(e)}")
 
 
-@mcp.tool(name="ready_to_play")
+@mcp.tool(
+    name="ready_to_play",
+    description="Mark your team as ready to start playing after completing setup.",
+)
 def ready_to_play(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -876,6 +1091,10 @@ def ready_to_play(
     Example:
         ready_to_play(game_id="game123", team_id="team1")
     """
+    game_id = sanitize_id(game_id, "game_id")
+    team_id = sanitize_id(team_id, "team_id")
+    log_tool_call("ready_to_play", game_id=game_id, team_id=team_id)
+
     manager = get_manager()
     game_state = manager.get_game(game_id)
 
@@ -923,18 +1142,19 @@ def ready_to_play(
         manager.start_game(game_id)
         game_started = True
 
-    return {
-        "success": True,
-        "team_id": team_id,
-        "team_ready": True,
-        "both_teams_ready": game_state.both_teams_ready,
-        "game_started": game_started,
-        "message": (
+    response = ReadyToPlayResponse(
+        success=True,
+        team_id=team_id,
+        team_ready=True,
+        both_teams_ready=game_state.both_teams_ready,
+        game_started=game_started,
+        message=(
             "Both teams ready - game starting!"
             if game_started
             else f"{team.name} is ready. Waiting for opponent..."
         )
-    }
+    )
+    return response.model_dump()
 
 
 @mcp.tool(name="suggest_path")
@@ -1195,3 +1415,31 @@ def available_positions_resource(game_id: str, team_id: str) -> str:
             game_id,
         )
         raise ToolError(f"Failed to get available positions: {str(e)}")
+
+
+@mcp.resource("health://check")
+def health_check_resource() -> str:
+    """
+    Check MCP server health and game manager status.
+
+    Provides read-only access to:
+    - Server health status
+    - Number of active games
+    - Total number of games
+    - Server version
+
+    Returns:
+        JSON string representation of health status
+    """
+    import json
+    manager = get_manager()
+    active_games = len([g for g in manager._games.values() if g.game_started])
+
+    response = HealthCheckResponse(
+        status="healthy",
+        active_games=active_games,
+        total_games=len(manager._games),
+        version="0.1.0"
+    )
+
+    return response.model_dump_json()
