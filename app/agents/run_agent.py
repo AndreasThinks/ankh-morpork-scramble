@@ -238,7 +238,7 @@ class ClineAgentRunner:
                     "url": self.config.mcp_server_url,
                     "disabled": False,
                     "timeout": 120,
-                    "alwaysAllow": [
+                    "autoApprove": [
                         "join_game",
                         "get_game_state",
                         "get_valid_actions",
