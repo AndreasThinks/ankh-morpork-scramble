@@ -281,7 +281,10 @@ def execute_action(game_id: str, action: ActionRequest):
 
 @app.post("/game/{game_id}/end-turn", response_model=GameState)
 def end_turn(game_id: str):
-    """Manually end the current turn"""
+    """Manually end the current turn.
+
+    Raises HTTP 400 if the game has already concluded or if no turn is active.
+    """
     try:
         game_state = game_manager.end_turn(game_id)
         return game_state

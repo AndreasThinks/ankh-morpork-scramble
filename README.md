@@ -38,6 +38,88 @@ python -m app.main
 
 The server will start at `http://localhost:8000`
 
+## Playing a Full Match
+
+### Quick demo (default `DEMO_MODE=true`)
+
+1. Start the API with logging enabled:
+
+   ```bash
+   uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. Open [`http://localhost:8000/ui`](http://localhost:8000/ui) to watch the
+   pre-seeded `demo-game` progress. You can advance the match by calling the
+   `POST /game/demo-game/end-turn` endpoint (from the Swagger UI or with
+   `curl`). Logs stream to the console and rotate under `logs/`.
+
+### Interactive setup (`DEMO_MODE=false`)
+
+1. Disable demo mode when launching the server so both teams must assemble
+   their own rosters:
+
+   ```bash
+   DEMO_MODE=false uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. Create a fresh match (replace `my-match` with any ID you like):
+
+   ```bash
+   curl -X POST "http://localhost:8000/game?game_id=my-match"
+   ```
+
+3. Have each side join so setup actions are permitted:
+
+   ```bash
+   curl -X POST "http://localhost:8000/game/my-match/join?team_id=team1"
+   curl -X POST "http://localhost:8000/game/my-match/join?team_id=team2"
+   ```
+
+4. Purchase the players and rerolls you want. For example, buying two City
+   Watch constables:
+
+   ```bash
+   curl -X POST "http://localhost:8000/game/my-match/team/team1/buy-player?position_key=constable"
+   curl -X POST "http://localhost:8000/game/my-match/team/team1/buy-player?position_key=constable"
+   ```
+
+   Use `GET /game/{game_id}/team/{team_id}/available-positions` to inspect the
+   full shopping list and costs.
+
+5. Deploy the roster once you have at least eleven players (or however many you
+   plan to field). Send a JSON payload that maps player IDs to board
+   coordinates:
+
+   ```bash
+   curl -X POST "http://localhost:8000/game/my-match/place-players" \
+        -H "Content-Type: application/json" \
+        -d '{"team_id": "team1", "positions": {"team1_player_0": {"x": 5, "y": 7}, "team1_player_1": {"x": 6, "y": 7}}}'
+   ```
+
+   Repeat for the other team. You can confirm placements via
+   `GET /game/{game_id}`.
+
+6. Start the match:
+
+   ```bash
+   curl -X POST "http://localhost:8000/game/my-match/start"
+   ```
+
+7. Play turns using the main action loop:
+
+   - `GET /game/{game_id}/valid-actions` to see the legal moves for your active
+     players.
+   - `POST /game/{game_id}/action` with the action payload you want to execute
+     (move, scuffle, hurl, etc.).
+   - `POST /game/{game_id}/end-turn` when your turn is complete. The server
+     now rejects this call with HTTP 400 once the phase is `finished`, ensuring
+     the turn counter and logs stay consistent.
+
+8. Review logs during or after the session. Structured records live in
+   `logs/api.log`, while per-game markdown/JSON exports are written under
+   `logs/games/<game_id>/` whenever `LOG_DIR` is configured or auto-save is
+   enabled.
+
 ## Testing
 
 Use UV to install the development extras and execute the test suite:
