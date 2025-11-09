@@ -1,11 +1,12 @@
 """MCP server for LLM agents to play Ankh-Morpork Scramble"""
 import logging
-from typing import Annotated, Optional
+from functools import wraps
+from typing import Annotated, Callable, Optional
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from app.models.game_state import GameState
 from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
-from app.models.enums import ActionType
+from app.models.enums import ActionType, GamePhase
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
 
@@ -24,7 +25,27 @@ def get_manager() -> GameManager:
     return game_manager
 
 
-@mcp.tool
+def require_game(func: Callable) -> Callable:
+    """
+    Decorator to validate that a game exists before executing the tool.
+
+    Injects the GameState object as the first parameter after game_id.
+    """
+    @wraps(func)
+    def wrapper(game_id: str, *args, **kwargs):
+        manager = get_manager()
+        game_state = manager.get_game(game_id)
+
+        if not game_state:
+            raise ToolError(f"Game '{game_id}' not found. Check the game ID and try again.")
+
+        # Pass game_state as first argument after game_id
+        return func(game_id=game_id, game_state=game_state, *args, **kwargs)
+
+    return wrapper
+
+
+@mcp.tool(name="join_game")
 def join_game(
     game_id: Annotated[str, "The unique identifier of the game to join"],
     team_id: Annotated[str, "Your team's unique identifier (usually 'team1' or 'team2')"]
@@ -85,7 +106,7 @@ def join_game(
     }
 
 
-@mcp.tool
+@mcp.tool(name="get_game_state")
 def get_game_state(
     game_id: Annotated[str, "The unique identifier of the game"]
 ) -> dict:
@@ -120,7 +141,7 @@ def get_game_state(
     return game_state.model_dump()
 
 
-@mcp.tool
+@mcp.tool(name="get_valid_actions")
 def get_valid_actions(
     game_id: Annotated[str, "The unique identifier of the game"]
 ) -> ValidActionsResponse:
@@ -195,7 +216,7 @@ def get_valid_actions(
     )
 
 
-@mcp.tool
+@mcp.tool(name="execute_action")
 def execute_action(
     game_id: Annotated[str, "The unique identifier of the game"],
     action_type: Annotated[ActionType, "Type of action: MOVE, SCUFFLE, CHARGE, HURL, QUICK_PASS, or BOOT"],
@@ -321,7 +342,7 @@ def execute_action(
         raise ToolError(f"Action failed: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="end_turn")
 def end_turn(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier to confirm you're ending your own turn"]
@@ -379,7 +400,7 @@ def end_turn(
         raise ToolError(f"Failed to end turn: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="use_reroll")
 def use_reroll(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -424,7 +445,7 @@ def use_reroll(
         raise ToolError(f"Failed to use reroll: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="get_history")
 def get_history(
     game_id: Annotated[str, "The unique identifier of the game"],
     limit: Annotated[int, "Maximum number of recent events to retrieve"] = 50
@@ -461,7 +482,7 @@ def get_history(
     }
 
 
-@mcp.tool
+@mcp.tool(name="send_message")
 def send_message(
     game_id: Annotated[str, "The unique identifier of the game"],
     sender_id: Annotated[str, "Your identifier (usually your team_id)"],
@@ -507,7 +528,7 @@ def send_message(
         raise ToolError(f"Failed to send message: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="get_messages")
 def get_messages(
     game_id: Annotated[str, "The unique identifier of the game"],
     turn_number: Annotated[Optional[int], "Get messages from a specific turn number only"] = None,
@@ -555,7 +576,7 @@ def get_messages(
     }
 
 
-@mcp.tool
+@mcp.tool(name="get_team_budget")
 def get_team_budget(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -592,7 +613,7 @@ def get_team_budget(
         raise ToolError(f"Failed to get budget: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="get_available_positions")
 def get_available_positions(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -637,7 +658,7 @@ def get_available_positions(
         raise ToolError(f"Failed to get available positions: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="buy_player")
 def buy_player(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"],
@@ -694,7 +715,7 @@ def buy_player(
         raise ToolError(f"Failed to purchase player: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="buy_reroll")
 def buy_reroll(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -739,7 +760,7 @@ def buy_reroll(
         raise ToolError(f"Failed to purchase reroll: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="place_players")
 def place_players(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"],
@@ -807,7 +828,7 @@ def place_players(
         raise ToolError(f"Failed to place players: {str(e)}")
 
 
-@mcp.tool
+@mcp.tool(name="ready_to_play")
 def ready_to_play(
     game_id: Annotated[str, "The unique identifier of the game"],
     team_id: Annotated[str, "Your team's identifier"]
@@ -889,7 +910,7 @@ def ready_to_play(
     }
 
 
-@mcp.tool
+@mcp.tool(name="suggest_path")
 def suggest_path(
     game_id: Annotated[str, "The unique identifier of the game"],
     player_id: Annotated[str, "ID of the player who will move"],
