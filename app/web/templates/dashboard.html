@@ -374,9 +374,68 @@
 
         .game-log .log-entries {
             flex: 1;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             color: var(--muted);
-            opacity: 0.8;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 400px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+
+        .game-log .log-entries h1,
+        .game-log .log-entries h2,
+        .game-log .log-entries h3 {
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            margin: 0.8rem 0 0.4rem;
+            line-height: 1.3;
+        }
+
+        .game-log .log-entries h1 {
+            font-size: 1.3rem;
+            border-bottom: 2px solid rgba(217, 180, 91, 0.3);
+            padding-bottom: 0.3rem;
+        }
+
+        .game-log .log-entries h2 {
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
+            padding-bottom: 0.25rem;
+        }
+
+        .game-log .log-entries h3 {
+            font-size: 1rem;
+        }
+
+        .game-log .log-entries strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .game-log .log-entries hr {
+            border: none;
+            border-top: 1px solid rgba(217, 180, 91, 0.25);
+            margin: 0.8rem 0;
+        }
+
+        .game-log .log-entries ul {
+            margin: 0.3rem 0;
+            padding-left: 1.2rem;
+        }
+
+        .game-log .log-entries li {
+            margin: 0.2rem 0;
+        }
+
+        .game-log .log-entries table {
+            margin: 0.5rem 0;
+            font-size: 0.85rem;
+        }
+
+        .game-log .log-entries th {
+            color: var(--accent-gold);
+            font-weight: 600;
         }
 
         .roster-panel {
@@ -480,6 +539,7 @@
     const team2Thoughts = document.getElementById('team2-thoughts');
     const team1Title = document.getElementById('team1-thoughts-title');
     const team2Title = document.getElementById('team2-thoughts-title');
+    const gameLogEntries = document.getElementById('game-log-entries');
 
     const PITCH_WIDTH = 26;
     const PITCH_HEIGHT = 15;
@@ -775,6 +835,50 @@
         rosterBody.innerHTML = rows.join('');
     }
 
+    function parseMarkdownToHTML(markdown) {
+        let html = markdown;
+
+        // Headers
+        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+        html = html.replace(/^## (.+)$/gm, '<h2>$2</h2>');
+        html = html.replace(/^### (.+)$/gm, '<h3>$3</h3>');
+
+        // Horizontal rules
+        html = html.replace(/^---$/gm, '<hr>');
+
+        // Bold
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // Lists (basic support)
+        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+        // Line breaks
+        html = html.replace(/\n/g, '<br>');
+
+        return html;
+    }
+
+    async function fetchGameLog() {
+        try {
+            const response = await fetch(`/game/${gameId}/log?format=markdown`);
+            if (!response.ok) {
+                throw new Error(`Failed to load game log (${response.status})`);
+            }
+            const markdown = await response.text();
+
+            // Parse and render markdown
+            const html = parseMarkdownToHTML(markdown);
+            gameLogEntries.innerHTML = html;
+
+            // Auto-scroll to bottom
+            gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
+        } catch (error) {
+            console.error('Failed to fetch game log:', error);
+            // Keep existing content on error
+        }
+    }
+
     // Configuration (poll_interval is configurable via template variable)
     const POLL_INTERVAL = {{ poll_interval }};
     const MAX_CONSECUTIVE_FAILURES = 5;
@@ -800,6 +904,9 @@
             renderPitch(data);
             renderThoughts(data);
             renderRoster(data);
+
+            // Fetch and render game log
+            fetchGameLog();
 
             // Clear any error messages
             if (meta.querySelector('.connection-error')) {
@@ -853,6 +960,7 @@
 
     // Initialize
     initPitchGrid();
+    fetchGameLog();  // Initial log fetch
     startPolling();
 </script>
 </body>

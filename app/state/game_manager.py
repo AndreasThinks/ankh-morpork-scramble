@@ -14,6 +14,8 @@ from app.models.actions import (
     AvailablePositionsResponse
 )
 from app.state.action_executor import ActionExecutor
+from app.game.event_logger import EventLogger
+from app.game.log_saver import LogSaver
 
 
 logger = logging.getLogger("app.game.manager")
@@ -21,10 +23,12 @@ logger = logging.getLogger("app.game.manager")
 
 class GameManager:
     """Manages game creation, state transitions, and rule enforcement"""
-    
-    def __init__(self):
+
+    def __init__(self, auto_save_logs: bool = True):
         self.games: dict[str, GameState] = {}
         self.executor = ActionExecutor()
+        self.log_saver = LogSaver()
+        self.auto_save_logs = auto_save_logs
     
     def create_game(self, game_id: Optional[str] = None) -> GameState:
         """Create a new game"""
@@ -141,14 +145,22 @@ class GameManager:
         game_state = self.get_game(game_id)
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
-        
+
         if game_state.phase != GamePhase.SETUP:
             raise ValueError("Game must be in setup phase to start")
 
         game_state.start_game()
 
         # Place ball at center of pitch
-        game_state.pitch.place_ball(Position(x=13, y=7))
+        ball_pos = Position(x=13, y=7)
+        game_state.pitch.place_ball(ball_pos)
+
+        # Log game events
+        event_logger = EventLogger(game_state)
+        event_logger.log_game_start(game_state.team1.name, game_state.team2.name)
+        event_logger.log_half_start(1)
+        event_logger.log_turn_start(game_state.team1.id, 1, 1)
+        event_logger.log_kickoff(ball_pos)
 
         logger.info(
             "Game %s started: %s vs %s",
@@ -164,11 +176,26 @@ class GameManager:
         game_state = self.get_game(game_id)
         if not game_state:
             raise ValueError(f"Game {game_id} not found")
-        
+
         if not game_state.turn:
             raise ValueError("No active turn")
 
+        # Log turn end for current team
+        event_logger = EventLogger(game_state)
+        current_team_id = game_state.turn.active_team_id
+        event_logger.log_turn_end(current_team_id)
+
         game_state.switch_turn()
+
+        # Log turn start for new team (if game not ended)
+        if game_state.phase not in [GamePhase.CONCLUDED, GamePhase.INTERMISSION]:
+            event_logger = EventLogger(game_state)  # Recreate with updated turn
+            event_logger.log_turn_start(
+                game_state.turn.active_team_id,
+                game_state.turn.team_turn,
+                game_state.turn.half
+            )
+
         game_state.add_event(f"Turn ended. Now {game_state.get_active_team().name}'s turn")
 
         logger.info(
@@ -177,6 +204,10 @@ class GameManager:
             game_state.turn.active_team_id,
             game_state.turn.team_turn,
         )
+
+        # Auto-save logs after each turn
+        if self.auto_save_logs:
+            self._save_game_logs(game_state)
 
         return game_state
     
@@ -384,32 +415,41 @@ class GameManager:
         game_state = self.get_game(game_id)
         if not game_state:
             return None
-        
+
         if not game_state.pitch.ball_carrier:
             return None
-        
+
         carrier = game_state.get_player(game_state.pitch.ball_carrier)
         carrier_pos = game_state.pitch.player_positions.get(carrier.id)
-        
+
         if not carrier_pos:
             return None
-        
+
         # Check if in end zone
         # Team 1 scores in x >= 23, Team 2 scores in x <= 2
         scored_team = None
-        
+
         if carrier.team_id == game_state.team1.id and carrier_pos.x >= 23:
             scored_team = game_state.team1
         elif carrier.team_id == game_state.team2.id and carrier_pos.x <= 2:
             scored_team = game_state.team2
-        
+
         if scored_team:
             scored_team.add_score()
+
+            # Log touchdown
+            event_logger = EventLogger(game_state)
+            event_logger.log_touchdown(carrier.id, scored_team.id, carrier_pos)
+
             game_state.add_event(f"{scored_team.name} scored!")
 
             # Reset for new drive
             game_state.pitch.ball_carrier = None
-            game_state.pitch.place_ball(Position(x=13, y=7))
+            ball_pos = Position(x=13, y=7)
+            game_state.pitch.place_ball(ball_pos)
+
+            # Log kickoff
+            event_logger.log_kickoff(ball_pos)
 
             logger.info(
                 "Game %s: %s scored (score %s-%s)",
@@ -419,6 +459,56 @@ class GameManager:
                 game_state.team2.score,
             )
 
+            # Auto-save logs after touchdown
+            if self.auto_save_logs:
+                self._save_game_logs(game_state)
+
             return scored_team.id
-        
+
+        return None
+
+    def _save_game_logs(self, game_state: GameState) -> None:
+        """Save game logs to disk (internal helper)."""
+        try:
+            self.log_saver.save_game_log(game_state)
+            logger.debug("Saved logs for game %s", game_state.game_id)
+        except Exception as e:
+            logger.error("Failed to save logs for game %s: %s", game_state.game_id, e)
+
+    def export_game_log(self, game_id: str, format: str = "markdown") -> Optional[str]:
+        """
+        Export game log in the specified format.
+
+        Args:
+            game_id: Game ID to export
+            format: Export format ("markdown" or "json")
+
+        Returns:
+            Log content or None if not found
+        """
+        game_state = self.get_game(game_id)
+        if not game_state:
+            # Try to load from disk
+            if format == "markdown":
+                return self.log_saver.get_markdown_log(game_id)
+            return None
+
+        # Save current state
+        if self.auto_save_logs:
+            self._save_game_logs(game_state)
+
+        # Return requested format
+        if format == "markdown":
+            return self.log_saver.get_markdown_log(game_id)
+        elif format == "json":
+            import json
+            from app.game.log_formatter import MarkdownLogFormatter
+            from app.game.statistics import StatisticsAggregator
+
+            events_data = {
+                "game_id": game_state.game_id,
+                "events": [event.model_dump(mode="json") for event in game_state.events],
+            }
+            return json.dumps(events_data, indent=2)
+
         return None
