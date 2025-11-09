@@ -1,4 +1,4 @@
-"""Configuration helpers for containerised LangGraph agents."""
+"""Configuration helpers for containerised Cline CLI agents."""
 from __future__ import annotations
 
 import os
@@ -27,7 +27,7 @@ class AgentConfig:
     model: str
     api_key: str
     base_url: str = "https://openrouter.ai/api/v1"
-    http_referer: str = "https://github.com/langchain-ai/langgraph"
+    http_referer: str = "https://github.com/AndreasThinks/ankh-morpork-scramble"
     app_title: str = "Ankh-Morpork Scramble Agent"
     join_retry_delay: float = 3.0
     poll_interval: float = 5.0

@@ -69,7 +69,7 @@ events, and the in-game chat log for the default demo match.
 ## Dockerised Multi-Agent Demo
 
 A ready-to-play demo match is packaged in the repository. The docker compose
-configuration spins up the FastAPI server plus two LangGraph-powered LLM agents
+configuration spins up the FastAPI server plus two Cline CLI-powered LLM agents
 that use the MCP tools to control each team.
 
 ```bash
@@ -79,7 +79,7 @@ docker compose up --build
 
 The server exposes port `8000` locally so you can watch the game state while the
 agents play. The `openrouter_api_key` environment variable is required because
-the agents call the OpenRouter API through LangChain.
+the agents call the OpenRouter API through Cline CLI.
 
 ## Logging
 
@@ -97,7 +97,7 @@ Tune the behaviour with environment variables:
 - `LOG_DIR` sets a shared directory for all log files. Use `APP_LOG_DIR` or
   `AGENT_LOG_DIR` to override the API or agent destinations individually.
 - `APP_LOG_LEVEL` adjusts server verbosity (default: `INFO`).
-- `AGENT_LOG_LEVEL` tunes the LangGraph agent logs (default: `INFO`).
+- `AGENT_LOG_LEVEL` tunes the Cline agent logs (default: `INFO`).
 - `LOG_MAX_BYTES` / `LOG_BACKUP_COUNT` control rotation for every handler.
 
 During a docker-compose match you can tail the files directly on the host (when
