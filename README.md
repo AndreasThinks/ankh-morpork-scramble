@@ -162,18 +162,27 @@ events, and the in-game chat log for the default demo match.
 
 ## Dockerised Multi-Agent Demo
 
-A ready-to-play demo match is packaged in the repository. The docker compose
-configuration spins up the FastAPI server plus two Cline CLI-powered LLM agents
-that use the MCP tools to control each team.
+The docker compose configuration now launches the server **in interactive
+mode**, so both bundled agents must assemble their rosters before kickoff. This
+mirrors the manual "DEMO_MODE=false" flow described above: they will join the
+fresh match, buy players with their starting budget, place them on the pitch,
+mark themselves ready, and then start playing.
 
 ```bash
 export openrouter_api_key=<your-api-key>
+# Optional: override the interactive game identifier (defaults to
+# "interactive-game") so the API and both agents coordinate on a custom ID.
+# INTERACTIVE_GAME_ID=my-fresh-game docker compose up --build
 docker compose up --build
 ```
 
 The server exposes port `8000` locally so you can watch the game state while the
-agents play. The `openrouter_api_key` environment variable is required because
-the agents call the OpenRouter API through Cline CLI.
+agents complete roster construction and play the match. The
+`openrouter_api_key` environment variable is required because the agents call
+the OpenRouter API through Cline CLI.
+
+To fall back to the pre-seeded demo match, set `DEMO_MODE=true` on the
+`game-server` service (or export it globally) before running `docker compose`.
 
 ## Logging
 

@@ -145,6 +145,8 @@ def test_write_mcp_settings(tmp_path, monkeypatch):
     entry = settings["mcpServers"][run_agent.MCP_SERVER_NAME]
     assert entry["url"] == "http://localhost:8000/mcp"
     assert "join_game" in entry["alwaysAllow"]
+    assert "buy_player" in entry["alwaysAllow"]
+    assert "place_players" in entry["alwaysAllow"]
 
 
 def test_prompt_includes_team_details():
@@ -163,6 +165,8 @@ def test_prompt_includes_team_details():
     assert "Seamstresses" in prompt
     assert "team2" in prompt
     assert "decrease the x coordinate" in prompt
+    assert "buy_player" in prompt
+    assert "ready_to_play" in prompt
 
 
 def test_secret_masking():
