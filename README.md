@@ -6,14 +6,24 @@ A turn-based sports game server inspired by Blood Bowl, featuring the City Watch
 
 ## Installation
 
-This project uses UV for package management:
+This project uses **UV** as the package manager. UV is fast, reliable, and handles dependency resolution better than pip.
 
 ```bash
-# Install dependencies
+# Install UV if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install project with dependencies
 uv pip install -e .
 
-# Or install with dev dependencies
+# Or install with dev dependencies for testing
 uv pip install -e ".[dev]"
+
+# Alternative: Use uv sync (recommended for reproducible installs)
+uv sync --extra dev
 ```
 
 ## Running the Server
@@ -130,7 +140,7 @@ The server includes an MCP (Model Context Protocol) interface at `http://localho
 
 ### Available MCP Tools
 
-LLM agents have access to 15 specialized tools:
+LLM agents have access to **16 specialized tools** for game interaction:
 
 **Setup & Budget Tools** (for DEMO_MODE=false):
 1. **get_team_budget** - Check remaining budget and purchase history
@@ -151,6 +161,29 @@ LLM agents have access to 15 specialized tools:
 14. **send_message** - Chat with opponent
 15. **get_messages** - Read messages
 16. **suggest_path** - Get movement path suggestions with risk assessment
+
+### Available MCP Resources
+
+In addition to tools, the MCP server provides **5 read-only resources** using URI-based access. Resources are optimized for frequent polling and state observation without executing actions:
+
+1. **game://{game_id}/state** - Complete game state snapshot
+2. **game://{game_id}/actions** - Valid actions for current turn
+3. **game://{game_id}/history** - Full event log
+4. **game://{game_id}/team/{team_id}/budget** - Budget status and purchase history
+5. **game://{game_id}/team/{team_id}/positions** - Available positions and costs
+
+**Tools vs Resources:**
+- **Tools** = Actions that modify game state (buy player, execute move, end turn)
+- **Resources** = Read-only queries using URI patterns (efficient for polling game state)
+
+Resources use the MCP resource protocol for efficient data access:
+
+```python
+# Read a resource using URI pattern
+state = await client.read_resource("game://demo-game/state")
+actions = await client.read_resource("game://demo-game/actions")
+budget = await client.read_resource("game://demo-game/team/team1/budget")
+```
 
 ### How LLM Agents Play
 

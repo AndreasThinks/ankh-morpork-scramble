@@ -52,10 +52,10 @@ tests/
 ├── test_combat.py            # Combat system
 ├── test_action_executor.py   # Action execution
 ├── test_game_manager.py      # Game state management
-└── test_mcp_server.py        # MCP integration (17 tests)
+└── test_mcp_server.py        # MCP integration (25 tests)
 ```
 
-**Total: 51+ tests** (as of current implementation)
+**Total: 238 tests** (as of current implementation)
 
 ## Current Test Coverage
 
@@ -69,10 +69,16 @@ tests/
 - **Combat System**: Blocks, armor breaks, injuries
 - **Action Execution**: All action types, validation, turnovers
 - **Game Management**: State management, turn handling
-- **MCP Integration**: All 9 LLM tools, error handling, agent gameplay
+- **MCP Integration**: All 16 LLM tools, 5 read-only resources, structured error handling, agent gameplay
 
 ### 🎯 Full Coverage Achieved
-Game logic and MCP integration are comprehensively tested with 51+ tests covering all major functionality.
+Game logic and MCP integration are comprehensively tested with 238 tests covering all major functionality.
+
+### Recent Improvements (Phase 2)
+- ✅ **MCP Resources**: 5 URI-based resources for efficient read-only data access
+- ✅ **Structured Errors**: GameError class with contextual information for better LLM understanding
+- ✅ **Lifespan Management**: Combined FastAPI + MCP lifespan for proper startup/shutdown ordering
+- ✅ **Test Coverage**: 7 new tests for Phase 2 features (all passing)
 
 ## CI/CD Integration
 
@@ -135,19 +141,21 @@ pytest tests/test_mcp_server.py::test_integration_two_llm_agents_playing -v
 
 ### MCP Test Coverage
 
-The MCP test suite includes 17 tests covering:
+The MCP test suite includes 25 tests covering:
 
-1. **Tool Registration** - Verifies all 9 tools are properly exposed
-2. **Join Game Flow** - Team joining and ready status
-3. **Error Handling** - Invalid game IDs, invalid team IDs, wrong turn
-4. **Game State Retrieval** - Complete state access for LLMs
-5. **Valid Actions** - Action discovery before/during game
-6. **Action Execution** - Move, block, and other actions
-7. **Turn Management** - Ending turns, turn validation
-8. **Messaging** - Send/receive messages between agents
-9. **History Access** - Event log retrieval
-10. **Reroll Usage** - Team reroll management
-11. **Integration** - Full two-agent gameplay simulation
+1. **Tool Registration** - Verifies all 16 tools are properly exposed
+2. **Resource Registration** - Verifies all 5 MCP resources are available
+3. **Resource Access** - Tests reading game state, actions, history, budget, and positions via resources
+4. **Join Game Flow** - Team joining and ready status
+5. **Error Handling** - Invalid game IDs, invalid team IDs, wrong turn, structured error context
+6. **Game State Retrieval** - Complete state access for LLMs
+7. **Valid Actions** - Action discovery before/during game
+8. **Action Execution** - Move, block, and other actions
+9. **Turn Management** - Ending turns, turn validation
+10. **Messaging** - Send/receive messages between agents
+11. **History Access** - Event log retrieval
+12. **Reroll Usage** - Team reroll management
+13. **Integration** - Full two-agent gameplay simulation
 
 ### Testing MCP with FastMCP Client
 
