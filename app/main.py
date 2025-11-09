@@ -26,6 +26,8 @@ from app.models.pitch import Position
 from app.setup.default_game import DEFAULT_GAME_ID, bootstrap_default_game
 from app.setup.interactive_game import INTERACTIVE_GAME_ID, bootstrap_interactive_game
 from app.state.game_manager import GameManager
+from app.game.statistics import StatisticsAggregator
+from app.models.events import GameStatistics
 
 # Global game manager instance (must be created before importing mcp_server)
 game_manager = GameManager()
@@ -49,16 +51,29 @@ demo_mode = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
 
 if demo_mode:
     # Demo mode: Create pre-configured game ready to play
-    game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
-    demo_game_state = bootstrap_default_game(game_manager, game_id=game_id, logger=logger)
-    logger.info("Demo game '%s' is ready with %d players", game_id, len(demo_game_state.players))
+    default_demo_game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
+    demo_game_state = bootstrap_default_game(
+        game_manager,
+        game_id=default_demo_game_id,
+        logger=logger
+    )
+    logger.info(
+        "Demo game '%s' is ready with %d players",
+        default_demo_game_id,
+        len(demo_game_state.players)
+    )
 else:
     # Interactive mode: Create empty game requiring setup
-    game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
-    demo_game_state = bootstrap_interactive_game(game_manager, game_id=game_id, logger=logger)
+    default_demo_game_id = None
+    interactive_game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
+    demo_game_state = bootstrap_interactive_game(
+        game_manager,
+        game_id=interactive_game_id,
+        logger=logger
+    )
     logger.info(
         "Interactive game '%s' created in DEPLOYMENT phase. Agents must purchase and place players.",
-        game_id
+        interactive_game_id
     )
 
 # Create combined lifespan that properly manages both FastAPI and MCP startup/shutdown
@@ -130,6 +145,17 @@ def get_game(game_id: str):
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
     return game_state
+
+
+@app.get("/game/{game_id}/statistics", response_model=GameStatistics)
+def get_game_statistics(game_id: str):
+    """Return aggregated statistics for a completed or in-progress game."""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+
+    aggregator = StatisticsAggregator(game_state)
+    return aggregator.aggregate()
 
 
 @app.post("/game/{game_id}/setup-team", response_model=GameState)
@@ -517,10 +543,41 @@ def reset_game(game_id: str):
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
-    
+
     try:
         game_state.reset_to_setup()
         return game_state
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/game/{game_id}/rematch", response_model=GameState)
+def rematch_game(game_id: str):
+    """Prepare and start a fresh match after the current game concludes."""
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+
+    try:
+        if demo_mode and default_demo_game_id and game_id == default_demo_game_id:
+            # Remove the existing entry so ``bootstrap_default_game`` creates a new instance
+            game_manager.games.pop(game_id, None)
+            fresh_state = bootstrap_default_game(
+                game_manager,
+                game_id=game_id,
+                logger=logger
+            )
+            # Mark teams as joined so the kickoff can start immediately
+            fresh_state.team1_joined = True
+            fresh_state.team2_joined = True
+            fresh_state.team1_ready = True
+            fresh_state.team2_ready = True
+            return game_manager.start_game(game_id)
+
+        # Fallback for interactive/custom games: reset to setup and let clients configure
+        game_state.reset_to_setup()
+        return game_state
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
