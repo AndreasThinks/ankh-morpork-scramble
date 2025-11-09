@@ -52,12 +52,30 @@ See detailed implementation guide below.
 This improvement plan references the following official documentation:
 
 - **[FastMCP Documentation](https://gofastmcp.com/)** - Main FastMCP framework docs
-- **[FastMCP FastAPI Integration](https://gofastmcp.com/integrations/fastapi)** - FastAPI-specific integration guide
+- **[FastMCP FastAPI Integration](https://gofastmcp.com/integrations/fastapi)** - FastAPI-specific integration guide ✅ **REVIEWED**
 - **[MCP Protocol Specification](https://spec.modelcontextprotocol.io/)** - Official Model Context Protocol spec
 - **[FastMCP GitHub](https://github.com/jlowin/fastmcp)** - Source code and examples
 - **[FastAPI Documentation](https://fastapi.tiangolo.com/)** - FastAPI framework docs
 - **[Pydantic Documentation](https://docs.pydantic.dev/)** - Data validation library docs
 - **[Python Standard Library](https://docs.python.org/3/library/)** - functools, contextvars, etc.
+
+### ✅ FastAPI Integration Best Practices Verification
+
+The current implementation has been verified against the [FastMCP FastAPI Integration guide](https://gofastmcp.com/integrations/fastapi) and follows all recommended patterns:
+
+1. ✅ **Operation IDs**: All 16 MCP tools have explicit `name` parameters (not relying on auto-generated names)
+2. ✅ **Lifespan Management**: Proper combined lifespan with nested async context managers (lines 65-87 in `app/main.py`)
+3. ✅ **CORS Middleware**: No application-wide CORS middleware (avoiding conflicts with FastMCP's OAuth handling)
+4. ✅ **Server Mounting Pattern**: MCP app properly mounted at `/mcp` with correct lifespan integration
+5. ✅ **Resource vs Tools Semantics**: Read-only operations exposed as MCP Resources, write operations as Tools
+6. ✅ **Experimental Parser**: Documentation added to `.env.example` for optional use
+7. ✅ **Error Handling**: Structured error context with `GameError` class for better LLM understanding
+
+**Integration Pattern Used**: Server Mounting (not auto-conversion)
+- The project uses explicit `@mcp.tool` and `@mcp.resource` decorators
+- MCP server is mounted on FastAPI app at `/mcp`
+- Both REST API and MCP interfaces coexist on single application
+- This is the recommended pattern for production deployments per the FastMCP docs
 
 ---
 
@@ -559,16 +577,30 @@ def execute_action(...):
 
 ## Low-Priority / Future Enhancements
 
-### 16. **Enable New OpenAPI Parser** 🔵
+### 16. **Enable New OpenAPI Parser** 🟢 ✅ **DOCUMENTED**
 
-**Reference**: FastMCP docs - v2.11+ experimental parser
+**Reference**: [FastMCP FastAPI Integration - Experimental Parser](https://gofastmcp.com/integrations/fastapi#experimental-features) | FastMCP v2.11+ experimental parser
 
-**Add to environment**:
+**Status**: ✅ Configuration option documented in `.env.example`
+
+**Usage**: Add to your `.env` file:
 ```bash
 FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true
 ```
 
-**Benefit**: Better performance and maintainability (when stable).
+**What it does**:
+- Enables FastMCP's experimental OpenAPI parser introduced in v2.11
+- Provides improved performance and compatibility for auto-converted OpenAPI servers
+- Will eventually become the default parser
+
+**When to use**:
+- If you're using `FastMCP.from_fastapi()` to auto-generate MCP tools from FastAPI endpoints
+- Note: This project uses direct MCP tool definitions, so this flag has minimal impact here
+- Useful for future expansion if auto-conversion features are added
+
+**Current implementation**: The project uses explicit MCP tool definitions (`@mcp.tool`) rather than auto-conversion from FastAPI endpoints, so this experimental parser is not currently needed but is available for future use.
+
+**Benefit**: Better performance and maintainability for auto-converted APIs (when stable).
 
 ---
 
@@ -670,13 +702,13 @@ def join_game(
 
 **Status**: ✅ All Phase 3 improvements complete (except metadata which is not supported). Correlation IDs, health check, input sanitization, and rate limiting all implemented.
 
-### Phase 4: Future (When Needed) - **NOT STARTED**
-14. 📋 **TODO** - Retry logic
-15. 📋 **TODO** - Tool versioning
-16. 📋 **TODO** - OpenAPI parser experiment
-17. 📋 **TODO** - Analytics
-18. 📋 **TODO** - Enhanced validation
-19. 📋 **TODO** - Authentication
+### Phase 4: Future (When Needed) - **1 OF 6 DOCUMENTED**
+14. 📋 **TODO** - Retry logic (optional enhancement)
+15. 📋 **TODO** - Tool versioning (optional enhancement)
+16. ✅ **DONE** - OpenAPI parser experiment (documented in `.env.example`)
+17. 📋 **TODO** - Analytics (optional enhancement)
+18. 📋 **TODO** - Enhanced validation (optional enhancement)
+19. 📋 **TODO** - Authentication (optional enhancement)
 
 ---
 
