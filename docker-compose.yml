@@ -33,8 +33,10 @@ services:
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
       - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
-      - CLINE_DIR=/tmp/cline-team1
+      - CLINE_DIR=/app/cline-data/team1
       - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-INFO}
+    volumes:
+      - cline-team1-data:/app/cline-data/team1
     depends_on:
       game-server:
         condition: service_healthy
@@ -54,8 +56,14 @@ services:
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-https://localhost}
       - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-Ankh-Morpork Scramble Agents}
-      - CLINE_DIR=/tmp/cline-team2
+      - CLINE_DIR=/app/cline-data/team2
       - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-INFO}
+    volumes:
+      - cline-team2-data:/app/cline-data/team2
     depends_on:
       game-server:
         condition: service_healthy
+
+volumes:
+  cline-team1-data:
+  cline-team2-data:
