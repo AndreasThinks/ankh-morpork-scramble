@@ -465,6 +465,213 @@
             letter-spacing: 0.04em;
             font-style: italic;
         }
+
+        .scoreboard-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 4, 0, 0.78);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(1rem, 4vw, 4rem);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .scoreboard-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .scoreboard-panel {
+            width: min(960px, 100%);
+            background: linear-gradient(170deg, rgba(36, 23, 12, 0.95), rgba(18, 11, 6, 0.92));
+            border: 1px solid rgba(217, 180, 91, 0.35);
+            border-radius: 22px;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.65);
+            padding: clamp(1.5rem, 3vw, 2.75rem);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(1.2rem, 2.5vw, 2rem);
+        }
+
+        .scoreboard-header h2 {
+            margin: 0;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: clamp(2rem, 3.5vw, 3rem);
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--accent-gold);
+        }
+
+        .scoreboard-header p {
+            margin: 0.35rem 0 0;
+            color: rgba(242, 227, 198, 0.75);
+            font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+            letter-spacing: 0.04em;
+        }
+
+        .scoreboard-scoreline {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: clamp(1rem, 2.5vw, 2.5rem);
+            align-items: center;
+            background: rgba(30, 19, 10, 0.72);
+            border-radius: 18px;
+            border: 1px solid rgba(217, 180, 91, 0.25);
+            padding: clamp(1.25rem, 2vw, 1.75rem);
+            text-align: center;
+        }
+
+        .scoreboard-team-name {
+            display: block;
+            font-family: "Cinzel", "Times New Roman", serif;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            font-size: clamp(1.2rem, 2vw, 1.5rem);
+        }
+
+        .scoreboard-team-score {
+            display: block;
+            font-size: clamp(2.5rem, 4vw, 3.2rem);
+            font-weight: 600;
+            color: rgba(242, 227, 198, 0.95);
+        }
+
+        .scoreboard-score-divider {
+            font-size: clamp(1rem, 2vw, 1.4rem);
+            letter-spacing: 0.3em;
+            color: rgba(217, 180, 91, 0.7);
+            text-transform: uppercase;
+        }
+
+        .scoreboard-key-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: clamp(0.75rem, 1.8vw, 1.5rem);
+        }
+
+        .scoreboard-stat-card {
+            background: rgba(30, 19, 10, 0.7);
+            border-radius: 16px;
+            border: 1px solid rgba(217, 180, 91, 0.28);
+            padding: 1rem 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .scoreboard-stat-card h4 {
+            margin: 0;
+            font-size: 0.9rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(217, 180, 91, 0.85);
+        }
+
+        .scoreboard-stat-values {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .scoreboard-stat-values span {
+            font-family: "Cinzel", "Times New Roman", serif;
+        }
+
+        .scoreboard-stat-meta {
+            font-size: 0.8rem;
+            color: rgba(242, 227, 198, 0.65);
+            letter-spacing: 0.03em;
+        }
+
+        .scoreboard-highlights h3 {
+            margin: 0 0 0.6rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--accent-gold);
+            font-size: 1rem;
+        }
+
+        .scoreboard-highlights ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .scoreboard-highlights li {
+            background: rgba(36, 23, 12, 0.85);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 0.85rem 1rem;
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .scoreboard-highlights .player-name {
+            display: block;
+            font-weight: 600;
+            color: rgba(242, 227, 198, 0.95);
+            letter-spacing: 0.06em;
+        }
+
+        .scoreboard-highlights .player-team {
+            display: block;
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            color: rgba(242, 227, 198, 0.65);
+        }
+
+        .scoreboard-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            align-items: center;
+        }
+
+        .scoreboard-actions button {
+            background: linear-gradient(135deg, rgba(217, 180, 91, 0.85), rgba(196, 109, 40, 0.85));
+            color: rgba(18, 11, 6, 0.95);
+            border: none;
+            border-radius: 999px;
+            padding: 0.85rem 2.5rem;
+            font-size: 1rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-family: "Cinzel", "Times New Roman", serif;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .scoreboard-actions button:disabled {
+            cursor: not-allowed;
+            opacity: 0.75;
+            box-shadow: none;
+        }
+
+        .scoreboard-actions button:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 36px rgba(0, 0, 0, 0.45);
+        }
+
+        .scoreboard-note {
+            margin: 0;
+            font-size: 0.85rem;
+            color: rgba(242, 227, 198, 0.65);
+            letter-spacing: 0.03em;
+            text-align: center;
+        }
     </style>
 </head>
 <body data-game-id="{{ game_id }}">
@@ -528,6 +735,35 @@
     Live tactical view for the Ankh-Morpork Scramble. Hover players for details, watch the drive unfold.
 </footer>
 
+<div class="scoreboard-overlay" id="scoreboard-overlay" hidden>
+    <div class="scoreboard-panel" role="dialog" aria-labelledby="scoreboard-title" aria-modal="true">
+        <div class="scoreboard-header">
+            <h2 id="scoreboard-title">Final Whistle</h2>
+            <p id="scoreboard-subtitle">The pitch falls silent as the dust settles…</p>
+        </div>
+        <div class="scoreboard-scoreline" aria-live="polite">
+            <div>
+                <span class="scoreboard-team-name" id="scoreboard-team1-name">Team 1</span>
+                <span class="scoreboard-team-score" id="scoreboard-team1-score">0</span>
+            </div>
+            <div class="scoreboard-score-divider">vs</div>
+            <div>
+                <span class="scoreboard-team-name" id="scoreboard-team2-name">Team 2</span>
+                <span class="scoreboard-team-score" id="scoreboard-team2-score">0</span>
+            </div>
+        </div>
+        <div class="scoreboard-key-stats" id="scoreboard-key-stats" aria-live="polite"></div>
+        <div class="scoreboard-highlights">
+            <h3>Player Highlights</h3>
+            <ul id="scoreboard-highlights"></ul>
+        </div>
+        <div class="scoreboard-actions">
+            <button id="start-new-game-btn">Start New Game</button>
+            <p id="scoreboard-note" class="scoreboard-note"></p>
+        </div>
+    </div>
+</div>
+
 <script>
     const gameId = document.body.dataset.gameId;
     const scoreLine = document.getElementById('score-line');
@@ -540,6 +776,16 @@
     const team1Title = document.getElementById('team1-thoughts-title');
     const team2Title = document.getElementById('team2-thoughts-title');
     const gameLogEntries = document.getElementById('game-log-entries');
+    const scoreboardOverlay = document.getElementById('scoreboard-overlay');
+    const scoreboardSubtitle = document.getElementById('scoreboard-subtitle');
+    const scoreboardTeam1Name = document.getElementById('scoreboard-team1-name');
+    const scoreboardTeam1Score = document.getElementById('scoreboard-team1-score');
+    const scoreboardTeam2Name = document.getElementById('scoreboard-team2-name');
+    const scoreboardTeam2Score = document.getElementById('scoreboard-team2-score');
+    const scoreboardKeyStats = document.getElementById('scoreboard-key-stats');
+    const scoreboardHighlights = document.getElementById('scoreboard-highlights');
+    const startNewGameBtn = document.getElementById('start-new-game-btn');
+    const scoreboardNote = document.getElementById('scoreboard-note');
 
     const PITCH_WIDTH = 26;
     const PITCH_HEIGHT = 15;
@@ -859,6 +1105,241 @@
         return html;
     }
 
+    function stopPolling() {
+        if (pollIntervalId) {
+            clearInterval(pollIntervalId);
+            pollIntervalId = null;
+        }
+        isPolling = false;
+    }
+
+    function hideScoreboard() {
+        scoreboardVisible = false;
+        scoreboardOverlay.classList.remove('visible');
+        scoreboardOverlay.setAttribute('hidden', 'true');
+        scoreboardHighlights.innerHTML = '';
+        scoreboardKeyStats.innerHTML = '';
+        scoreboardNote.textContent = '';
+        scoreboardStatsCache = null;
+        startNewGameBtn.disabled = false;
+        startNewGameBtn.textContent = 'Start New Game';
+    }
+
+    function formatAttempt(success = 0, attempts = 0) {
+        if (!attempts) {
+            return `${success}/${attempts}`;
+        }
+        const rate = Math.round((success / attempts) * 100);
+        return `${success}/${attempts} (${rate}%)`;
+    }
+
+    function formatTurnoverReason(reason) {
+        const labels = {
+            failed_dodge: 'Failed dodge',
+            failed_rush: 'Failed rush',
+            failed_pickup: 'Failed pickup',
+            failed_catch: 'Failed catch',
+            fumbled_pass: 'Fumbled pass',
+            ball_carrier_down: 'Carrier down',
+            throw_teammate_failed: 'Thrown teammate mishap',
+            unknown: 'Mysterious mishap'
+        };
+        return labels[reason] || reason.replace(/_/g, ' ');
+    }
+
+    function createStatCard(label, team1Value, team2Value, metaText = '') {
+        return `
+            <div class="scoreboard-stat-card">
+                <h4>${label}</h4>
+                <div class="scoreboard-stat-values">
+                    <span>${team1Value}</span>
+                    <span>${team2Value}</span>
+                </div>
+                ${metaText ? `<div class="scoreboard-stat-meta">${metaText}</div>` : ''}
+            </div>
+        `;
+    }
+
+    function renderKeyStats(teamStats, aggregateStats, state) {
+        if (!teamStats) {
+            scoreboardKeyStats.innerHTML = '';
+            return;
+        }
+
+        const team1Stats = teamStats[state.team1.id] || {};
+        const team2Stats = teamStats[state.team2.id] || {};
+
+        let turnoverMeta = '';
+        const turnoverEntries = aggregateStats && aggregateStats.turnovers_by_reason
+            ? Object.entries(aggregateStats.turnovers_by_reason)
+            : [];
+        if (turnoverEntries.length) {
+            turnoverEntries.sort((a, b) => b[1] - a[1]);
+            const [reason, count] = turnoverEntries[0];
+            turnoverMeta = `Most common: ${formatTurnoverReason(reason)} (${count})`;
+        }
+
+        const cards = [
+            createStatCard('Touchdowns', team1Stats.touchdowns ?? 0, team2Stats.touchdowns ?? 0),
+            createStatCard('Casualties Caused', team1Stats.casualties_caused ?? 0, team2Stats.casualties_caused ?? 0),
+            createStatCard('Passes Completed', formatAttempt(team1Stats.passes_completed ?? 0, team1Stats.passes_attempted ?? 0), formatAttempt(team2Stats.passes_completed ?? 0, team2Stats.passes_attempted ?? 0)),
+            createStatCard('Ball Pickups', formatAttempt(team1Stats.pickups_succeeded ?? 0, team1Stats.pickups_attempted ?? 0), formatAttempt(team2Stats.pickups_succeeded ?? 0, team2Stats.pickups_attempted ?? 0)),
+            createStatCard('Turnovers', team1Stats.turnovers ?? 0, team2Stats.turnovers ?? 0, turnoverMeta),
+            createStatCard('Blocks Thrown', team1Stats.blocks_thrown ?? 0, team2Stats.blocks_thrown ?? 0)
+        ];
+
+        scoreboardKeyStats.innerHTML = cards.join('');
+    }
+
+    function renderPlayerHighlights(stats, state) {
+        const players = Object.values(stats.player_stats || {});
+        if (!players.length) {
+            scoreboardHighlights.innerHTML = '<li>No player statistics recorded yet.</li>';
+            return;
+        }
+
+        const teamLookup = {
+            [state.team1.id]: state.team1.name,
+            [state.team2.id]: state.team2.name
+        };
+
+        const decorated = players.map((player) => {
+            const impact = (player.touchdowns * 100)
+                + (player.casualties_caused * 80)
+                + (player.passes_completed * 25)
+                + player.moves;
+            return { ...player, impact };
+        }).sort((a, b) => b.impact - a.impact);
+
+        const topPerformers = decorated.filter((player) => player.impact > 0).slice(0, 4);
+
+        if (!topPerformers.length) {
+            scoreboardHighlights.innerHTML = '<li>The match ends without a standout hero. Perhaps next time!</li>';
+            return;
+        }
+
+        const lines = topPerformers.map((player) => {
+            const segments = [];
+            if (player.touchdowns) {
+                segments.push(`${player.touchdowns} touchdown${player.touchdowns === 1 ? '' : 's'}`);
+            }
+            if (player.casualties_caused) {
+                segments.push(`${player.casualties_caused} casualty${player.casualties_caused === 1 ? '' : 'ies'}`);
+            }
+            if (player.passes_completed) {
+                segments.push(`${player.passes_completed} accurate pass${player.passes_completed === 1 ? '' : 'es'}`);
+            }
+            if (!segments.length) {
+                segments.push(`${player.moves} squares travelled`);
+            }
+
+            return `
+                <li>
+                    <span class="player-name">${player.player_name}</span>
+                    <span class="player-team">${teamLookup[player.team_id] || 'Neutral stand-in'}</span>
+                    <span>${segments.join(' · ')}</span>
+                </li>
+            `;
+        });
+
+        scoreboardHighlights.innerHTML = lines.join('');
+    }
+
+    function describeOutcome(state) {
+        const diff = state.team1.score - state.team2.score;
+        if (diff === 0) {
+            return `A hard-fought draw finishes ${state.team1.score}-${state.team2.score}.`;
+        }
+
+        const winner = diff > 0 ? state.team1 : state.team2;
+        const loser = diff > 0 ? state.team2 : state.team1;
+        const margin = Math.abs(diff);
+        const marginText = margin === 1 ? 'by a single scratch' : `by ${margin} scratches`;
+        return `${winner.name} prevail ${marginText} over ${loser.name}.`;
+    }
+
+    async function fetchScoreboardStatistics() {
+        if (scoreboardStatsCache) {
+            return scoreboardStatsCache;
+        }
+
+        const response = await fetch(`/game/${gameId}/statistics`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        scoreboardStatsCache = data;
+        return data;
+    }
+
+    async function showScoreboard(state) {
+        if (scoreboardVisible) {
+            return;
+        }
+
+        scoreboardVisible = true;
+        stopPolling();
+
+        scoreboardTeam1Name.textContent = state.team1.name;
+        scoreboardTeam2Name.textContent = state.team2.name;
+        scoreboardTeam1Score.textContent = state.team1.score;
+        scoreboardTeam2Score.textContent = state.team2.score;
+        scoreboardSubtitle.textContent = describeOutcome(state);
+
+        scoreboardOverlay.removeAttribute('hidden');
+        requestAnimationFrame(() => scoreboardOverlay.classList.add('visible'));
+
+        startNewGameBtn.disabled = false;
+        startNewGameBtn.textContent = 'Start New Game';
+        scoreboardNote.textContent = 'Review the post-match report, then launch a new kickoff when you are ready.';
+
+        try {
+            const stats = await fetchScoreboardStatistics();
+            renderKeyStats(stats.team_stats, stats, state);
+            renderPlayerHighlights(stats, state);
+        } catch (error) {
+            console.error('Failed to load statistics:', error);
+            scoreboardKeyStats.innerHTML = '';
+            scoreboardHighlights.innerHTML = '<li>Unable to load detailed statistics.</li>';
+            scoreboardNote.textContent = `Statistics unavailable: ${error.message}`;
+        }
+    }
+
+    startNewGameBtn.addEventListener('click', async () => {
+        if (startNewGameBtn.disabled) {
+            return;
+        }
+
+        startNewGameBtn.disabled = true;
+        startNewGameBtn.textContent = 'Preparing…';
+        scoreboardNote.textContent = 'Resetting the pitch and rousing the teams…';
+
+        try {
+            const response = await fetch(`/game/${gameId}/rematch`, { method: 'POST' });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const nextState = await response.json();
+
+            hideScoreboard();
+
+            updateScoreboard(nextState);
+            renderPitch(nextState);
+            renderThoughts(nextState);
+            renderRoster(nextState);
+            fetchGameLog();
+
+            if (!isPolling) {
+                startPolling();
+            }
+        } catch (error) {
+            console.error('Failed to start new game:', error);
+            startNewGameBtn.disabled = false;
+            startNewGameBtn.textContent = 'Start New Game';
+            scoreboardNote.textContent = `Could not start a new game: ${error.message}`;
+        }
+    });
+
     async function fetchGameLog() {
         try {
             const response = await fetch(`/game/${gameId}/log?format=markdown`);
@@ -887,7 +1368,9 @@
     // State tracking
     let consecutiveFailures = 0;
     let pollIntervalId = null;
-    let isPolling = true;
+    let isPolling = false;
+    let scoreboardVisible = false;
+    let scoreboardStatsCache = null;
 
     async function fetchState() {
         try {
@@ -905,6 +1388,12 @@
             renderThoughts(data);
             renderRoster(data);
 
+            if (data.phase === 'finished') {
+                await showScoreboard(data);
+            } else if (scoreboardVisible) {
+                hideScoreboard();
+            }
+
             // Fetch and render game log
             fetchGameLog();
 
@@ -919,10 +1408,7 @@
 
             if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
                 // Stop polling after too many failures
-                if (pollIntervalId) {
-                    clearInterval(pollIntervalId);
-                    isPolling = false;
-                }
+                stopPolling();
 
                 scoreLine.innerHTML = `<span style="color: #e07856;">Connection lost after ${MAX_CONSECUTIVE_FAILURES} attempts</span>`;
                 meta.innerHTML = `
@@ -951,6 +1437,11 @@
     }
 
     function startPolling() {
+        if (isPolling) {
+            return;
+        }
+        isPolling = true;
+
         // Initial fetch
         fetchState();
 

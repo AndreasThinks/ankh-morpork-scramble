@@ -1,7 +1,7 @@
 """Tests for FastAPI endpoints"""
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
+from app.main import app, demo_mode, default_demo_game_id
 from app.models.enums import TeamType, ActionType
 
 
@@ -489,3 +489,39 @@ def test_valid_actions_invalid_game():
     """Test valid actions for non-existent game"""
     response = client.get("/game/nonexistent/valid-actions")
     assert response.status_code == 404
+
+
+def test_statistics_endpoint_returns_data():
+    """Statistics endpoint should respond with structured aggregates."""
+    if demo_mode and default_demo_game_id:
+        game_id = default_demo_game_id
+    else:
+        game_id = client.post("/game").json()["game_id"]
+
+    response = client.get(f"/game/{game_id}/statistics")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["game_id"] == game_id
+    assert "team_stats" in data
+    assert "player_stats" in data
+
+
+def test_rematch_endpoint_starts_or_resets_game():
+    """Rematch endpoint should provide a fresh match state."""
+    if demo_mode and default_demo_game_id:
+        game_id = default_demo_game_id
+    else:
+        game_id = client.post("/game").json()["game_id"]
+
+    response = client.post(f"/game/{game_id}/rematch")
+    assert response.status_code == 200
+
+    new_state = response.json()
+    assert new_state["game_id"] == game_id
+
+    if demo_mode and default_demo_game_id:
+        assert new_state["phase"] == "kickoff"
+        assert new_state["game_started"] is True
+    else:
+        assert new_state["phase"] == "setup"
