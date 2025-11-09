@@ -78,11 +78,11 @@ class ClineAgentRunner:
         self.agent_logger.info("Started Cline Core instance at %s", instance_address)
         
         try:
-            # Authenticate with OpenRouter
-            await self._apply_configuration()
+            # Configure OpenRouter API key for this instance
+            await self._apply_configuration(instance_address)
             
             # Enable YOLO mode for complete auto-approval including MCP tools
-            await self._enable_yolo_mode()
+            await self._enable_yolo_mode(instance_address)
 
             # Build and create the task
             prompt = self._build_prompt()
@@ -152,7 +152,7 @@ class ClineAgentRunner:
         
         await process.wait()
 
-    async def _enable_yolo_mode(self) -> None:
+    async def _enable_yolo_mode(self, instance_address: str) -> None:
         """Enable YOLO mode for complete auto-approval of all actions including MCP tools."""
 
         self.agent_logger.info("Enabling YOLO mode for auto-approval")
@@ -162,27 +162,29 @@ class ClineAgentRunner:
                 "config",
                 "set",
                 "yolo-mode-toggled=true",
+                "--address",
+                instance_address,
             ],
             description="enable YOLO mode",
         )
     
-    async def _apply_configuration(self) -> None:
-        """Authenticate Cline with OpenRouter provider."""
+    async def _apply_configuration(self, instance_address: str) -> None:
+        """Configure OpenRouter API key for the Cline instance."""
 
+        # Set the OpenRouter API key as a config setting for this instance
         await self._run_cli_command(
             [
                 "cline",
-                "auth",
-                "--provider",
-                "openrouter",
-                "--apikey",
-                self.config.api_key,
-                "--modelid",
-                self.config.model
+                "config",
+                "set",
+                f"open-router-api-key={self.config.api_key}",
+                "--address",
+                instance_address,
             ],
             mask_args=[self.config.api_key],
-            description="authenticate with OpenRouter",
+            description="configure OpenRouter API key",
         )
+        # Model selection happens via OPENROUTER_MODEL environment variable
     
     async def _create_task(self, instance_address: str, prompt: str) -> None:
         """Create a task on the specified Cline instance."""

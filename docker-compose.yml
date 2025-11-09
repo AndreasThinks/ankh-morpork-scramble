@@ -20,7 +20,7 @@ services:
   agent-team1:
     build: .
     image: ankh-morpork-scramble
-    command: ["python", "-m", "app.agents.run_agent"]
+    command: ["uv", "run", "python", "-m", "app.agents.run_agent"]
     environment:
       - TEAM_ID=team1
       - TEAM_NAME=City Watch Constables
@@ -41,7 +41,7 @@ services:
   agent-team2:
     build: .
     image: ankh-morpork-scramble
-    command: ["python", "-m", "app.agents.run_agent"]
+    command: ["uv", "run", "python", "-m", "app.agents.run_agent"]
     environment:
       - TEAM_ID=team2
       - TEAM_NAME=Unseen University Adepts
