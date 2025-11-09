@@ -75,6 +75,21 @@
 - **Notes**: `Player` models expose `position.role` but not `position_name`; LogSaver should avoid referencing the missing attribute or add a helper when constructing summaries.
 - **Status**: FIXED on 2025-11-09 by giving `Player` instances jersey numbers plus `position_name`/`display_name` helpers and teaching the event/stat logging pipeline to use them. Confirmed by saving a post-move log via `LogSaver.save_game_log` (no AttributeError, markdown/JSON/stat files created).
 
+#### BUG #6: End-turn endpoint keeps advancing turns after the match finishes
+- **Date**: 2025-11-09 (Interactive mode manual playthrough)
+- **Severity**: Major – corrupts post-game state and floods logs
+- **Steps to Reproduce**:
+  1. Launch the server with `DEMO_MODE=false` and join both teams in `interactive-game`.
+  2. Purchase the minimum roster, place players, start the match, and repeatedly call `POST /game/{id}/end-turn` until the phase switches to `finished`.
+  3. Continue calling the same endpoint.
+- **Observed Behavior**: The API still returns `200 OK` and increments `turn.team_turn` while logging "Match concluded!" for every request, even though the game is already finished. The turn counter reached 17 and the log spammed repeated conclusion messages.【8f919f†L1-L31】【4b7a35†L67-L184】【81d55b†L1-L25】
+- **Expected Behavior**: Once the phase is `finished`, further end-turn calls should be rejected (e.g., HTTP 400) or be treated as no-ops so the turn counter and logs remain stable.
+- **Impact**: Downstream tooling that relies on turn numbers or log exports sees impossible data after regulation time and wastes disk space with duplicate conclusion entries.
+- **Status**: FIXED on 2025-11-09 by rejecting `/game/{id}/end-turn` calls when
+  `phase=finished`. The API now returns HTTP 400 with "Cannot end turn on a
+  concluded game", preventing duplicate "Match concluded!" entries and further
+  turn increments once regulation ends.
+
 ### Minor Bugs
 <!-- Small issues, UI problems, or edge cases -->
 
@@ -161,6 +176,11 @@
 - ✅ Placed all eight players on the pitch and joined both teams, then started the match.
 - ✅ Advanced through 36 `/game/{id}/end-turn` calls until the phase switched to `finished` (half 2, turn 9).
 - ❌ LogSaver raised `AttributeError: 'Player' object has no attribute 'position_name'` on every auto-save attempt, leaving no markdown/JSON/stat summary artifacts (`chunk 4c9311†L1-L140`).
+
+### 2025-11-09 Interactive Mode Manual Playthrough
+- ✅ Started the API with `DEMO_MODE=false`, joined `interactive-game`, and used REST calls to buy and place three players per team.
+- ✅ Began the match and verified kickoff, turn rotation, and automatic log generation under `logs/api.log` and `logs/games/interactive-game/`.
+- ⚠️ Observed BUG #6: `/game/{id}/end-turn` continued to return success and increment `team_turn` after the phase became `finished`, resulting in duplicate "Match concluded!" entries and an inflated turn counter.
 
 ### 2025-11-09 Regression Suite
 - ✅ `uv run pytest`

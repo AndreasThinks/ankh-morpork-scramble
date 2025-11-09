@@ -181,6 +181,9 @@ class GameManager:
         if not game_state.turn:
             raise ValueError("No active turn")
 
+        if game_state.phase == GamePhase.CONCLUDED:
+            raise ValueError("Cannot end turn on a concluded game")
+
         # Log turn end for current team
         event_logger = EventLogger(game_state)
         current_team_id = game_state.turn.active_team_id
