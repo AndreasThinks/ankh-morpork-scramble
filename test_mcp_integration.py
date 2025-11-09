@@ -26,10 +26,10 @@ async def test_mcp_connection():
     print()
 
     # Check API key
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        print("❌ ERROR: ANTHROPIC_API_KEY not set")
-        print("Set it with: export ANTHROPIC_API_KEY=your_key")
+        print("❌ ERROR: OPENROUTER_API_KEY not set")
+        print("Set it with: export OPENROUTER_API_KEY=your_key")
         return False
 
     print("✓ API key found")
@@ -38,10 +38,12 @@ async def test_mcp_connection():
     # Test configuration
     game_id = "test_mcp_game"
     mcp_url = "http://localhost:8000/mcp"
+    model = os.getenv("OPENROUTER_MODEL", "openrouter/auto")
 
     print(f"Configuration:")
     print(f"  Game ID: {game_id}")
     print(f"  MCP URL: {mcp_url}")
+    print(f"  Model: {model}")
     print()
 
     try:
@@ -52,7 +54,7 @@ async def test_mcp_connection():
             team_id="team1",
             team_name="Test Team",
             mcp_url=mcp_url,
-            model="claude-3-5-sonnet-20241022",  # Use cheaper model for testing
+            model=model,
             api_key=api_key,
         )
         print("   ✓ Agent created")

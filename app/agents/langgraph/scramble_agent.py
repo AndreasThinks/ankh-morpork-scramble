@@ -9,7 +9,7 @@ import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -37,8 +37,11 @@ class ScrambleAgent:
         team_id: str,
         team_name: str,
         mcp_url: str = "http://localhost:8000/mcp",
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "openrouter/auto",
         api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        http_referer: Optional[str] = None,
+        app_title: Optional[str] = None,
         max_tokens: int = 150000,
     ):
         """
@@ -49,8 +52,11 @@ class ScrambleAgent:
             team_id: Team identifier (e.g., "team1")
             team_name: Human-readable team name
             mcp_url: MCP server URL
-            model: LLM model to use
-            api_key: Anthropic API key (or set ANTHROPIC_API_KEY env var)
+            model: LLM model to use (e.g., "openrouter/auto", "anthropic/claude-3.5-sonnet")
+            api_key: OpenRouter API key (or set OPENROUTER_API_KEY env var)
+            base_url: API base URL (defaults to OpenRouter)
+            http_referer: Site URL for OpenRouter rankings
+            app_title: Site title for OpenRouter rankings
             max_tokens: Maximum context tokens before compression
         """
         self.game_id = game_id
@@ -59,12 +65,37 @@ class ScrambleAgent:
         self.mcp_url = mcp_url
         self.model = model
 
-        # Initialize LLM
-        self.llm = ChatAnthropic(
+        # Get API key from env if not provided
+        if not api_key:
+            api_key = os.getenv("OPENROUTER_API_KEY")
+
+        if not api_key:
+            raise ValueError(
+                "API key is required. Set OPENROUTER_API_KEY environment variable "
+                "or pass api_key parameter."
+            )
+
+        # Get configuration from environment with sensible defaults
+        if not base_url:
+            base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+        if not http_referer:
+            http_referer = os.getenv("OPENROUTER_REFERER", "https://github.com/AndreasThinks/ankh-morpork-scramble")
+
+        if not app_title:
+            app_title = os.getenv("OPENROUTER_APP_TITLE", "Ankh-Morpork Scramble Agent")
+
+        # Initialize LLM with OpenRouter
+        self.llm = ChatOpenAI(
             model=model,
-            api_key=api_key or os.getenv("ANTHROPIC_API_KEY"),
+            api_key=api_key,
+            base_url=base_url,
             temperature=0.7,
             max_tokens=4096,
+            default_headers={
+                "HTTP-Referer": http_referer,
+                "X-Title": app_title,
+            }
         )
 
         # Initialize components
@@ -72,10 +103,13 @@ class ScrambleAgent:
         self.memory_policy = ScrambleMemoryPolicy(max_tokens=max_tokens)
 
         # Initialize MCP client (following ai-at-risk pattern)
+        # FastMCP uses streamable_http transport when configured with transport='streamable-http'
+        # Ensure URL has trailing slash as FastMCP requires it
+        mcp_url_normalized = mcp_url if mcp_url.endswith('/') else mcp_url + '/'
         self.mcp_client = MultiServerMCPClient({
             "scramble": {
-                "transport": "sse",
-                "url": mcp_url
+                "transport": "streamable_http",  # Note: underscore not hyphen!
+                "url": mcp_url_normalized
             }
         })
 
@@ -105,7 +139,7 @@ class ScrambleAgent:
             self.agent = create_react_agent(
                 self.llm,
                 self.tools,
-                state_modifier=self._get_system_message()
+                prompt=self._get_system_message()
             )
 
             print(f"[Agent] {self.team_name} ready to play!")
