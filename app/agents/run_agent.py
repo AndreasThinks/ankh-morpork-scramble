@@ -303,9 +303,12 @@ class ClineAgentRunner:
             4. When it is YOUR turn, call get_valid_actions. Pick the first movable player and move them one square
                toward the opponent (i.e. {direction}) using execute_action with action_type="MOVE" and a
                target_position payload. Afterwards call end_turn immediately.
-            5. When it is not your turn, acknowledge STATUS: WAITING after confirming the active team and continue
+            5. After taking an action, use send_message to share your strategic thinking with spectators. Send concise
+               messages explaining what you did and why. For example: "Moved Lineman forward to support our advance"
+               or "Positioning Catcher near the ball carrier for a pass option". This helps fans follow your strategy!
+            6. When it is not your turn, acknowledge STATUS: WAITING after confirming the active team and continue
                polling the state until your turn resumes.
-            6. Keep responses concise. Begin each status update with STATUS: followed by ACTION_TAKEN, WAITING, or
+            7. Keep responses concise. Begin each status update with STATUS: followed by ACTION_TAKEN, WAITING, or
                COMPLETE. Mention the MCP tools you invoked in that turn.
 
             Stop once the match ends, the game reports a winner, or you cannot perform further actions. Provide a
