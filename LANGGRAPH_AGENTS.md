@@ -29,6 +29,7 @@ This installs:
 - `langchain-anthropic>=0.3.0`
 - `langchain-core>=0.3.0`
 - `langgraph>=0.2.0`
+- `langchain-mcp-adapters>=0.1.0` (for MCP integration)
 
 ### 2. Set API Key
 
@@ -50,19 +51,44 @@ uv run uvicorn app.main:app --reload
 
 Server starts at: http://localhost:8000
 
-### 4. Launch Agents
+### 4. Test MCP Connection (Recommended)
 
-In another terminal:
+Before running a full match, verify the MCP integration works:
+
+```bash
+# Terminal 2: Test MCP connection
+uv run python test_mcp_integration.py
+```
+
+This will:
+- ✓ Verify MCP client can connect to server
+- ✓ Confirm tools are loaded properly
+- ✓ Check agent initialization
+
+Expected output:
+```
+✓ API key found
+✓ Agent created
+✓ Connected successfully
+✓ Loaded 14+ MCP tools
+✓ Agent is ready to play
+✓ ALL TESTS PASSED!
+```
+
+### 5. Launch Agents
+
+In the same terminal:
 ```bash
 python -m app.agents.langgraph.launch
 ```
 
 This will:
 1. Create two agents (City Watch vs Unseen University)
-2. Join the game
-3. Play autonomously until game completes
+2. Initialize and connect to MCP server
+3. Join the game
+4. Play autonomously until game completes
 
-### 5. Watch the Game
+### 6. Watch the Game
 
 Open in browser: http://localhost:8000/ui
 
