@@ -44,10 +44,10 @@ class ActionRequest(BaseModel):
         """
         action = self.action_type
 
-        # MOVE requires target_position
+        # MOVE requires path
         if action == ActionType.MOVE:
-            if not self.target_position:
-                raise ValueError("MOVE action requires target_position")
+            if not self.path:
+                raise ValueError("MOVE action requires path (list of Position objects)")
 
         # SCUFFLE (block) requires target_player_id
         elif action == ActionType.SCUFFLE:

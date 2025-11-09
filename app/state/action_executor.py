@@ -304,7 +304,13 @@ class ActionExecutor:
                     if receiver.team_id == passer.team_id:
                         result.turnover = True
                     result.ball_dropped = True
-        
+
+            # If ball is on ground (no carrier), it's a turnover per rules section 11:
+            # "Failed pass (fumble or no valid catch after scatter)"
+            if not game_state.pitch.ball_carrier:
+                result.turnover = True
+                result.ball_dropped = True
+
         game_state.turn.hurl_used = True
         passer.has_acted = True
         game_state.add_event(result.message)
