@@ -50,15 +50,18 @@ def test_execute_move_simple():
     """Test simple move action"""
     executor = ActionExecutor(DiceRoller(seed=42))
     game_state = create_test_game_state()
-    
+
     player = create_test_player("p1", "team1")
     game_state.players["p1"] = player
     game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
-    
+
+    # target_position is required for validation
+    target = Position(x=7, y=7)
     action = ActionRequest(
         action_type=ActionType.MOVE,
         player_id="p1",
-        path=[Position(x=6, y=7), Position(x=7, y=7)]
+        target_position=target,
+        path=[Position(x=6, y=7), target]
     )
     
     result = executor.execute_action(game_state, action)
@@ -72,18 +75,21 @@ def test_execute_move_with_auto_pickup():
     """Test move action with automatic ball pickup"""
     executor = ActionExecutor(DiceRoller(seed=42))
     game_state = create_test_game_state()
-    
+
     player = create_test_player("p1", "team1")
     game_state.players["p1"] = player
     game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
-    
+
     # Place ball at destination
-    game_state.pitch.place_ball(Position(x=6, y=7))
-    
+    target = Position(x=6, y=7)
+    game_state.pitch.place_ball(target)
+
+    # target_position is required for validation
     action = ActionRequest(
         action_type=ActionType.MOVE,
         player_id="p1",
-        path=[Position(x=6, y=7)]
+        target_position=target,
+        path=[target]
     )
     
     result = executor.execute_action(game_state, action)
@@ -94,22 +100,18 @@ def test_execute_move_with_auto_pickup():
 
 
 def test_execute_move_without_path_fails():
-    """Test move without path fails"""
-    executor = ActionExecutor(DiceRoller(seed=42))
-    game_state = create_test_game_state()
-    
-    player = create_test_player("p1", "team1")
-    game_state.players["p1"] = player
-    
-    action = ActionRequest(
-        action_type=ActionType.MOVE,
-        player_id="p1",
-        path=[]
-    )
-    
-    result = executor.execute_action(game_state, action)
-    assert result.success == False
-    assert "path" in result.message.lower()
+    """Test move without path fails - caught by Pydantic validation"""
+    from pydantic import ValidationError
+
+    # ActionRequest validation will catch missing target_position
+    with pytest.raises(ValidationError) as exc_info:
+        action = ActionRequest(
+            action_type=ActionType.MOVE,
+            player_id="p1",
+            path=[]
+        )
+
+    assert "MOVE action requires target_position" in str(exc_info.value)
 
 
 def test_execute_stand_up():
@@ -182,22 +184,18 @@ def test_execute_block():
 
 
 def test_execute_block_without_target_fails():
-    """Test block without target fails"""
-    executor = ActionExecutor(DiceRoller(seed=42))
-    game_state = create_test_game_state()
-    
-    attacker = create_test_player("p1", "team1")
-    game_state.players["p1"] = attacker
-    
-    action = ActionRequest(
-        action_type=ActionType.SCUFFLE,
-        player_id="p1",
-        target_player_id=None
-    )
-    
-    result = executor.execute_action(game_state, action)
-    assert result.success == False
-    assert "target" in result.message.lower()
+    """Test block without target fails - caught by Pydantic validation"""
+    from pydantic import ValidationError
+
+    # ActionRequest validation will catch missing target_player_id
+    with pytest.raises(ValidationError) as exc_info:
+        action = ActionRequest(
+            action_type=ActionType.SCUFFLE,
+            player_id="p1",
+            target_player_id=None
+        )
+
+    assert "SCUFFLE action requires target_player_id" in str(exc_info.value)
 
 
 def test_execute_block_turnover_if_ball_carrier_down():
@@ -308,22 +306,18 @@ def test_execute_pass():
 
 
 def test_execute_pass_without_target_fails():
-    """Test pass without target position fails"""
-    executor = ActionExecutor(DiceRoller(seed=42))
-    game_state = create_test_game_state()
-    
-    passer = create_test_player("p1", "team1")
-    game_state.players["p1"] = passer
-    
-    action = ActionRequest(
-        action_type=ActionType.HURL,
-        player_id="p1",
-        target_position=None
-    )
-    
-    result = executor.execute_action(game_state, action)
-    assert result.success == False
-    assert "target" in result.message.lower()
+    """Test pass without target fails - caught by Pydantic validation"""
+    from pydantic import ValidationError
+
+    # ActionRequest validation will catch missing target (receiver or position)
+    with pytest.raises(ValidationError) as exc_info:
+        action = ActionRequest(
+            action_type=ActionType.HURL,
+            player_id="p1",
+            target_position=None
+        )
+
+    assert "HURL action requires" in str(exc_info.value)
 
 
 def test_execute_pass_only_once_per_turn():
@@ -377,22 +371,18 @@ def test_execute_hand_off():
 
 
 def test_execute_hand_off_without_receiver_fails():
-    """Test hand-off without receiver fails"""
-    executor = ActionExecutor(DiceRoller(seed=42))
-    game_state = create_test_game_state()
-    
-    giver = create_test_player("p1", "team1")
-    game_state.players["p1"] = giver
-    
-    action = ActionRequest(
-        action_type=ActionType.QUICK_PASS,
-        player_id="p1",
-        target_receiver_id=None
-    )
-    
-    result = executor.execute_action(game_state, action)
-    assert result.success == False
-    assert "receiver" in result.message.lower()
+    """Test hand-off without receiver fails - caught by Pydantic validation"""
+    from pydantic import ValidationError
+
+    # ActionRequest validation will catch missing target_receiver_id
+    with pytest.raises(ValidationError) as exc_info:
+        action = ActionRequest(
+            action_type=ActionType.QUICK_PASS,
+            player_id="p1",
+            target_receiver_id=None
+        )
+
+    assert "QUICK_PASS action requires target_receiver_id" in str(exc_info.value)
 
 
 def test_execute_foul():
@@ -424,19 +414,15 @@ def test_execute_foul():
 
 
 def test_foul_without_target_fails():
-    """Test foul without target fails"""
-    executor = ActionExecutor(DiceRoller(seed=42))
-    game_state = create_test_game_state()
-    
-    attacker = create_test_player("p1", "team1")
-    game_state.players["p1"] = attacker
-    
-    action = ActionRequest(
-        action_type=ActionType.BOOT,
-        player_id="p1",
-        target_player_id=None
-    )
-    
-    result = executor.execute_action(game_state, action)
-    assert result.success == False
-    assert "target" in result.message.lower()
+    """Test foul without target fails - caught by Pydantic validation"""
+    from pydantic import ValidationError
+
+    # ActionRequest validation will catch missing target_player_id
+    with pytest.raises(ValidationError) as exc_info:
+        action = ActionRequest(
+            action_type=ActionType.BOOT,
+            player_id="p1",
+            target_player_id=None
+        )
+
+    assert "BOOT action requires target_player_id" in str(exc_info.value)
