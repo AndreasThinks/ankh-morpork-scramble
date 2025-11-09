@@ -38,6 +38,28 @@ python -m app.main
 
 The server will start at `http://localhost:8000`
 
+## Quick Start: Watch AI Agents Play! 🤖
+
+**New!** The easiest way to see the game in action:
+
+```bash
+./run_agents.sh
+```
+
+This single command will:
+- ✅ Start the game server (if not running)
+- ✅ Create a new game
+- ✅ Launch two AI agents (City Watch vs Unseen University)
+- ✅ Show you where to watch the match at `http://localhost:8000/ui`
+
+The agents will:
+1. **Build their rosters** - Each team gets 1M gold to buy players
+2. **Deploy strategically** - Place players on the pitch
+3. **Battle autonomously** - Play until someone scores!
+4. **Share their thinking** - Watch their coaching strategy in real-time on the web UI
+
+**See `AGENT_QUICKSTART.md` for full details!**
+
 ## Playing a Full Match
 
 ### Quick demo (default `DEMO_MODE=true`)

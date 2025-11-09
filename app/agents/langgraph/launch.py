@@ -42,6 +42,13 @@ async def launch_match(
             print("Set it via environment variable or pass as argument")
             sys.exit(1)
 
+    # Get model from environment if not explicitly provided via CLI
+    if model == "openrouter/auto":
+        env_model = os.getenv("OPENROUTER_MODEL")
+        if env_model:
+            model = env_model
+            print(f"Using model from OPENROUTER_MODEL env var: {model}")
+
     print(f"🎮 Launching Ankh-Morpork Scramble Match")
     print(f"   Game ID: {game_id}")
     print(f"   MCP URL: {mcp_url}")
@@ -165,8 +172,8 @@ def main():
     parser.add_argument(
         "--game-id",
         type=str,
-        default="demo_game",
-        help="Game identifier (default: demo_game)",
+        default="friendly",
+        help="Game ID to join"
     )
 
     parser.add_argument(

@@ -75,7 +75,67 @@ class ScrambleNarrator:
         my_team = teams.get(team_id, {})
         team_name = my_team.get("name", "Unknown")
 
-        # Get score
+        # Special handling for DEPLOYMENT/SETUP phase
+        if phase in ("DEPLOYMENT", "SETUP"):
+            # Check if team has players yet
+            players = my_team.get("players", {})
+            player_count = len(players)
+            
+            # Check if ready
+            is_ready = my_team.get("ready", False)
+            
+            if is_ready:
+                narrative = f"""
+🎮 **{team_name} - Waiting for Game Start**
+
+**Phase:** {phase}
+**Status:** ✓ Roster complete, marked ready
+
+Your roster is set! Waiting for opponent to finish their setup.
+Players on roster: {player_count}
+
+The game will begin once both teams are ready.
+                """.strip()
+            elif player_count == 0:
+                narrative = f"""
+🎮 **{team_name} - ROSTER BUILDING PHASE**
+
+**Phase:** {phase}
+**Budget:** 1,000,000 gold
+**Players:** 0 (need minimum 3)
+
+⚠️ **ACTION REQUIRED**: You must build your roster now!
+
+**IMMEDIATE STEPS**:
+1. Call get_team_budget to confirm your funds
+2. Call get_available_positions to see player options
+3. Call buy_player multiple times (buy at least 3 players)
+   - Recommended: Mix of positions (Constables, Runners, etc.)
+   - Each costs between 45k-150k gold
+4. OPTIONAL: Call buy_reroll (50k each, useful but expensive)
+5. Call place_players with position dictionary
+6. Call ready_to_play when your roster is complete
+
+**DO NOT WAIT** - Start building your roster immediately!
+                """.strip()
+            else:
+                narrative = f"""
+🎮 **{team_name} - Roster Building in Progress**
+
+**Phase:** {phase}
+**Players:** {player_count} on roster
+
+Next steps:
+- If you need more players: call buy_player again
+- If satisfied with roster: call place_players to set positions
+- Then call ready_to_play to mark your team as ready
+
+Current roster has {player_count} players.
+                """.strip()
+            
+            return narrative
+
+        # Get score (for normal play)
         score = state.get("score", {})
         my_score = score.get(team_id, 0)
 

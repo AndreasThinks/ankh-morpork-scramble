@@ -86,16 +86,35 @@ class GameRunner:
 
                 # Get current team
                 current_team_id = game_state.get("current_team")
-                current_turn = game_state.get("turn", 0)
+                current_turn = game_state.get("turn") or 0  # Handle None during DEPLOYMENT
 
                 # Track turn changes
-                if current_turn > self.turn_count:
+                if current_turn and current_turn > self.turn_count:
                     self.turn_count = current_turn
                     print(f"\n{'='*70}")
                     print(f"⏰ Turn {current_turn} - Phase: {phase}")
                     print(f"{'='*70}")
 
-                # Find agent whose turn it is
+                # Handle different game phases
+                if phase in ("DEPLOYMENT", "SETUP"):
+                    # During setup, let each agent act if they haven't completed setup
+                    for agent in self.agents:
+                        try:
+                            print(f"\n🎮 {agent.team_name} - Setup phase")
+                            turn_start = datetime.now()
+                            await agent.play_turn(game_state)
+                            turn_duration = (datetime.now() - turn_start).total_seconds()
+                            print(f"   ✓ Setup action completed in {turn_duration:.1f}s")
+                        except Exception as e:
+                            print(f"   ✗ Error during {agent.team_name}'s setup: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # Wait longer between setup checks
+                    await asyncio.sleep(self.poll_interval * 2)
+                    continue
+
+                # Find agent whose turn it is (ACTIVE_PLAY phase)
                 if current_team_id and current_team_id in self.agents_by_team:
                     agent = self.agents_by_team[current_team_id]
 

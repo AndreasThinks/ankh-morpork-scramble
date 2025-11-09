@@ -6,8 +6,10 @@ Adapted from ai-at-risk's RiskAgent implementation.
 """
 
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from pathlib import Path
 
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
@@ -103,7 +105,7 @@ class ScrambleAgent:
         self.memory_policy = ScrambleMemoryPolicy(max_tokens=max_tokens)
 
         # Initialize MCP client (following ai-at-risk pattern)
-        # FastMCP uses streamable_http transport when configured with transport='streamable-http'
+        # HTTP URLs require "streamable_http" transport (underscore, not hyphen)
         # Ensure URL has trailing slash as FastMCP requires it
         mcp_url_normalized = mcp_url if mcp_url.endswith('/') else mcp_url + '/'
         self.mcp_client = MultiServerMCPClient({
@@ -120,7 +122,23 @@ class ScrambleAgent:
         # Track conversation history
         self.messages: List = []
 
-        print(f"[Agent] {team_name} initialized (model: {model})")
+        # Set up agent-specific logging
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        
+        self.logger = logging.getLogger(f"agent.{team_id}")
+        self.logger.setLevel(logging.INFO)
+        
+        # File handler for this agent
+        log_file = log_dir / f"agent-{team_id}.log"
+        file_handler = logging.FileHandler(log_file, mode='a')
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        self.logger.addHandler(file_handler)
+        
+        self.logger.info(f"{team_name} initialized (model: {model})")
+        print(f"[Agent] {team_name} initialized (model: {model}) - logging to {log_file}")
 
     async def initialize(self):
         """
@@ -200,7 +218,17 @@ Score "Scratches" by carrying the ball into the opponent's end zone (like Americ
    - Conserve rerolls for critical moments
    - Don't over-extend - know when to end turn
 
-6. Call end_turn when you've made your key moves
+6. **IMPORTANT: Share Your Strategy**:
+   - After EVERY significant action (move, scuffle, pickup, etc.), call send_message
+   - Explain your tactical thinking to spectators watching at /ui
+   - Keep messages concise (1-2 sentences)
+   - Examples:
+     * "Advanced Lineman to support cage formation around ball carrier"
+     * "Cleared opponent blocker to open passing lane"
+     * "Positioning Catcher for potential deep pass next turn"
+   - This is not optional - fans want to see your coaching decisions!
+
+7. Call end_turn when you've made your key moves
 
 ## KEY MECHANICS
 - **Tackle Zones**: Adjacent opponents force dodge rolls
@@ -334,10 +362,11 @@ Play smart, be aggressive when ahead, and protect the ball at all costs!
         print(f"[Agent] {self.team_name} joining game {self.game_id}...")
 
         try:
+            # Use regular REST API to join game
+            base_url = self.mcp_url.replace("/mcp", "")
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.mcp_url}/call/join_game",
-                    json={"game_id": self.game_id, "team_id": self.team_id},
+                    f"{base_url}/game/{self.game_id}/join?team_id={self.team_id}"
                 )
                 response.raise_for_status()
                 result = response.json()
