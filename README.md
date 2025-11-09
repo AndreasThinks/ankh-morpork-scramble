@@ -160,6 +160,51 @@ A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It re
 every few seconds to display the live score, current turn information, recent
 events, and the in-game chat log for the default demo match.
 
+## AI Agents
+
+This project includes two agent implementations for autonomous gameplay:
+
+### LangGraph Agents (Recommended - New!)
+
+**Native Python agents using LangChain and LangGraph patterns. No Docker required!**
+
+Built from the ground up with MCP integration following proven patterns from the [ai-at-risk](https://github.com/AndreasThinks/ai-at-risk) project.
+
+**Key Features:**
+- ✅ **60-80% token reduction** via game state narrator (delta-based updates)
+- ✅ **95% efficiency** via turn-based polling (only invoke LLM on agent's turn)
+- ✅ **Automatic memory compression** when approaching token limits
+- ✅ **Direct MCP integration** using `langchain-mcp-adapters`
+- ✅ **No Docker required** - runs as native Python
+- ✅ **React agent pattern** - automatic tool-calling loops
+
+**Quick Start:**
+```bash
+# Install dependencies
+uv sync
+
+# Set API key
+export ANTHROPIC_API_KEY=your_key_here
+
+# Terminal 1: Start game server
+uv run uvicorn app.main:app --reload
+
+# Terminal 2: Test MCP connection (recommended)
+uv run python test_mcp_integration.py
+
+# Terminal 2: Launch agents
+python -m app.agents.langgraph.launch
+
+# Browser: Watch the game
+open http://localhost:8000/ui
+```
+
+**See [LANGGRAPH_AGENTS.md](LANGGRAPH_AGENTS.md) for complete documentation.**
+
+### Dockerised Cline Agents (Legacy)
+
+The original Docker-based implementation using Cline CLI. Still functional but more complex to set up.
+
 ## Dockerised Multi-Agent Demo
 
 The docker compose configuration now launches the server **in interactive

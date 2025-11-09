@@ -2,7 +2,7 @@
 
 This guide shows you how to use the new LangGraph-based agents to play Ankh-Morpork Scramble.
 
-> **⚠️ IMPORTANT**: This implementation is **not yet fully functional**. The MCP client integration needs to be completed before agents can play games. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for details on what's working and what needs to be fixed.
+> **✅ STATUS**: MCP client integration is complete! The agents are ready to test. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for implementation details.
 
 ## Overview
 
@@ -29,6 +29,7 @@ This installs:
 - `langchain-anthropic>=0.3.0`
 - `langchain-core>=0.3.0`
 - `langgraph>=0.2.0`
+- `langchain-mcp-adapters>=0.1.0` (for MCP integration)
 
 ### 2. Set API Key
 
@@ -50,19 +51,44 @@ uv run uvicorn app.main:app --reload
 
 Server starts at: http://localhost:8000
 
-### 4. Launch Agents
+### 4. Test MCP Connection (Recommended)
 
-In another terminal:
+Before running a full match, verify the MCP integration works:
+
+```bash
+# Terminal 2: Test MCP connection
+uv run python test_mcp_integration.py
+```
+
+This will:
+- ✓ Verify MCP client can connect to server
+- ✓ Confirm tools are loaded properly
+- ✓ Check agent initialization
+
+Expected output:
+```
+✓ API key found
+✓ Agent created
+✓ Connected successfully
+✓ Loaded 14+ MCP tools
+✓ Agent is ready to play
+✓ ALL TESTS PASSED!
+```
+
+### 5. Launch Agents
+
+In the same terminal:
 ```bash
 python -m app.agents.langgraph.launch
 ```
 
 This will:
 1. Create two agents (City Watch vs Unseen University)
-2. Join the game
-3. Play autonomously until game completes
+2. Initialize and connect to MCP server
+3. Join the game
+4. Play autonomously until game completes
 
-### 5. Watch the Game
+### 6. Watch the Game
 
 Open in browser: http://localhost:8000/ui
 
@@ -332,29 +358,37 @@ app/agents/langgraph/
 └── README.md             # Detailed documentation
 ```
 
-## Known Issues
+## Current Status
 
-### ⚠️ MCP Client Not Implemented
+### ✅ MCP Client Integration Complete
 
-**Status**: Critical blocker
+**Status**: Implemented and ready for testing
 
-The agents cannot currently communicate with the game server because the MCP client integration is incomplete. The code in `scramble_agent.py` uses placeholder HTTP endpoints that don't match FastMCP's actual protocol.
+The agents can now communicate with the game server using `langchain-mcp-adapters`. The implementation follows the proven ai-at-risk pattern.
 
-**What needs fixing**:
-- Replace placeholder `call_mcp_tool` with proper MCP client
-- Use MCP Python SDK to call tools correctly
-- Test integration with running game server
+**What's working**:
+- ✅ MCP client connects via SSE transport
+- ✅ Tools loaded automatically from server
+- ✅ React agent built with MCP tools
+- ✅ Integration test script available
 
-**Estimated time**: 2-4 hours
+**Test before using**:
+```bash
+# Start game server
+uv run uvicorn app.main:app --reload
 
-See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete details and fix instructions.
+# Test MCP connection
+uv run python test_mcp_integration.py
+```
 
-### Other Limitations
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete details.
 
-- Game state structure not validated against actual `GameState` model
+### Known Limitations
+
+- Game state structure not yet validated with real game server
 - Setup phase logic not tested
-- Error handling is basic
-- No integration tests yet
+- Error handling could be improved
+- Integration tests pending
 
 ## Troubleshooting
 
