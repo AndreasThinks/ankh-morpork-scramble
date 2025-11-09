@@ -15,6 +15,7 @@ from app.models.actions import ActionRequest, ActionResult, ValidActionsResponse
 from app.models.enums import ActionType, GamePhase
 from app.models.pitch import Position
 from app.state.game_manager import GameManager
+from app.validation import GameStateValidator
 from app.models.mcp_responses import (
     JoinGameResponse,
     EndTurnResponse,
@@ -481,32 +482,53 @@ def execute_action(
     
     if not game_state.turn:
         raise ToolError("Game has not started yet. Wait for the game to begin.")
-    
-    # Verify player belongs to active team
-    if not game_state.is_player_on_active_team(player_id):
-        active_team = game_state.get_active_team()
+
+    # Create action request (Pydantic validation will check required fields)
+    try:
+        action = ActionRequest(
+            action_type=action_type,
+            player_id=player_id,
+            target_position=target_position,
+            path=path,
+            target_player_id=target_player_id,
+            target_receiver_id=target_receiver_id,
+            use_reroll=use_reroll
+        )
+    except ValueError as e:
         raise GameError(
-            f"Not your turn! It's {active_team.id}'s turn. "
-            f"Player '{player_id}' cannot act right now.",
+            f"Invalid action parameters: {str(e)}",
             context={
-                "active_team": active_team.id,
-                "requested_player": player_id,
-                "turn_number": game_state.turn.team_turn if game_state.turn else None,
-                "phase": game_state.phase.value,
-                "error_type": "wrong_turn"
+                "action_type": action_type.value if hasattr(action_type, 'value') else str(action_type),
+                "player_id": player_id,
+                "error_type": "validation_error"
             }
         )
-    
-    # Create action request
-    action = ActionRequest(
-        action_type=action_type,
-        player_id=player_id,
-        target_position=target_position,
-        path=path,
-        target_player_id=target_player_id,
-        target_receiver_id=target_receiver_id,
-        use_reroll=use_reroll
-    )
+
+    # Enhanced validation before execution
+    is_valid = True
+    error_msg = None
+
+    if action_type == ActionType.MOVE:
+        is_valid, error_msg = GameStateValidator.validate_move_action(game_state, action)
+    elif action_type == ActionType.SCUFFLE:  # Block
+        is_valid, error_msg = GameStateValidator.validate_block_action(game_state, action)
+    elif action_type == ActionType.HURL:  # Pass
+        is_valid, error_msg = GameStateValidator.validate_pass_action(game_state, action)
+    elif action_type == ActionType.QUICK_PASS:  # Hand-off
+        is_valid, error_msg = GameStateValidator.validate_hand_off_action(game_state, action)
+    else:
+        # For other action types, just check player can act
+        is_valid, error_msg = GameStateValidator.validate_player_can_act(game_state, player_id)
+
+    if not is_valid:
+        raise GameError(
+            error_msg,
+            context={
+                "action_type": action_type.value if hasattr(action_type, 'value') else str(action_type),
+                "player_id": player_id,
+                "error_type": "precondition_failed"
+            }
+        )
     
     try:
         result = manager.executor.execute_action(game_state, action)

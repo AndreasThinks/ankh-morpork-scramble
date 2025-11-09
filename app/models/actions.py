@@ -18,21 +18,65 @@ class ActionRequest(BaseModel):
     """Request to perform an action"""
     action_type: ActionType
     player_id: str
-    
+
     # Target position (for moves, blocks if not adjacent)
     target_position: Optional[Position] = None
-    
+
     # For movement: path of positions
     path: Optional[list[Position]] = None
-    
+
     # For blocks/blitz: target player
     target_player_id: Optional[str] = None
-    
+
     # For pass/hand-off: target position or player
     target_receiver_id: Optional[str] = None
-    
+
     # Optional: request to use reroll
     use_reroll: bool = False
+
+    @model_validator(mode='after')
+    def validate_action_requirements(self) -> 'ActionRequest':
+        """
+        Validate that required fields are present for each action type.
+
+        This provides early validation before attempting to execute the action,
+        giving clearer error messages to LLM agents about what parameters are missing.
+        """
+        action = self.action_type
+
+        # MOVE requires target_position
+        if action == ActionType.MOVE:
+            if not self.target_position:
+                raise ValueError("MOVE action requires target_position")
+
+        # SCUFFLE (block) requires target_player_id
+        elif action == ActionType.SCUFFLE:
+            if not self.target_player_id:
+                raise ValueError("SCUFFLE action requires target_player_id (adjacent opponent)")
+
+        # CHARGE (blitz) requires target_player_id (and optionally target_position for movement)
+        elif action == ActionType.CHARGE:
+            if not self.target_player_id:
+                raise ValueError("CHARGE action requires target_player_id (opponent to block)")
+
+        # HURL (pass) requires target_receiver_id or target_position
+        elif action == ActionType.HURL:
+            if not self.target_receiver_id and not self.target_position:
+                raise ValueError("HURL action requires target_receiver_id or target_position")
+
+        # QUICK_PASS (hand-off) requires target_receiver_id
+        elif action == ActionType.QUICK_PASS:
+            if not self.target_receiver_id:
+                raise ValueError("QUICK_PASS action requires target_receiver_id (adjacent teammate)")
+
+        # BOOT (foul) requires target_player_id
+        elif action == ActionType.BOOT:
+            if not self.target_player_id:
+                raise ValueError("BOOT action requires target_player_id (prone adjacent opponent)")
+
+        # STAND_UP doesn't require additional parameters
+
+        return self
 
 
 class ActionResult(BaseModel):

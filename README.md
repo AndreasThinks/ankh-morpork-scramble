@@ -140,7 +140,7 @@ The server includes an MCP (Model Context Protocol) interface at `http://localho
 
 ### Available MCP Tools
 
-LLM agents have access to **16 specialized tools** for game interaction:
+LLM agents have access to **16 specialized tools** for game interaction, all with enhanced validation to provide clear error messages:
 
 **Setup & Budget Tools** (for DEMO_MODE=false):
 1. **get_team_budget** - Check remaining budget and purchase history
@@ -173,8 +173,15 @@ In addition to tools, the MCP server provides **5 read-only resources** using UR
 5. **game://{game_id}/team/{team_id}/positions** - Available positions and costs
 
 **Tools vs Resources:**
-- **Tools** = Actions that modify game state (buy player, execute move, end turn)
+- **Tools** = Actions that modify game state (buy player, execute move, end turn) with validation
 - **Resources** = Read-only queries using URI patterns (efficient for polling game state)
+
+**Enhanced Validation:**
+All MCP tools include comprehensive validation that catches errors early and provides clear, specific error messages to LLM agents:
+- Position validators ensure coordinates are within pitch bounds (0-25, 0-14)
+- Action validators check required parameters (e.g., MOVE needs target_position, SCUFFLE needs target_player_id)
+- Game state validators verify preconditions (player can act, players are adjacent, etc.)
+- Better error context helps LLM agents understand what went wrong and how to fix it
 
 Resources use the MCP resource protocol for efficient data access:
 
