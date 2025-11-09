@@ -360,11 +360,50 @@ def get_history(game_id: str, limit: int = 50):
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
-    
+
     return {
         "game_id": game_id,
         "events": game_state.event_log[-limit:]
     }
+
+
+@app.get("/game/{game_id}/log")
+def export_game_log(game_id: str, format: str = "markdown"):
+    """
+    Export complete game log with events, dice rolls, and statistics.
+
+    Formats:
+    - markdown: Human-readable narrative with full details
+    - json: Structured event data
+
+    The log includes:
+    - All game events chronologically
+    - Dice rolls and outcomes
+    - Turn-by-turn breakdown
+    - Game statistics
+    """
+    if format not in ["markdown", "json"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Format must be 'markdown' or 'json'"
+        )
+
+    log_content = game_manager.export_game_log(game_id, format=format)
+
+    if not log_content:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Game {game_id} not found or has no events"
+        )
+
+    # Return as appropriate content type
+    if format == "markdown":
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=log_content, media_type="text/markdown")
+    else:
+        from fastapi.responses import JSONResponse
+        import json
+        return JSONResponse(content=json.loads(log_content))
 
 
 @app.get("/game/{game_id}/suggest-path")

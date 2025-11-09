@@ -1,5 +1,5 @@
 """Game state model"""
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 import logging
 from pydantic import BaseModel, Field
@@ -7,6 +7,9 @@ from app.models.enums import GamePhase, TeamType
 from app.models.pitch import Pitch
 from app.models.player import Player
 from app.models.team import Team
+
+if TYPE_CHECKING:
+    from app.models.events import GameEvent
 
 
 event_logger = logging.getLogger("app.game.events")
@@ -62,9 +65,10 @@ class GameState(BaseModel):
     
     # Turn tracking
     turn: Optional[TurnState] = None
-    
+
     # Game history
-    event_log: list[str] = Field(default_factory=list)
+    events: list["GameEvent"] = Field(default_factory=list, description="Structured event log")
+    event_log: list[str] = Field(default_factory=list, description="Legacy string event log (deprecated)")
     messages: list[GameMessage] = Field(default_factory=list)
     
     @property
@@ -175,13 +179,32 @@ class GameState(BaseModel):
         """End the current half"""
         if not self.turn:
             return
-        
+
+        from app.game.event_logger import EventLogger
+
+        event_logger = EventLogger(self)
+
         if self.turn.half == 1:
+            event_logger.log_half_end(1)
+
             self.turn.half = 2
             self.turn.team_turn = 0
             self.phase = GamePhase.INTERMISSION
             self.add_event("Intermission!")
+
+            event_logger.log_half_start(2)
         else:
+            event_logger.log_half_end(2)
+
+            # Determine winner
+            winner_id = None
+            if self.team1.score > self.team2.score:
+                winner_id = self.team1.id
+            elif self.team2.score > self.team1.score:
+                winner_id = self.team2.id
+
+            event_logger.log_game_end(winner_id)
+
             self.phase = GamePhase.CONCLUDED
             self.add_event("Match concluded!")
     

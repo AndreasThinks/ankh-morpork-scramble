@@ -1439,6 +1439,65 @@ def available_positions_resource(game_id: str, team_id: str) -> str:
         raise ToolError(f"Failed to get available positions: {str(e)}")
 
 
+@mcp.tool(
+    name="export_game_log",
+    description="Export the complete game log with all events, dice rolls, and statistics.",
+)
+def export_game_log(
+    game_id: Annotated[str, "The unique identifier of the game"],
+    format: Annotated[str, "Export format: 'markdown' (default) or 'json'"] = "markdown"
+) -> dict:
+    """
+    Export the complete game log for analysis or review.
+
+    This tool generates a comprehensive game log including:
+    - All game events in chronological order
+    - Dice rolls with results and outcomes
+    - Player actions and movements
+    - Turnovers and touchdowns
+    - Game statistics (passes, blocks, injuries, etc.)
+    - Turn-by-turn breakdown
+
+    The markdown format provides a human-readable narrative, while JSON
+    provides structured data for programmatic analysis.
+
+    Args:
+        game_id: The game to export
+        format: Output format ("markdown" or "json")
+
+    Returns:
+        Dictionary with game_id, format, and log content
+
+    Example:
+        log = export_game_log(game_id="game123", format="markdown")
+        print(log["content"])
+    """
+    game_id = sanitize_id(game_id, "game_id")
+    log_tool_call("export_game_log", game_id=game_id, format=format)
+
+    manager = get_manager()
+
+    # Validate format
+    if format not in ["markdown", "json"]:
+        raise ToolError("Format must be 'markdown' or 'json'")
+
+    # Export log
+    log_content = manager.export_game_log(game_id, format=format)
+
+    if not log_content:
+        raise ToolError(
+            f"Could not export log for game '{game_id}'. "
+            "Game may not exist or may have no events yet."
+        )
+
+    return {
+        "game_id": game_id,
+        "format": format,
+        "content": log_content,
+        "message": f"Successfully exported game log in {format} format"
+    }
+
+
 @mcp.resource("health://check")
 def health_check_resource() -> str:
     """
