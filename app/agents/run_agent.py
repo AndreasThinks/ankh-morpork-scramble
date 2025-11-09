@@ -246,6 +246,12 @@ class ClineAgentRunner:
                         "end_turn",
                         "use_reroll",
                         "get_history",
+                        "get_team_budget",
+                        "get_available_positions",
+                        "buy_player",
+                        "buy_reroll",
+                        "place_players",
+                        "ready_to_play",
                         "send_message",
                         "get_messages",
                     ],
@@ -278,14 +284,22 @@ class ClineAgentRunner:
 
             The Cline CLI is preconfigured with a remote MCP server named "{MCP_SERVER_NAME}" at
             {self.config.mcp_server_url}. Use only this server's tools to interact with the game. Available tools:
-            join_game, get_game_state, get_valid_actions, execute_action, end_turn, use_reroll, get_history,
+            join_game, get_game_state, get_team_budget, get_available_positions, buy_player, buy_reroll,
+            place_players, ready_to_play, get_valid_actions, execute_action, end_turn, use_reroll, get_history,
             send_message, get_messages.
 
             Workflow:
-            1. Confirm the MCP server is reachable (list tools or call get_game_state).
-            2. If the team is not yet registered, call join_game exactly once and verify via get_game_state that the
-               join flag is set for your team.
-            3. On every loop call get_game_state to understand the current phase, score, and whose turn it is.
+            1. Call get_game_state to confirm connectivity. If the team is not yet registered, call join_game exactly
+               once and verify that your team now appears in the game state.
+            2. While the phase is DEPLOYMENT you must build your roster:
+               • Use get_team_budget and get_available_positions to understand your gold and shopping options.
+               • Purchase players with buy_player until you have at least eleven active players (or you run out of
+                 valid slots). Prioritise cheaper positions if you need a fallback plan.
+               • Optionally purchase rerolls with buy_reroll if budget permits.
+               • When you are ready, place your squad with place_players and then call ready_to_play. Wait until the
+                 game reports both teams are ready or the phase advances to KICKOFF.
+            3. Once the match is live, loop on get_game_state to understand the current phase, score, and whose turn it
+               is.
             4. When it is YOUR turn, call get_valid_actions. Pick the first movable player and move them one square
                toward the opponent (i.e. {direction}) using execute_action with action_type="MOVE" and a
                target_position payload. Afterwards call end_turn immediately.

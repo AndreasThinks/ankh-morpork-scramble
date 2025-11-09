@@ -7,11 +7,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DEFAULT_GAME_ID=demo-game
+      - DEMO_MODE=false
+      - INTERACTIVE_GAME_ID=${INTERACTIVE_GAME_ID:-interactive-game}
       - openrouter_api_key=${openrouter_api_key}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/game/demo-game"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/game/${INTERACTIVE_GAME_ID:-interactive-game}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +25,7 @@ services:
     environment:
       - TEAM_ID=team1
       - TEAM_NAME=City Watch Constables
-      - GAME_ID=demo-game
+      - GAME_ID=${INTERACTIVE_GAME_ID:-interactive-game}
       - MCP_SERVER_URL=http://game-server:8000/mcp
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       - openrouter_api_key=${openrouter_api_key}
@@ -45,7 +46,7 @@ services:
     environment:
       - TEAM_ID=team2
       - TEAM_NAME=Unseen University Adepts
-      - GAME_ID=demo-game
+      - GAME_ID=${INTERACTIVE_GAME_ID:-interactive-game}
       - MCP_SERVER_URL=http://game-server:8000/mcp
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       - openrouter_api_key=${openrouter_api_key}
