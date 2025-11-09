@@ -67,7 +67,10 @@ class GameStateValidator:
         # Check it's the player's team's turn
         if not game_state.is_player_on_active_team(player_id):
             active_team = game_state.get_active_team()
-            return False, f"Not {player.team_id}'s turn (currently {active_team.id}'s turn)"
+            return False, (
+                f"Not your turn: team {player.team_id} cannot act "
+                f"(currently {active_team.id}'s turn)"
+            )
 
         return True, None
 

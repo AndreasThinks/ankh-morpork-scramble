@@ -25,19 +25,49 @@ class Player(BaseModel):
     id: str
     team_id: str
     position: PlayerPosition
-    
+    number: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Jersey number used for display/logging",
+    )
+
     # Current state
     state: PlayerState = PlayerState.STANDING
-    
+
     # Movement tracking
     movement_used: int = 0
     has_acted: bool = False
-    
+
     # Skills and modifications
     skills: list[SkillType] = Field(default_factory=list)
-    
+
     # Injuries and effects
     stunned_until_turn: Optional[int] = None
+
+    @property
+    def position_name(self) -> str:
+        """Return the roster role name for this player."""
+        return self.position.role
+
+    @property
+    def display_number(self) -> Optional[int]:
+        """Best-effort jersey number for logging and summaries."""
+        if self.number is not None:
+            return self.number
+
+        suffix = self.id.rsplit("_", 1)[-1]
+        if suffix.isdigit():
+            # Convert zero-based identifier to a human-friendly number
+            return int(suffix) + 1
+        return None
+
+    @property
+    def display_name(self) -> str:
+        """Formatted name combining position role and jersey number if available."""
+        number = self.display_number
+        if number is not None:
+            return f"{self.position_name} #{number}"
+        return self.position_name
     
     @property
     def is_active(self) -> bool:

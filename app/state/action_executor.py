@@ -53,7 +53,11 @@ class ActionExecutor:
                 success=False,
                 message=f"Unknown action type: {action.action_type}"
             )
-    
+
+    def _get_pitch_position(self, game_state: GameState, player_id: str):
+        """Fetch a player's current position on the pitch if available."""
+        return game_state.pitch.player_positions.get(player_id)
+
     def _execute_move(self, game_state: GameState, action: ActionRequest) -> ActionResult:
         """Execute a move action"""
         if not action.path:
@@ -61,7 +65,9 @@ class ActionExecutor:
 
         logger = EventLogger(game_state)
         player = game_state.get_player(action.player_id)
-        start_pos = player.position
+        start_pos = self._get_pitch_position(game_state, action.player_id)
+        if start_pos is None and action.path:
+            start_pos = action.path[0]
 
         # Check if player is at ball position after move - auto pickup
         final_pos = action.path[-1]
@@ -183,28 +189,37 @@ class ActionExecutor:
             attacker_knocked_down=attacker_down
         )
 
+        defender_pos = self._get_pitch_position(game_state, defender.id)
+        attacker_pos = self._get_pitch_position(game_state, attacker.id)
+
         # Log knockdowns
         if defender_down:
-            logger.log_knockdown(defender.id, defender.position, attacker.id)
+            if defender_pos:
+                logger.log_knockdown(defender.id, defender_pos, attacker.id)
 
         if attacker_down:
-            logger.log_knockdown(attacker.id, attacker.position)
+            if attacker_pos:
+                logger.log_knockdown(attacker.id, attacker_pos)
 
         # Check for turnover - if ball carrier is knocked down
         if defender_down and game_state.pitch.ball_carrier == defender.id:
+            drop_pos = defender_pos
             game_state.pitch.drop_ball()
             result.turnover = True
             result.ball_dropped = True
             result.message += " - Ball carrier knocked down!"
-            logger.log_drop(defender.id, defender.position, "knocked down")
+            if drop_pos:
+                logger.log_drop(defender.id, drop_pos, "knocked down")
             logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, defender.id)
 
         if attacker_down and game_state.pitch.ball_carrier == attacker.id:
+            drop_pos = attacker_pos
             game_state.pitch.drop_ball()
             result.turnover = True
             result.ball_dropped = True
             result.message += " - Attacker knocked down with ball!"
-            logger.log_drop(attacker.id, attacker.position, "knocked down")
+            if drop_pos:
+                logger.log_drop(attacker.id, drop_pos, "knocked down")
             logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, attacker.id)
 
         attacker.has_acted = True
@@ -222,7 +237,9 @@ class ActionExecutor:
 
         logger = EventLogger(game_state)
         player = game_state.get_player(action.player_id)
-        start_pos = player.position
+        start_pos = self._get_pitch_position(game_state, action.player_id)
+        if start_pos is None and action.path:
+            start_pos = action.path[0]
         all_dice_rolls = []
 
         # First, move if path provided
@@ -299,23 +316,30 @@ class ActionExecutor:
         )
 
         # Log knockdowns
-        if defender_down:
-            logger.log_knockdown(defender.id, defender.position, player.id)
+        defender_pos = self._get_pitch_position(game_state, defender.id)
+        attacker_pos = self._get_pitch_position(game_state, player.id)
 
-        if attacker_down:
-            logger.log_knockdown(player.id, player.position)
+        if defender_down and defender_pos:
+            logger.log_knockdown(defender.id, defender_pos, player.id)
+
+        if attacker_down and attacker_pos:
+            logger.log_knockdown(player.id, attacker_pos)
 
         # Check for turnover
         if defender_down and game_state.pitch.ball_carrier == defender.id:
+            drop_pos = defender_pos
             game_state.pitch.drop_ball()
             result.ball_dropped = True
-            logger.log_drop(defender.id, defender.position, "knocked down")
+            if drop_pos:
+                logger.log_drop(defender.id, drop_pos, "knocked down")
 
         if attacker_down and game_state.pitch.ball_carrier == player.id:
+            drop_pos = attacker_pos
             game_state.pitch.drop_ball()
             result.turnover = True
             result.ball_dropped = True
-            logger.log_drop(player.id, player.position, "knocked down")
+            if drop_pos:
+                logger.log_drop(player.id, drop_pos, "knocked down")
             logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, player.id)
 
         game_state.turn.charge_used = True
@@ -337,7 +361,7 @@ class ActionExecutor:
 
         logger = EventLogger(game_state)
         passer = game_state.get_player(action.player_id)
-        passer_pos = passer.position
+        passer_pos = self._get_pitch_position(game_state, passer.id)
 
         # Attempt pass
         pass_result, ball_pos, dice_rolls = self.ball.attempt_pass(
@@ -356,7 +380,7 @@ class ActionExecutor:
         pass_outcome = pass_outcome_map.get(pass_result, PassOutcome.FUMBLE)
 
         # Log pass
-        if dice_rolls:
+        if dice_rolls and passer_pos:
             logger.log_pass(passer.id, passer_pos, action.target_position, dice_rolls[0], pass_outcome)
 
         result = ActionResult(
@@ -370,7 +394,8 @@ class ActionExecutor:
         if pass_result == PassResult.FUMBLE:
             result.turnover = True
             result.ball_dropped = True
-            logger.log_drop(passer.id, passer_pos, "fumbled pass")
+            if passer_pos:
+                logger.log_drop(passer.id, passer_pos, "fumbled pass")
             logger.log_turnover(TurnoverReason.FUMBLED_PASS, passer.id)
         else:
             # Log scatter if ball didn't land on target
@@ -440,7 +465,9 @@ class ActionExecutor:
             return ActionResult(success=False, message=error or "Hand-off failed")
 
         # Log handoff
-        logger.log_handoff(giver.id, receiver.id, receiver.position)
+        receiver_pos = self._get_pitch_position(game_state, receiver.id)
+        if receiver_pos:
+            logger.log_handoff(giver.id, receiver.id, receiver_pos)
 
         result = ActionResult(
             success=True,

@@ -38,6 +38,18 @@ python -m app.main
 
 The server will start at `http://localhost:8000`
 
+## Testing
+
+Use UV to install the development extras and execute the test suite:
+
+```bash
+uv sync --extra dev
+uv run pytest
+```
+
+The `uv run` wrapper ensures the virtual environment and dependency versions from
+`uv.lock` are respected while invoking `pytest`.
+
 ## Environment Configuration
 
 Use the provided sample file to configure environment variables locally:

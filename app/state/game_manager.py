@@ -87,18 +87,19 @@ class GameManager:
             count = int(count_str)
             if position_key not in roster.positions:
                 raise ValueError(f"Invalid position: {position_key}")
-            
+
             position = roster.positions[position_key]
-            
+
             for i in range(count):
                 player_id = f"{team_id}_player_{player_count}"
                 player = Player(
                     id=player_id,
                     team_id=team_id,
                     position=position,
-                    skills=list(position.skills)
+                    skills=list(position.skills),
+                    number=player_count + 1,
                 )
-                
+
                 game_state.players[player_id] = player
                 team.player_ids.append(player_id)
                 player_count += 1
@@ -352,7 +353,8 @@ class GameManager:
             id=player_id,
             team_id=team_id,
             position=position,
-            skills=list(position.skills)
+            skills=list(position.skills),
+            number=player_count + 1,
         )
 
         game_state.players[player_id] = player

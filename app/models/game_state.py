@@ -261,3 +261,14 @@ class GameState(BaseModel):
             active_team_id=self.team1.id
         )
         self.add_event("Kickoff! The match begins.")
+
+
+# --- Pydantic forward reference resolution ---------------------------------
+
+# Import GameEvent at runtime (not just for type checking) so Pydantic v2 can
+# resolve the forward reference used in the ``events`` field above. Without
+# calling ``model_rebuild`` here, FastAPI fails to start with a
+# ``PydanticUserError`` complaining that ``GameState`` is not fully defined.
+from app.models.events import GameEvent  # noqa: E402  (imported for side effect)
+
+GameState.model_rebuild(_types_namespace={"GameEvent": GameEvent})
