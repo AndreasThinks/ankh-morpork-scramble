@@ -116,7 +116,7 @@ class RefereeAgent:
             response.raise_for_status()
             return response.json()
 
-    async def _get_recent_history(self, limit: int = 5) -> list[dict]:
+    async def _get_recent_history(self, limit: int = 5) -> dict:
         """Fetch recent game history."""
         url = f"{self.config.api_base_url}/game/{self.config.game_id}/history"
         async with httpx.AsyncClient() as client:
@@ -145,7 +145,8 @@ class RefereeAgent:
 
             # Check if there's anything new to comment on
             current_turn = game_state.get("turn", 0)
-            current_event_count = len(history)
+            events = history.get("events", [])
+            current_event_count = len(events)
 
             if current_turn == self.last_turn and current_event_count == self.last_event_count:
                 self.logger.debug("No new events, skipping commentary")
@@ -170,7 +171,7 @@ class RefereeAgent:
         except Exception as e:
             self.logger.error("Error in commentary generation: %s", e, exc_info=True)
 
-    def _build_context(self, game_state: dict, history: list[dict]) -> str:
+    def _build_context(self, game_state: dict, history: dict) -> str:
         """Build context string for the LLM."""
         phase = game_state.get("phase", "UNKNOWN")
         turn = game_state.get("turn", 0)
@@ -186,8 +187,9 @@ class RefereeAgent:
             "Recent Events:",
         ]
 
-        # Add recent history
-        for event in history[-5:]:  # Last 5 events
+        # Add recent history - extract events list from history dict
+        events = history.get("events", [])
+        for event in events[-5:]:  # Last 5 events
             event_type = event.get("type", "unknown")
             description = event.get("description", "")
             context_parts.append(f"- {event_type}: {description}")
