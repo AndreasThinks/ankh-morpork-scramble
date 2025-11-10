@@ -4,9 +4,12 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Query
+from fastapi.responses import PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
@@ -102,6 +105,17 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# Configure CORS for web dashboard and external clients
+# In production, set CORS_ORIGINS environment variable to restrict origins
+cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in cors_origins],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
 
@@ -115,6 +129,118 @@ def root():
         "status": "running",
         "disclaimer": "This is an unofficial, non-commercial fan project inspired by Blood Bowl and Discworld. Not affiliated with Games Workshop or Terry Pratchett's estate."
     }
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Railway monitoring"""
+    return {
+        "status": "healthy",
+        "active_games": len(game_manager.games)
+    }
+
+
+def verify_admin_key(x_admin_key: Optional[str] = Header(None)) -> bool:
+    """Verify admin API key from header"""
+    admin_key = os.getenv("ADMIN_API_KEY")
+    if not admin_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Admin functionality not configured (ADMIN_API_KEY not set)"
+        )
+    if not x_admin_key or x_admin_key != admin_key:
+        raise HTTPException(status_code=403, detail="Invalid admin API key")
+    return True
+
+
+@app.get("/admin/logs")
+def list_logs(x_admin_key: Optional[str] = Header(None)):
+    """List all available log files (requires admin API key)"""
+    verify_admin_key(x_admin_key)
+
+    log_dir = Path(os.getenv("LOG_DIR", "logs"))
+    if not log_dir.exists():
+        return {"logs": [], "log_dir": str(log_dir)}
+
+    log_files = []
+    for log_file in sorted(log_dir.glob("*.log")):
+        stat = log_file.stat()
+        log_files.append({
+            "name": log_file.name,
+            "size_bytes": stat.st_size,
+            "modified": stat.st_mtime,
+            "path": f"/admin/logs/{log_file.name}"
+        })
+
+    return {
+        "log_dir": str(log_dir),
+        "logs": log_files
+    }
+
+
+@app.get("/admin/logs/{log_name}")
+def view_log(
+    log_name: str,
+    x_admin_key: Optional[str] = Header(None),
+    tail: Optional[int] = Query(None, description="Show last N lines"),
+    head: Optional[int] = Query(None, description="Show first N lines")
+):
+    """View a specific log file (requires admin API key)
+
+    Query parameters:
+    - tail: Show last N lines
+    - head: Show first N lines (ignored if tail is set)
+
+    Examples:
+    - /admin/logs/api.log - Full log
+    - /admin/logs/api.log?tail=100 - Last 100 lines
+    - /admin/logs/mcp.log?head=50 - First 50 lines
+    """
+    verify_admin_key(x_admin_key)
+
+    # Sanitize log name to prevent directory traversal
+    if "/" in log_name or ".." in log_name:
+        raise HTTPException(status_code=400, detail="Invalid log file name")
+
+    log_dir = Path(os.getenv("LOG_DIR", "logs"))
+    log_file = log_dir / log_name
+
+    if not log_file.exists():
+        raise HTTPException(status_code=404, detail=f"Log file '{log_name}' not found")
+
+    if not log_file.is_file():
+        raise HTTPException(status_code=400, detail=f"'{log_name}' is not a file")
+
+    try:
+        with open(log_file, 'r', encoding='utf-8') as f:
+            if tail:
+                # Read last N lines
+                lines = f.readlines()
+                content = ''.join(lines[-tail:])
+            elif head:
+                # Read first N lines
+                lines = []
+                for i, line in enumerate(f):
+                    if i >= head:
+                        break
+                    lines.append(line)
+                content = ''.join(lines)
+            else:
+                # Read entire file
+                content = f.read()
+
+        return PlainTextResponse(
+            content=content,
+            media_type="text/plain",
+            headers={
+                "X-Log-File": log_name,
+                "X-Log-Size": str(log_file.stat().st_size)
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error reading log file {log_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error reading log file: {str(e)}")
 
 
 @app.post("/game", response_model=GameState)
@@ -604,4 +730,5 @@ logger.info("MCP server mounted at /mcp")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
