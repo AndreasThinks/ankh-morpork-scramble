@@ -409,6 +409,20 @@ class ClineAgentRunner:
                     "url": self.config.mcp_server_url,
                     "disabled": False,
                     "timeout": 120,
+                    "autoApprove": [
+                        "join_game",
+                        "buy_player",
+                        "place_players",
+                        "buy_reroll",
+                        "ready_to_play",
+                        "get_game_state",
+                        "get_team_budget",
+                        "get_available_positions",
+                        "get_valid_actions",
+                        "execute_action",
+                        "end_turn",
+                        "send_message",
+                    ],
                 }
             }
         }

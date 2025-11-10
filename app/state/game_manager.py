@@ -431,12 +431,12 @@ class GameManager:
             return None
 
         # Check if in end zone
-        # Team 1 scores in x == 25 (endzone depth: 1 square), Team 2 scores in x == 0 (endzone depth: 1 square)
+        # Team 1 scores in x >= 23 (endzone depth: 3 squares), Team 2 scores in x <= 2 (endzone depth: 3 squares)
         scored_team = None
 
-        if carrier.team_id == game_state.team1.id and carrier_pos.x == 25:
+        if carrier.team_id == game_state.team1.id and carrier_pos.x >= 23:
             scored_team = game_state.team1
-        elif carrier.team_id == game_state.team2.id and carrier_pos.x == 0:
+        elif carrier.team_id == game_state.team2.id and carrier_pos.x <= 2:
             scored_team = game_state.team2
 
         if scored_team:
