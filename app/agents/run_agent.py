@@ -80,9 +80,10 @@ class ClineAgentRunner:
         try:
             # Configure OpenRouter API key for this instance
             await self._apply_configuration(instance_address)
-            
-            # Enable YOLO mode for complete auto-approval including MCP tools
-            await self._enable_yolo_mode(instance_address)
+
+            # Note: We do NOT enable YOLO mode here. Instead, we rely on granular
+            # auto-approval settings in _create_task() to only auto-approve MCP tool
+            # requests. This forces agents to use the MCP interface exclusively.
 
             # Build and create the task
             prompt = self._build_prompt()
@@ -187,8 +188,13 @@ class ClineAgentRunner:
         # Model selection happens via OPENROUTER_MODEL environment variable
     
     async def _create_task(self, instance_address: str, prompt: str) -> None:
-        """Create a task on the specified Cline instance."""
-        
+        """Create a task on the specified Cline instance.
+
+        Only auto-approves MCP tool requests, forcing agents to use the game's
+        MCP interface exclusively. File operations and bash commands will require
+        manual approval (but agents shouldn't need these).
+        """
+
         await self._run_cli_command(
             [
                 "cline",
@@ -202,18 +208,22 @@ class ClineAgentRunner:
                 "act",
                 "--setting",
                 "auto-approval-settings.actions.use-mcp=true",
-                "--setting",
-                "auto-approval-settings.actions.execute-safe-commands=true",
+                # Note: We explicitly do NOT auto-approve file operations or bash
+                # commands, forcing agents to rely solely on MCP tools for gameplay
             ],
             mask_args=[self.config.api_key],
             description="create task",
         )
     
     async def _follow_task(self, instance_address: str) -> None:
-        """Follow the task execution until completion with auto-approval of MCP tools."""
-        
-        self.agent_logger.info("Following task with auto-approval enabled...")
-        
+        """Follow the task execution until completion.
+
+        MCP tools are auto-approved via settings. If agents try to use non-MCP
+        tools (files, bash), we actively reject them to keep the agent moving.
+        """
+
+        self.agent_logger.info("Following task execution (MCP auto-approved, non-MCP auto-rejected)...")
+
         process = await asyncio.create_subprocess_exec(
             "cline",
             "task",
@@ -225,53 +235,135 @@ class ClineAgentRunner:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
-        # Create tasks to monitor both stdout and stderr
+
+        # Monitor stdout for approval requests and auto-reject non-MCP ones
         tasks = []
         if process.stdout is not None:
             tasks.append(asyncio.create_task(
-                self._monitor_and_approve(process.stdout, instance_address)
+                self._monitor_and_reject_non_mcp(process.stdout, instance_address)
             ))
         if process.stderr is not None:
             tasks.append(asyncio.create_task(
                 self._stream_output(process.stderr, self.cline_logger.error)
             ))
-        
+
         # Wait for all tasks to complete
         if tasks:
             await asyncio.gather(*tasks)
-        
+
         return_code = await process.wait()
         if return_code != 0:
             raise RuntimeError(f"Failed to follow task; exit code {return_code}")
     
-    async def _monitor_and_approve(self, stream: asyncio.StreamReader, instance_address: str) -> None:
-        """Monitor output stream for approval requests and automatically approve them."""
-        
-        approval_pending = False
-        
+    async def _monitor_and_reject_non_mcp(self, stream: asyncio.StreamReader, instance_address: str) -> None:
+        """Monitor output stream and actively reject non-MCP tool requests.
+
+        MCP tools are already auto-approved via settings. This method detects when
+        agents try to use non-MCP tools (files, bash) and sends an active rejection
+        to keep the agent from hanging.
+        """
+
+        pending_request = None
+
         while True:
             line = await stream.readline()
             if not line:
                 break
-            
+
             text = line.decode(errors="ignore").rstrip()
             masked_text = self._mask_text(text)
             self.cline_logger.info(masked_text)
-            
+
+            # Detect approval request patterns
+            if "Cline is requesting approval" in text:
+                # Check if this is a non-MCP tool request
+                if "read file" in text.lower() or "write file" in text.lower():
+                    pending_request = "file"
+                    self.agent_logger.warning("Detected file operation request - will auto-reject")
+                elif "execute command" in text.lower() or "run command" in text.lower():
+                    pending_request = "bash"
+                    self.agent_logger.warning("Detected bash command request - will auto-reject")
+                # MCP tools are auto-approved by settings, so we don't need to handle them
+
+            # Auto-reject non-MCP requests when we see the instruction
+            if pending_request and ("Use cline task send" in text):
+                request_type = pending_request
+                pending_request = None
+                await self._auto_reject(instance_address, request_type)
+
+    async def _monitor_and_approve(self, stream: asyncio.StreamReader, instance_address: str) -> None:
+        """Monitor output stream for approval requests and automatically approve them.
+
+        NOTE: This method is no longer used. Kept for reference.
+        """
+
+        approval_pending = False
+
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+
+            text = line.decode(errors="ignore").rstrip()
+            masked_text = self._mask_text(text)
+            self.cline_logger.info(masked_text)
+
             # Detect approval request pattern
             if "Cline is requesting approval" in text or "requesting approval to use this tool" in text:
                 approval_pending = True
                 self.agent_logger.info("Detected approval request - auto-approving...")
-            
+
             # Auto-approve when we see the approval request
             if approval_pending and ("Use cline task send --approve" in text or "cline task send --approve" in text):
                 approval_pending = False
                 await self._auto_approve(instance_address)
     
+    async def _auto_reject(self, instance_address: str, request_type: str) -> None:
+        """Automatically reject non-MCP tool requests.
+
+        Args:
+            instance_address: The Cline instance address
+            request_type: Type of rejected request (file, bash, etc.)
+        """
+
+        rejection_message = (
+            f"This {request_type} operation is not allowed. "
+            f"You can only use MCP tools to interact with the game. "
+            f"Please use the available MCP tools like get_game_state, execute_action, etc."
+        )
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "cline",
+                "task",
+                "send",
+                "--reject",
+                rejection_message,
+                "--address",
+                instance_address,
+                env=self.env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                self.agent_logger.info(f"Successfully auto-rejected {request_type} request")
+            else:
+                error_text = stderr.decode(errors="ignore") if stderr else "Unknown error"
+                self.agent_logger.error(f"Failed to auto-reject: {error_text}")
+
+        except Exception as e:
+            self.agent_logger.error(f"Exception during auto-rejection: {e}")
+
     async def _auto_approve(self, instance_address: str) -> None:
-        """Automatically approve the pending tool use request."""
-        
+        """Automatically approve the pending tool use request.
+
+        NOTE: This method is no longer used but kept for reference.
+        MCP tools are auto-approved via task settings.
+        """
+
         try:
             process = await asyncio.create_subprocess_exec(
                 "cline",
@@ -284,15 +376,15 @@ class ClineAgentRunner:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            
+
             stdout, stderr = await process.communicate()
-            
+
             if process.returncode == 0:
                 self.agent_logger.info("Successfully auto-approved MCP tool request")
             else:
                 error_text = stderr.decode(errors="ignore") if stderr else "Unknown error"
                 self.agent_logger.error(f"Failed to auto-approve: {error_text}")
-                
+
         except Exception as e:
             self.agent_logger.error(f"Exception during auto-approval: {e}")
 
