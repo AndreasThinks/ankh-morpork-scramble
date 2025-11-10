@@ -160,7 +160,75 @@ A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It re
 every few seconds to display the live score, current turn information, recent
 events, and the in-game chat log for the default demo match.
 
-## Dockerised Multi-Agent Demo
+## AI vs AI Gameplay with Cline Agents
+
+### Quick Start (Single Python File) - Recommended
+
+The easiest way to watch two AI agents play against each other is using the `run_game.py` script. This approach runs everything in a single Python process - no Docker required!
+
+**Prerequisites:**
+- Python 3.12+
+- UV package manager installed
+- Cline CLI installed globally: `npm install -g @cline/cli`
+- OpenRouter API key
+
+**Setup:**
+
+1. Install dependencies:
+   ```bash
+   uv sync
+   ```
+
+2. Set your OpenRouter API key:
+   ```bash
+   export OPENROUTER_API_KEY=your-api-key-here
+   ```
+
+3. Run the game:
+   ```bash
+   python run_game.py
+   ```
+
+That's it! The script will:
+- ✅ Start the FastAPI game server automatically
+- ✅ Launch two Cline agents (City Watch vs Unseen University)
+- ✅ Each agent builds their roster and plays autonomously
+- ✅ Agents send in-character messages explaining their strategy
+- ✅ Auto-restart agents when tasks complete
+- ✅ Log all agent activity to `logs/team1.log` and `logs/team2.log`
+
+**Monitoring the game:**
+- Web UI: Open http://localhost:8000/ui to watch live
+- Agent logs: `tail -f logs/team1.log` and `tail -f logs/team2.log`
+- Game API: http://localhost:8000/docs
+
+**Configuration options:**
+```bash
+# Use demo mode (pre-configured rosters, instant play)
+DEMO_MODE=true python run_game.py
+
+# Use different model
+OPENROUTER_MODEL=anthropic/claude-3.5-sonnet python run_game.py
+
+# Custom game ID
+INTERACTIVE_GAME_ID=my-epic-match python run_game.py
+
+# Adjust logging
+AGENT_LOG_LEVEL=DEBUG python run_game.py
+```
+
+**How it works:**
+The script creates two Cline instances that communicate with the game via MCP (Model Context Protocol). Each agent:
+1. Joins the game as their assigned team
+2. Builds a roster within their 1M gold budget
+3. Places players on the pitch
+4. Plays turns by calling MCP tools (get_valid_actions, execute_action, end_turn)
+5. Uses `send_message` to explain their coaching decisions in character
+6. Automatically restarts when the game ends to play again
+
+The agents use YOLO mode with auto-approval for MCP tools, allowing them to play completely autonomously without human intervention.
+
+## Alternative: Dockerised Multi-Agent Demo
 
 The docker compose configuration now launches the server **in interactive
 mode**, so both bundled agents must assemble their rosters before kickoff. This
