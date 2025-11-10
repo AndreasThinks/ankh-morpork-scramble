@@ -32,6 +32,9 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()  # 
 
 import httpx
 

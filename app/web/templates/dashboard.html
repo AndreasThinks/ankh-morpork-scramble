@@ -528,6 +528,147 @@
             padding-bottom: 0.35rem;
         }
 
+        .budget-status {
+            margin-top: 1.5rem;
+            background: rgba(30, 19, 10, 0.75);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 1rem 1.25rem;
+        }
+
+        .budget-status h3 {
+            margin: 0 0 0.75rem;
+            font-size: 0.95rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.15);
+            padding-bottom: 0.3rem;
+        }
+
+        .budget-details {
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .budget-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.1);
+        }
+
+        .budget-line:last-child {
+            border-bottom: none;
+            padding-top: 0.6rem;
+            font-weight: 600;
+            color: var(--accent-gold);
+        }
+
+        .budget-label {
+            color: var(--muted);
+        }
+
+        .budget-value {
+            color: var(--text);
+            font-family: "Cinzel", "Times New Roman", serif;
+        }
+
+        .positions-panel {
+            margin-top: 1.5rem;
+            background: rgba(30, 19, 10, 0.75);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 1rem 1.25rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .positions-panel h3 {
+            margin: 0 0 0.75rem;
+            font-size: 0.95rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.15);
+            padding-bottom: 0.3rem;
+        }
+
+        .positions-list {
+            font-size: 0.85rem;
+        }
+
+        .position-item {
+            background: rgba(46, 30, 16, 0.7);
+            border: 1px solid rgba(217, 180, 91, 0.15);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .position-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.5rem;
+        }
+
+        .position-name {
+            font-weight: 600;
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            letter-spacing: 0.04em;
+        }
+
+        .position-cost {
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        .position-stats {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 0.3rem;
+        }
+
+        .position-stat {
+            padding: 0.15rem 0.4rem;
+            background: rgba(217, 180, 91, 0.1);
+            border-radius: 4px;
+        }
+
+        .position-quantity {
+            font-size: 0.8rem;
+            color: rgba(217, 180, 91, 0.7);
+            margin-top: 0.3rem;
+        }
+
+        .roster-location-pitch {
+            /* Normal styling - on pitch */
+        }
+
+        .roster-location-reserves {
+            opacity: 0.7;
+            background: rgba(108, 78, 43, 0.15);
+        }
+
+        .roster-location-ko {
+            background: rgba(224, 86, 86, 0.15);
+        }
+
+        .roster-location-casualty {
+            background: rgba(180, 50, 50, 0.2);
+        }
+
         footer {
             padding: 1.5rem clamp(1rem, 3vw, 3rem);
             text-align: center;
@@ -757,6 +898,16 @@
     <aside class="panel thoughts" id="team1-thoughts-panel">
         <h2 id="team1-thoughts-title">Team 1 Strategy</h2>
         <ul id="team1-thoughts"></ul>
+        
+        <div class="budget-status" id="team1-budget">
+            <h3>Treasury</h3>
+            <div class="budget-details">Loading...</div>
+        </div>
+        
+        <div class="positions-panel" id="team1-positions">
+            <h3>Available Positions</h3>
+            <div class="positions-list">Loading...</div>
+        </div>
     </aside>
 
     <section class="panel pitch-panel">
@@ -805,6 +956,16 @@
     <aside class="panel thoughts" id="team2-thoughts-panel">
         <h2 id="team2-thoughts-title">Team 2 Strategy</h2>
         <ul id="team2-thoughts"></ul>
+        
+        <div class="budget-status" id="team2-budget">
+            <h3>Treasury</h3>
+            <div class="budget-details">Loading...</div>
+        </div>
+        
+        <div class="positions-panel" id="team2-positions">
+            <h3>Available Positions</h3>
+            <div class="positions-list">Loading...</div>
+        </div>
     </aside>
 </main>
 <footer>
@@ -1220,25 +1381,70 @@
 
     function renderRoster(state) {
         const rows = [];
-        const playerEntries = Object.entries(state.pitch.player_positions || {});
-        playerEntries.sort(([, aPos], [, bPos]) => (aPos.y - bPos.y) || (aPos.x - bPos.x));
-
         const teamColors = {
             [state.team1.id]: 'team1',
             [state.team2.id]: 'team2'
         };
 
-        playerEntries.forEach(([playerId, pos]) => {
-            const player = state.players[playerId];
-            if (!player) return;
+        // Get ALL players and categorize them
+        const allPlayers = Object.entries(state.players || {}).map(([playerId, player]) => {
+            const pitchPos = state.pitch.player_positions[playerId];
+            let location = '';
+            let locationClass = '';
+            let sortPriority = 0;
+
+            if (pitchPos) {
+                location = `(${pitchPos.x}, ${pitchPos.y})`;
+                locationClass = 'roster-location-pitch';
+                sortPriority = 0;
+            } else if (player.state === 'RESERVES') {
+                location = 'Reserves';
+                locationClass = 'roster-location-reserves';
+                sortPriority = 1;
+            } else if (player.state === 'KOD') {
+                location = 'KO Box';
+                locationClass = 'roster-location-ko';
+                sortPriority = 2;
+            } else if (player.state === 'INJURED' || player.state === 'CASUALTY') {
+                location = 'Casualty';
+                locationClass = 'roster-location-casualty';
+                sortPriority = 3;
+            } else {
+                location = 'Unknown';
+                sortPriority = 4;
+            }
+
+            return {
+                playerId,
+                player,
+                pitchPos,
+                location,
+                locationClass,
+                sortPriority
+            };
+        });
+
+        // Sort: pitch players first (by position), then reserves, then KO'd, then casualties
+        allPlayers.sort((a, b) => {
+            if (a.sortPriority !== b.sortPriority) {
+                return a.sortPriority - b.sortPriority;
+            }
+            // Within same category, sort by pitch position or name
+            if (a.pitchPos && b.pitchPos) {
+                return (a.pitchPos.y - b.pitchPos.y) || (a.pitchPos.x - b.pitchPos.x);
+            }
+            return a.player.position.role.localeCompare(b.player.position.role);
+        });
+
+        allPlayers.forEach(({ player, location, locationClass }) => {
             const teamAttr = teamColors[player.team_id] || '';
             const stateLabel = player.state.replace(/_/g, ' ').toLowerCase();
             rows.push(`
-                <tr>
+                <tr class="${locationClass}">
                     <td>${player.position.role}</td>
                     <td><span class="team-pill" data-team="${teamAttr}">${player.team_id}</span></td>
                     <td>${stateLabel}</td>
-                    <td>(${pos.x}, ${pos.y})</td>
+                    <td>${location}</td>
                     <td>${player.position.ma}</td>
                     <td>${player.position.st}</td>
                     <td>${player.position.ag}</td>
@@ -1530,6 +1736,91 @@
         }
     }
 
+    function formatGold(amount) {
+        return amount.toLocaleString() + 'g';
+    }
+
+    async function fetchAndRenderBudget(teamId, containerId) {
+        try {
+            const response = await fetch(`/game/${gameId}/team/${teamId}/budget`);
+            if (!response.ok) {
+                console.error(`Failed to fetch budget for ${teamId}:`, response.status);
+                return;
+            }
+            const budgetData = await response.json();
+            
+            const container = document.getElementById(containerId);
+            const detailsDiv = container.querySelector('.budget-details');
+            
+            detailsDiv.innerHTML = `
+                <div class="budget-line">
+                    <span class="budget-label">Starting Treasury:</span>
+                    <span class="budget-value">${formatGold(budgetData.budget_initial)}</span>
+                </div>
+                <div class="budget-line">
+                    <span class="budget-label">Spent:</span>
+                    <span class="budget-value">${formatGold(budgetData.budget_spent)}</span>
+                </div>
+                <div class="budget-line">
+                    <span class="budget-label">Rerolls:</span>
+                    <span class="budget-value">${budgetData.rerolls_total} (${budgetData.rerolls_used} used)</span>
+                </div>
+                <div class="budget-line">
+                    <span class="budget-label">Remaining:</span>
+                    <span class="budget-value">${formatGold(budgetData.budget_remaining)}</span>
+                </div>
+            `;
+        } catch (error) {
+            console.error(`Failed to fetch budget for ${teamId}:`, error);
+        }
+    }
+
+    async function fetchAndRenderPositions(teamId, containerId) {
+        try {
+            const response = await fetch(`/game/${gameId}/team/${teamId}/available-positions`);
+            if (!response.ok) {
+                console.error(`Failed to fetch positions for ${teamId}:`, response.status);
+                return;
+            }
+            const data = await response.json();
+            
+            const container = document.getElementById(containerId);
+            const listDiv = container.querySelector('.positions-list');
+            
+            if (!data.positions || data.positions.length === 0) {
+                listDiv.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 1rem;">No positions available</div>';
+                return;
+            }
+            
+            const positionItems = data.positions.map(pos => {
+                const quantityText = pos.current_quantity >= pos.max_quantity 
+                    ? `<span style="color: rgba(224, 86, 86, 0.8);">Max reached (${pos.current_quantity}/${pos.max_quantity})</span>`
+                    : `${pos.current_quantity}/${pos.max_quantity} owned`;
+                    
+                return `
+                    <div class="position-item">
+                        <div class="position-header">
+                            <span class="position-name">${escapeHtml(pos.role)}</span>
+                            <span class="position-cost">${formatGold(pos.cost)}</span>
+                        </div>
+                        <div class="position-stats">
+                            <span class="position-stat">MA ${pos.ma}</span>
+                            <span class="position-stat">ST ${pos.st}</span>
+                            <span class="position-stat">AG ${pos.ag}</span>
+                            <span class="position-stat">PA ${pos.pa}</span>
+                            <span class="position-stat">AV ${pos.av}</span>
+                        </div>
+                        <div class="position-quantity">${quantityText}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            listDiv.innerHTML = positionItems;
+        } catch (error) {
+            console.error(`Failed to fetch positions for ${teamId}:`, error);
+        }
+    }
+
     // Configuration (poll_interval is configurable via template variable)
     const POLL_INTERVAL = {{ poll_interval }};
     const MAX_CONSECUTIVE_FAILURES = 5;
@@ -1558,6 +1849,12 @@
             renderThoughts(data);
             renderRefereeCommentary();
             renderRoster(data);
+            
+            // Fetch budget and positions for both teams
+            fetchAndRenderBudget(data.team1.id, 'team1-budget');
+            fetchAndRenderBudget(data.team2.id, 'team2-budget');
+            fetchAndRenderPositions(data.team1.id, 'team1-positions');
+            fetchAndRenderPositions(data.team2.id, 'team2-positions');
 
             if (data.phase === 'finished') {
                 await showScoreboard(data);
