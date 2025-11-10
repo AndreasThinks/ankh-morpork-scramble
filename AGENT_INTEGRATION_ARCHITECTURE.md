@@ -71,44 +71,24 @@ The strategy boxes use the `.thoughts` CSS class with:
 
 ## 2. Cline Agent Setup & Configuration
 
-### Docker Compose Configuration
+### Run Game Script Configuration
 
-**File:** `/home/user/ankh-morpork-scramble/docker-compose.yml`
+**File:** `/home/user/ankh-morpork-scramble/run_game.py`
 
-Two Cline agent containers are defined:
+The game uses `run_game.py` to orchestrate all agents in a single Python process. This script:
+- Starts the FastAPI game server automatically
+- Launches two Cline agents (City Watch vs Unseen University)
+- Starts a referee agent that provides live commentary
+- Manages agent lifecycle (auto-restart when tasks complete)
+- Logs all agent activity to separate files
 
-#### Team 1 Agent (lines 21-40)
-```yaml
-agent-team1:
-    build: .
-    image: ankh-morpork-scramble
-    command: ["uv", "run", "python", "-m", "app.agents.run_agent"]
-    environment:
-      - TEAM_ID=team1
-      - TEAM_NAME=City Watch Constables
-      - GAME_ID=${INTERACTIVE_GAME_ID:-interactive-game}
-      - MCP_SERVER_URL=http://game-server:8000/mcp
-      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      - CLINE_DIR=/tmp/cline-team1
-      - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-INFO}
-    depends_on:
-      game-server:
-        condition: service_healthy
-```
-
-#### Team 2 Agent (lines 42-61)
-```yaml
-agent-team2:
-    build: .
-    image: ankh-morpork-scramble
-    command: ["uv", "run", "python", "-m", "app.agents.run_agent"]
-    environment:
-      - TEAM_ID=team2
-      - TEAM_NAME=Unseen University Adepts
-      - GAME_ID=${INTERACTIVE_GAME_ID:-interactive-game}
-      - MCP_SERVER_URL=http://game-server:8000/mcp
-      - CLINE_DIR=/tmp/cline-team2
-```
+**Environment Variables:**
+- `OPENROUTER_API_KEY` - Required for agent LLM calls
+- `DEMO_MODE` - Set to `true` for pre-configured rosters, `false` for interactive setup (default: `true`)
+- `OPENROUTER_MODEL` - Model for team agents (default: `anthropic/claude-3.5-sonnet`)
+- `REFEREE_MODEL` - Model for referee commentary (default: `anthropic/claude-3.5-haiku`)
+- `ENABLE_REFEREE` - Enable/disable referee commentary (default: `true`)
+- `INTERACTIVE_GAME_ID` - Custom game ID (default: `demo-game`)
 
 ### Agent Configuration
 

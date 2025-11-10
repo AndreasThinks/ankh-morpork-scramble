@@ -253,30 +253,6 @@ The script creates two Cline instances plus a referee agent that all communicate
 
 **Security:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are **actively rejected** with helpful feedback, forcing agents to interact with the game purely through the MCP interface. This prevents agents from hanging while waiting for manual approval and gives them clear guidance to use MCP tools instead.
 
-## Alternative: Dockerised Multi-Agent Demo
-
-The docker compose configuration now launches the server **in interactive
-mode**, so both bundled agents must assemble their rosters before kickoff. This
-mirrors the manual "DEMO_MODE=false" flow described above: they will join the
-fresh match, buy players with their starting budget, place them on the pitch,
-mark themselves ready, and then start playing.
-
-```bash
-export openrouter_api_key=<your-api-key>
-# Optional: override the interactive game identifier (defaults to
-# "interactive-game") so the API and both agents coordinate on a custom ID.
-# INTERACTIVE_GAME_ID=my-fresh-game docker compose up --build
-docker compose up --build
-```
-
-The server exposes port `8000` locally so you can watch the game state while the
-agents complete roster construction and play the match. The
-`openrouter_api_key` environment variable is required because the agents call
-the OpenRouter API through Cline CLI.
-
-To fall back to the pre-seeded demo match, set `DEMO_MODE=true` on the
-`game-server` service (or export it globally) before running `docker compose`.
-
 ## Logging
 
 Structured logging is enabled for both the FastAPI server and the autonomous
@@ -296,9 +272,10 @@ Tune the behaviour with environment variables:
 - `AGENT_LOG_LEVEL` tunes the Cline agent logs (default: `INFO`).
 - `LOG_MAX_BYTES` / `LOG_BACKUP_COUNT` control rotation for every handler.
 
-During a docker-compose match you can tail the files directly on the host (when
-`LOG_DIR` points to a mounted volume) or rely on `docker compose logs -f` for
-live monitoring.
+You can monitor the game by tailing the log files directly:
+```bash
+tail -f logs/server.log logs/team1.log logs/team2.log logs/referee.log
+```
 
 ## API Documentation
 
