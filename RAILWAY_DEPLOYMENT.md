@@ -1,6 +1,15 @@
 # Railway Deployment Guide
 
-This guide explains how to deploy Ankh-Morpork Scramble to Railway.
+This guide explains how to deploy Ankh-Morpork Scramble to Railway using Railpack.
+
+## About This Deployment
+
+This project uses **Railpack** for Railway deployment, which automatically:
+- Detects the Python project via `pyproject.toml` and `uv.lock`
+- Uses **UV** (ultra-fast Python package manager) for dependency installation
+- Configures Python 3.12.7 (from `.python-version`)
+- Sets up optimal Python runtime environment variables
+- Installs all dependencies from `pyproject.toml`
 
 ## Prerequisites
 
@@ -14,6 +23,7 @@ This guide explains how to deploy Ankh-Morpork Scramble to Railway.
    - Click "New Project"
    - Select "Deploy from GitHub repo"
    - Select this repository
+   - Railway will automatically detect and use Railpack
 
 2. **Configure Environment Variables**
 
@@ -37,8 +47,9 @@ This guide explains how to deploy Ankh-Morpork Scramble to Railway.
    ```
 
 3. **Deploy**
-   - Railway will automatically detect the configuration from `railway.json`
-   - The deployment will start automatically
+   - Railpack will automatically detect your Python project
+   - UV will install dependencies from `pyproject.toml` and `uv.lock`
+   - The deployment will start automatically using the `Procfile`
    - Wait for the build and deployment to complete
 
 4. **Access Your Application**
@@ -82,11 +93,29 @@ curl -H "X-Admin-Key: your-admin-api-key" \
 
 ## Configuration Details
 
+### Railpack Build Process
+Railpack automatically handles the build using:
+1. **Python Version**: 3.12.7 (from `.python-version`)
+2. **Package Manager**: UV (detected from `uv.lock`)
+3. **Dependencies**: Installed from `pyproject.toml`
+4. **Start Command**: From `Procfile` - `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
+
+### Environment Variables Set by Railpack
+Railpack automatically configures these for optimal Python performance:
+```
+PYTHONFAULTHANDLER=1
+PYTHONUNBUFFERED=1
+PYTHONHASHSEED=random
+PYTHONDONTWRITEBYTECODE=1
+PIP_DISABLE_PIP_VERSION_CHECK=1
+PIP_DEFAULT_TIMEOUT=100
+```
+
 ### Port Configuration
 Railway automatically sets the `PORT` environment variable. The application will use this port automatically.
 
 ### Health Checks
-Railway monitors the `/health` endpoint to ensure the application is running correctly. The health check returns:
+You can monitor the `/health` endpoint to ensure the application is running correctly. The health check returns:
 ```json
 {
   "status": "healthy",
@@ -120,6 +149,15 @@ Logs are stored in the `logs/` directory and are also sent to stdout for Railway
 1. Check that the application is binding to the correct `PORT`
 2. Verify the `/health` endpoint is responding
 3. Check Railway logs for startup errors
+
+## Why UV?
+
+This project uses **UV** as the package manager for several benefits:
+- **10-100x faster** than pip for dependency resolution and installation
+- **Reproducible builds** with `uv.lock` ensuring identical dependencies
+- **Lower memory usage** during installation
+- **Better caching** for faster subsequent deployments
+- **Native to Railpack** - automatically detected and optimized
 
 ## Production Recommendations
 

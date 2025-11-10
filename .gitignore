@@ -15,9 +15,6 @@ venv/
 env/
 ENV/
 
-# UV specific
-.python-version
-
 # IDE
 .vscode/
 .idea/
