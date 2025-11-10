@@ -226,6 +226,69 @@
             gap: 1rem;
         }
 
+        .referee-commentary {
+            background: linear-gradient(135deg, rgba(196, 109, 40, 0.15), rgba(217, 180, 91, 0.12));
+            border: 2px solid rgba(217, 180, 91, 0.35);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4),
+                        inset 0 1px 0 rgba(217, 180, 91, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .referee-commentary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-orange), var(--accent-gold));
+            opacity: 0.6;
+        }
+
+        .referee-commentary h3 {
+            margin: 0 0 0.75rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 1.05rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .referee-commentary h3::before {
+            content: '⚖';
+            font-size: 1.3em;
+            display: inline-block;
+        }
+
+        .referee-commentary .commentary-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: var(--text);
+            font-style: italic;
+            letter-spacing: 0.02em;
+            min-height: 3em;
+        }
+
+        .referee-commentary .commentary-text.loading {
+            color: var(--muted);
+            font-style: normal;
+        }
+
+        .referee-commentary .commentary-timestamp {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: rgba(217, 180, 91, 0.65);
+            letter-spacing: 0.04em;
+            text-align: right;
+        }
+
         .pitch-wrapper {
             background: radial-gradient(circle at 30% 18%, rgba(217, 180, 91, 0.12), transparent 55%),
                         radial-gradient(circle at 70% 72%, rgba(115, 76, 38, 0.18), transparent 60%),
@@ -698,6 +761,11 @@
 
     <section class="panel pitch-panel">
         <h2>Pitch Overview</h2>
+        <div class="referee-commentary" id="referee-commentary">
+            <h3>Referee Commentary</h3>
+            <div class="commentary-text loading" id="commentary-text">Awaiting the referee's first remarks...</div>
+            <span class="commentary-timestamp" id="commentary-timestamp"></span>
+        </div>
         <div class="pitch-wrapper" id="pitch-container">
             <svg id="pitch-canvas" class="pitch-canvas" role="img" aria-labelledby="pitch-title"></svg>
             <div class="tooltip" id="pitch-tooltip" role="status" aria-live="polite"></div>
@@ -783,6 +851,8 @@
     const team2Thoughts = document.getElementById('team2-thoughts');
     const team1Title = document.getElementById('team1-thoughts-title');
     const team2Title = document.getElementById('team2-thoughts-title');
+    const commentaryText = document.getElementById('commentary-text');
+    const commentaryTimestamp = document.getElementById('commentary-timestamp');
     const gameLogEntries = document.getElementById('game-log-entries');
     const scoreboardOverlay = document.getElementById('scoreboard-overlay');
     const scoreboardSubtitle = document.getElementById('scoreboard-subtitle');
@@ -1108,6 +1178,44 @@
                 </li>
             `).join('');
         });
+    }
+
+    async function renderRefereeCommentary() {
+        try {
+            // Fetch the latest messages from the API
+            const response = await fetch(`/game/${gameId}/messages?limit=50`);
+            if (!response.ok) {
+                console.error('Failed to fetch messages for referee:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Filter for referee messages
+            const refereeMessages = data.messages.filter(m => m.sender_id === 'referee');
+
+            if (refereeMessages.length === 0) {
+                commentaryText.textContent = 'Awaiting the referee\'s first remarks...';
+                commentaryText.classList.add('loading');
+                commentaryTimestamp.textContent = '';
+                return;
+            }
+
+            // Get the most recent referee message
+            const latestComment = refereeMessages[refereeMessages.length - 1];
+
+            commentaryText.textContent = latestComment.content;
+            commentaryText.classList.remove('loading');
+
+            const turnInfo = latestComment.turn_number
+                ? `Turn ${latestComment.turn_number}`
+                : 'Pre-match';
+            commentaryTimestamp.textContent = `— ${turnInfo}`;
+
+        } catch (error) {
+            console.error('Failed to fetch referee commentary:', error);
+            // Keep existing content on error
+        }
     }
 
     function renderRoster(state) {
@@ -1448,6 +1556,7 @@
             updateScoreboard(data);
             renderPitch(data);
             renderThoughts(data);
+            renderRefereeCommentary();
             renderRoster(data);
 
             if (data.phase === 'finished') {
