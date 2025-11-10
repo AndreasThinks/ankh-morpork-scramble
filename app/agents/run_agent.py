@@ -396,11 +396,9 @@ class ClineAgentRunner:
     def _write_mcp_settings(self) -> None:
         """Write the MCP server configuration consumed by Cline core.
         
-        Note: We do NOT use the autoApprove array here. Instead, we rely on the
-        task-level auto-approval setting (auto-approval-settings.actions.use-mcp=true)
-        which is set in _create_task().
+        The MCP server now runs on a separate port (default 8001) and auto-generates
+        tools from FastAPI endpoints.
         """
-
         settings_dir = self.cline_dir / "data" / "settings"
         settings_dir.mkdir(parents=True, exist_ok=True)
         settings_path = settings_dir / "cline_mcp_settings.json"

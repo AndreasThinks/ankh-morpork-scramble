@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
-
+import asyncio
 from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
 
@@ -29,20 +29,27 @@ from app.state.game_manager import GameManager
 from app.game.statistics import StatisticsAggregator
 from app.models.events import GameStatistics
 
-# Global game manager instance (must be created before importing mcp_server)
+# Global game manager instance
 game_manager = GameManager()
-
-# Import MCP server after game_manager is created
-from app.mcp_server import mcp
-
-# Create MCP ASGI app
-mcp_app = mcp.http_app(path='/')
 
 # Configure logging early so startup hooks can log useful information
 _LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
 logger = logging.getLogger("app.main")
 if _LOG_FILE:
     logger.info("API log file initialised at %s", _LOG_FILE)
+
+# Import FastMCP for auto-generating MCP server from FastAPI endpoints
+from fastmcp import FastMCP
+
+# Configure MCP-specific logging
+_MCP_LOG_FILE = configure_root_logger(
+    service_name="mcp",
+    env_prefix="MCP_",
+    default_level=os.getenv("MCP_LOG_LEVEL", "INFO")
+)
+mcp_logger = logging.getLogger("fastmcp")
+if _MCP_LOG_FILE:
+    mcp_logger.info("MCP logging initialized at %s", _MCP_LOG_FILE)
 
 # Initialize game based on DEMO_MODE setting
 # DEMO_MODE=true (default): Pre-configured demo game ready to play
@@ -76,42 +83,25 @@ else:
         interactive_game_id
     )
 
-# Create combined lifespan that properly manages both FastAPI and MCP startup/shutdown
+# Simple lifespan for FastAPI
 @asynccontextmanager
-async def combined_lifespan(app: FastAPI):
-    """
-    Combined lifespan context manager for FastAPI and MCP.
-
-    Ensures proper ordering of startup and shutdown:
-    1. FastAPI startup logic runs first
-    2. MCP server startup runs nested within
-    3. Application yields (runs)
-    4. MCP server shutdown runs first
-    5. FastAPI shutdown runs last
-    """
-    # FastAPI startup logic
+async def app_lifespan(app: FastAPI):
+    """FastAPI application lifespan."""
+    # Startup
     logger.info("FastAPI application starting up...")
     logger.info("Game manager initialized with %d active games", len(game_manager.games))
-
-    # Nested MCP startup/shutdown
-    async with mcp_app.lifespan(app):
-        logger.info("MCP server is ready at /mcp")
-        yield  # Application runs here
-
-    # FastAPI shutdown logic
+    yield
+    # Shutdown
     logger.info("FastAPI application shutting down...")
 
 
-# Create FastAPI app with combined lifespan
+# Create FastAPI app
 app = FastAPI(
     title="Ankh-Morpork Scramble API",
     description="Turn-based sports game server based on Blood Bowl mechanics",
     version="0.1.0",
-    lifespan=combined_lifespan
+    lifespan=app_lifespan
 )
-
-# Mount the MCP server at /mcp
-app.mount("/mcp", mcp_app)
 
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
@@ -582,6 +572,45 @@ def rematch_game(game_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Generate MCP server from FastAPI endpoints
+# This must come after all endpoints are defined
+logger.info("Generating MCP server from FastAPI endpoints...")
+mcp = FastMCP.from_fastapi(
+    app=app,
+    name="Ankh-Morpork Scramble MCP"
+)
+logger.info("MCP server generated with tools for all FastAPI endpoints")
+
+# Create MCP ASGI app and mount it
+mcp_app = mcp.http_app(path='/mcp')
+
+# Update FastAPI lifespan to include MCP
+@asynccontextmanager
+async def combined_lifespan(app: FastAPI):
+    """Combined lifespan for FastAPI and MCP."""
+    # FastAPI startup
+    logger.info("FastAPI application starting up...")
+    logger.info("Game manager initialized with %d active games", len(game_manager.games))
+    
+    # MCP startup (nested)
+    async with mcp_app.lifespan(app):
+        logger.info("MCP server ready at /mcp")
+        yield
+    
+    # Shutdown
+    logger.info("FastAPI application shutting down...")
+
+# Replace the lifespan
+app.router.lifespan_context = combined_lifespan
+
+# Mount MCP server
+app.mount("/mcp", mcp_app)
+logger.info("MCP server mounted at /mcp")
+
+
+async def main():
+    # Use run_async() in async contexts
+    await mcp.run_async(transport="http", port=8000)
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    asyncio.run(main())
