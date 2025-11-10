@@ -144,9 +144,9 @@ def test_write_mcp_settings(tmp_path, monkeypatch):
     assert run_agent.MCP_SERVER_NAME in settings["mcpServers"]
     entry = settings["mcpServers"][run_agent.MCP_SERVER_NAME]
     assert entry["url"] == "http://localhost:8000/mcp"
-    assert "join_game" in entry["alwaysAllow"]
-    assert "buy_player" in entry["alwaysAllow"]
-    assert "place_players" in entry["alwaysAllow"]
+    assert "join_game" in entry["autoApprove"]
+    assert "buy_player" in entry["autoApprove"]
+    assert "place_players" in entry["autoApprove"]
 
 
 def test_prompt_includes_team_details():
