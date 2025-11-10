@@ -226,7 +226,7 @@ The script creates two Cline instances that communicate with the game via MCP (M
 5. Uses `send_message` to explain their coaching decisions in character
 6. Automatically restarts when the game ends to play again
 
-The agents use YOLO mode with auto-approval for MCP tools, allowing them to play completely autonomously without human intervention.
+**Important:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are blocked, forcing agents to interact with the game purely through the MCP interface. This makes their behavior predictable and contained.
 
 ## Alternative: Dockerised Multi-Agent Demo
 
