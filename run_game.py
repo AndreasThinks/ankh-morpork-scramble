@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""Run Ankh-Morpork Scramble with two Cline agents in a single Python process.
+"""Run Ankh-Morpork Scramble with two Cline agents and a referee commentator.
 
 This script:
 1. Starts the FastAPI game server in the background
 2. Launches two Cline instances (one per team) concurrently
-3. Monitors tasks and auto-restarts them when complete
-4. Logs each team's output to separate files (team1.log, team2.log)
+3. Starts a referee agent that provides live commentary
+4. Monitors tasks and auto-restarts them when complete
+5. Logs each team's output to separate files (team1.log, team2.log, referee.log)
 
 Usage:
     python run_game.py
 
 Environment variables:
     OPENROUTER_API_KEY: Required - Your OpenRouter API key
-    OPENROUTER_MODEL: Optional - Model to use (default: google/gemini-2.5-flash)
+    OPENROUTER_MODEL: Optional - Model for teams (default: google/gemini-2.5-flash)
+    REFEREE_MODEL: Optional - Model for referee (default: anthropic/claude-3.5-haiku)
+    REFEREE_COMMENTARY_INTERVAL: Optional - Seconds between commentary (default: 30)
+    REFEREE_PROMPT: Optional - Custom referee prompt
     INTERACTIVE_GAME_ID: Optional - Game ID (default: interactive-game)
     DEMO_MODE: Optional - Use demo game (default: false)
     AGENT_LOG_LEVEL: Optional - Logging level (default: INFO)
+    ENABLE_REFEREE: Optional - Enable referee commentary (default: true)
 """
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ import httpx
 
 from app.agents.config import AgentConfig
 from app.agents.run_agent import ClineAgentRunner
+from app.agents.referee import RefereeAgent, RefereeConfig
 
 
 # Global flag for graceful shutdown
@@ -138,6 +144,49 @@ async def run_agent_with_restart(
             await asyncio.sleep(10)
 
     agent_logger.info("Agent %s shutting down", config.team_id)
+
+
+async def run_referee(config: RefereeConfig, log_file: Path) -> None:
+    """Run the referee commentator agent.
+
+    Args:
+        config: Referee configuration
+        log_file: Path to log file for referee output
+    """
+    global shutdown_requested
+
+    # Set up logging for referee
+    referee_logger = logging.getLogger("app.agents.referee")
+    referee_logger.setLevel(getattr(logging, os.getenv("REFEREE_LOG_LEVEL", "INFO")))
+
+    # Add file handler
+    file_handler = logging.FileHandler(log_file, mode="w")
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    referee_logger.addHandler(file_handler)
+
+    # Also log to console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter("[referee] %(levelname)s: %(message)s")
+    )
+    referee_logger.addHandler(console_handler)
+
+    referee_logger.info("Referee agent starting")
+    referee_logger.info("Commentary interval: %.1fs", config.commentary_interval)
+    referee_logger.info("Model: %s", config.model)
+
+    referee = RefereeAgent(config, referee_logger)
+
+    try:
+        await referee.run()
+    except asyncio.CancelledError:
+        referee_logger.info("Referee agent cancelled, shutting down")
+    except Exception as e:
+        referee_logger.error("Referee error: %s", e, exc_info=True)
+
+    referee_logger.info("Referee agent shut down")
 
 
 def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Path("logs")) -> subprocess.Popen:
@@ -283,9 +332,10 @@ async def main() -> int:
             api_key=api_key,
         )
 
-        # Run both agents concurrently
-        logger.info("Starting both agents...")
-        await asyncio.gather(
+        # Configure referee if enabled
+        enable_referee = os.getenv("ENABLE_REFEREE", "true").lower() == "true"
+
+        tasks = [
             run_agent_with_restart(
                 config1,
                 team1_env,
@@ -298,7 +348,24 @@ async def main() -> int:
                 Path("/tmp/cline-team2"),
                 log_dir / "team2.log",
             ),
-        )
+        ]
+
+        if enable_referee:
+            referee_config = RefereeConfig(
+                game_id=game_id,
+                api_base_url="http://localhost:8000",
+                commentary_interval=float(os.getenv("REFEREE_COMMENTARY_INTERVAL", "30")),
+                model=os.getenv("REFEREE_MODEL", "anthropic/claude-3.5-haiku"),
+                api_key=api_key,
+                custom_prompt=os.getenv("REFEREE_PROMPT"),
+            )
+            tasks.append(run_referee(referee_config, log_dir / "referee.log"))
+            logger.info("Starting agents with referee commentary...")
+        else:
+            logger.info("Starting agents (referee disabled)...")
+
+        # Run all tasks concurrently
+        await asyncio.gather(*tasks)
 
     except Exception as e:
         logger.error("Error: %s", e, exc_info=True)

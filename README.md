@@ -192,14 +192,16 @@ The easiest way to watch two AI agents play against each other is using the `run
 That's it! The script will:
 - ✅ Start the FastAPI game server automatically
 - ✅ Launch two Cline agents (City Watch vs Unseen University)
+- ✅ Start a referee agent that provides live commentary
 - ✅ Each agent builds their roster and plays autonomously
 - ✅ Agents send in-character messages explaining their strategy
 - ✅ Auto-restart agents when tasks complete
-- ✅ Log all agent activity to `logs/team1.log` and `logs/team2.log`
+- ✅ Log all agent activity to `logs/team1.log`, `logs/team2.log`, and `logs/referee.log`
 
 **Monitoring the game:**
-- Web UI: Open http://localhost:8000/ui to watch live
+- Web UI: Open http://localhost:8000/ui to watch live with referee commentary
 - Agent logs: `tail -f logs/team1.log` and `tail -f logs/team2.log`
+- Referee log: `tail -f logs/referee.log`
 - Server log: `tail -f logs/server.log`
 - Game API: http://localhost:8000/docs
 
@@ -208,26 +210,48 @@ That's it! The script will:
 # Use demo mode (pre-configured rosters, instant play)
 DEMO_MODE=true python run_game.py
 
-# Use different model
+# Use different model for team agents
 OPENROUTER_MODEL=anthropic/claude-3.5-sonnet python run_game.py
+
+# Use different model for referee (default: claude-3.5-haiku for fast, cheap commentary)
+REFEREE_MODEL=anthropic/claude-3.5-sonnet python run_game.py
+
+# Disable referee commentary
+ENABLE_REFEREE=false python run_game.py
+
+# Adjust referee commentary interval (seconds between updates)
+REFEREE_COMMENTARY_INTERVAL=45 python run_game.py
+
+# Custom referee prompt (for different commentary styles)
+REFEREE_PROMPT="You are a dramatic sports announcer..." python run_game.py
 
 # Custom game ID
 INTERACTIVE_GAME_ID=my-epic-match python run_game.py
 
 # Adjust logging
 AGENT_LOG_LEVEL=DEBUG python run_game.py
+REFEREE_LOG_LEVEL=DEBUG python run_game.py
 ```
 
 **How it works:**
-The script creates two Cline instances that communicate with the game via MCP (Model Context Protocol). Each agent:
-1. Joins the game as their assigned team
-2. Builds a roster within their 1M gold budget
-3. Places players on the pitch
-4. Plays turns by calling MCP tools (get_valid_actions, execute_action, end_turn)
-5. Uses `send_message` to explain their coaching decisions in character
-6. Automatically restarts when the game ends to play again
+The script creates two Cline instances plus a referee agent that all communicate with the game:
 
-**Important:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are **actively rejected** with helpful feedback, forcing agents to interact with the game purely through the MCP interface. This prevents agents from hanging while waiting for manual approval and gives them clear guidance to use MCP tools instead.
+**Team Agents (via MCP - Model Context Protocol):**
+1. Join the game as their assigned team
+2. Build a roster within their 1M gold budget
+3. Place players on the pitch
+4. Play turns by calling MCP tools (get_valid_actions, execute_action, end_turn)
+5. Use `send_message` to explain their coaching decisions in character
+6. Automatically restart when the game ends to play again
+
+**Referee Agent:**
+1. Watches the game state and recent events
+2. Generates colorful, character-driven commentary using an LLM (default: Claude 3.5 Haiku)
+3. Posts commentary every 30 seconds (configurable)
+4. Uses a Discworld-themed prompt with gruff, humorous observations
+5. Commentary appears prominently above the pitch in the web UI
+
+**Security:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are **actively rejected** with helpful feedback, forcing agents to interact with the game purely through the MCP interface. This prevents agents from hanging while waiting for manual approval and gives them clear guidance to use MCP tools instead.
 
 ## Alternative: Dockerised Multi-Agent Demo
 
