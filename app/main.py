@@ -178,6 +178,138 @@ def list_logs(x_admin_key: Optional[str] = Header(None)):
     }
 
 
+@app.get("/admin/logs/all")
+def view_all_logs(
+    x_admin_key: Optional[str] = Header(None),
+    tail: Optional[int] = Query(None, description="Show last N lines per log file"),
+    format: str = Query("combined", description="Format: 'combined' or 'separated'")
+):
+    """View all log files in a unified view (requires admin API key)
+
+    This endpoint aggregates logs from all components:
+    - server.log: FastAPI server logs
+    - mcp.log: MCP server logs
+    - team1.log: Team 1 agent logs
+    - team2.log: Team 2 agent logs
+    - referee.log: Referee agent logs
+    - api.log: API-specific logs
+
+    Query parameters:
+    - tail: Show last N lines from each log file
+    - format: 'combined' (interleaved by timestamp) or 'separated' (grouped by file)
+
+    Examples:
+    - /admin/logs/all - All logs in combined format
+    - /admin/logs/all?tail=100 - Last 100 lines from each log
+    - /admin/logs/all?format=separated - Logs grouped by file
+    """
+    verify_admin_key(x_admin_key)
+
+    log_dir = Path(os.getenv("LOG_DIR", "logs"))
+    if not log_dir.exists():
+        return PlainTextResponse(
+            content=f"Log directory not found: {log_dir}",
+            media_type="text/plain"
+        )
+
+    # Define expected log files in priority order
+    log_files = ["server.log", "api.log", "mcp.log", "team1.log", "team2.log", "referee.log"]
+
+    if format == "separated":
+        # Separated format: group logs by file
+        output_lines = []
+        for log_name in log_files:
+            log_file = log_dir / log_name
+            if not log_file.exists():
+                continue
+
+            output_lines.append("=" * 80)
+            output_lines.append(f"LOG FILE: {log_name}")
+            output_lines.append("=" * 80)
+
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    if tail:
+                        lines = f.readlines()
+                        content_lines = lines[-tail:]
+                    else:
+                        content_lines = f.readlines()
+
+                    output_lines.extend(line.rstrip() for line in content_lines)
+
+            except Exception as e:
+                output_lines.append(f"Error reading {log_name}: {str(e)}")
+
+            output_lines.append("")  # Blank line between files
+
+        content = "\n".join(output_lines)
+
+    else:
+        # Combined format: interleave logs by timestamp
+        all_log_lines = []
+
+        for log_name in log_files:
+            log_file = log_dir / log_name
+            if not log_file.exists():
+                continue
+
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    if tail:
+                        lines = f.readlines()
+                        lines = lines[-tail:]
+                    else:
+                        lines = f.readlines()
+
+                    # Add source tag to each line
+                    for line in lines:
+                        line = line.rstrip()
+                        if line:
+                            # Try to extract timestamp for sorting
+                            # Expected format: "2024-01-01 12:00:00,123 | ..."
+                            timestamp_str = None
+                            if len(line) > 23 and line[4] == '-' and line[10] == ' ':
+                                timestamp_str = line[:23]
+
+                            all_log_lines.append({
+                                'timestamp': timestamp_str,
+                                'source': log_name,
+                                'content': line
+                            })
+
+            except Exception as e:
+                all_log_lines.append({
+                    'timestamp': None,
+                    'source': log_name,
+                    'content': f"Error reading {log_name}: {str(e)}"
+                })
+
+        # Sort by timestamp (None timestamps go to the end)
+        all_log_lines.sort(key=lambda x: (x['timestamp'] is None, x['timestamp'] or ''))
+
+        # Format output with source tags
+        output_lines = []
+        output_lines.append("=" * 80)
+        output_lines.append("UNIFIED LOG VIEW (sorted by timestamp)")
+        output_lines.append("=" * 80)
+        output_lines.append("")
+
+        for entry in all_log_lines:
+            source_tag = f"[{entry['source']}]".ljust(15)
+            output_lines.append(f"{source_tag} {entry['content']}")
+
+        content = "\n".join(output_lines)
+
+    return PlainTextResponse(
+        content=content,
+        media_type="text/plain",
+        headers={
+            "X-Log-Count": str(len([f for f in log_files if (log_dir / f).exists()])),
+            "X-Log-Format": format
+        }
+    )
+
+
 @app.get("/admin/logs/{log_name}")
 def view_log(
     log_name: str,

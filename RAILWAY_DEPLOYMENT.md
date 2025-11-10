@@ -1,145 +1,119 @@
 # Railway Deployment Guide
 
-This guide explains how to deploy Ankh-Morpork Scramble to Railway.
+This document describes how to deploy Ankh-Morpork Scramble on Railway.
 
-## Prerequisites
+## Overview
 
-- A [Railway](https://railway.app) account
-- This repository pushed to GitHub
+The application runs the full game simulation via `run_game.py`, which:
+1. Starts the FastAPI server with game API and MCP endpoints
+2. Launches two AI agent teams (City Watch Constables vs Unseen University Adepts)
+3. Runs a referee agent that provides live commentary
+4. Logs all activity to separate log files for monitoring
 
-## Quick Start
+## Required Environment Variables
 
-1. **Create a new Railway project**
-   - Go to [Railway](https://railway.app)
-   - Click "New Project"
-   - Select "Deploy from GitHub repo"
-   - Select this repository
+Set these in your Railway project's environment variables:
 
-2. **Configure Environment Variables**
+### Required
+- `OPENROUTER_API_KEY` - Your OpenRouter API key for running AI agents
+- `ADMIN_API_KEY` - Secret key for accessing admin endpoints (logs, etc.)
 
-   In Railway's dashboard, add the following environment variables:
+### Optional (with defaults)
+- `PORT` - Server port (Railway sets this automatically)
+- `DEMO_MODE` - Set to `false` for interactive mode (default: `true`)
+- `INTERACTIVE_GAME_ID` - Game ID for interactive mode (default: `interactive-game`)
+- `OPENROUTER_MODEL` - Model for team agents (default: `google/gemini-2.5-flash`)
+- `REFEREE_MODEL` - Model for referee (default: `anthropic/claude-3.5-haiku`)
+- `ENABLE_REFEREE` - Enable referee commentary (default: `true`)
+- `REFEREE_COMMENTARY_INTERVAL` - Seconds between commentary (default: `30`)
+- `LOG_LEVEL` - Logging level (default: `INFO`)
+- `LOG_DIR` - Log directory (default: `logs`)
 
-   ### Required Variables
-   ```
-   ADMIN_API_KEY=<generate-a-secure-random-key>
-   OPENROUTER_API_KEY=<your-openrouter-api-key>
-   ```
+## Deployment Files
 
-   ### Optional Variables (with defaults)
-   ```
-   DEFAULT_GAME_ID=demo-game
-   INTERACTIVE_GAME_ID=interactive-game
-   DEMO_MODE=true
-   CORS_ORIGINS=*
-   APP_LOG_LEVEL=INFO
-   MCP_LOG_LEVEL=INFO
-   LOG_DIR=logs
-   ```
+- **`.python-version`** - Specifies Python 3.11 requirement
+- **`pyproject.toml`** - Python dependencies managed via uv
+- **`railway.json`** - Railway build and deployment configuration
+- **`Procfile`** - Process definition for Railway
 
-3. **Deploy**
-   - Railway will automatically detect the configuration from `railway.json`
-   - The deployment will start automatically
-   - Wait for the build and deployment to complete
+## Accessing Logs
 
-4. **Access Your Application**
-   - Railway will provide a public URL (e.g., `https://your-app.railway.app`)
-   - Visit the URL to see your application
-   - Health check endpoint: `https://your-app.railway.app/health`
-   - Web dashboard: `https://your-app.railway.app/ui`
+Once deployed, you can view logs from all components using the admin endpoints:
 
-## Admin Log Access
-
-View logs remotely using the admin API:
-
-### List all available logs
+### List Available Logs
 ```bash
-curl -H "X-Admin-Key: your-admin-api-key" \
-  https://your-app.railway.app/admin/logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs
 ```
 
-### View a specific log file
+### View Unified Logs (All Components)
 ```bash
-# Full log
-curl -H "X-Admin-Key: your-admin-api-key" \
-  https://your-app.railway.app/admin/logs/api.log
+# Combined view (sorted by timestamp)
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/all
 
-# Last 100 lines
-curl -H "X-Admin-Key: your-admin-api-key" \
-  https://your-app.railway.app/admin/logs/api.log?tail=100
+# Separated view (grouped by component)
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/all?format=separated
 
-# First 50 lines
-curl -H "X-Admin-Key: your-admin-api-key" \
-  https://your-app.railway.app/admin/logs/mcp.log?head=50
+# Last 100 lines from each log
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/all?tail=100
 ```
 
-### Available log files
-- `api.log` - FastAPI server logs
-- `mcp.log` - MCP server logs
-- `team1.log` - Team 1 agent logs
-- `team2.log` - Team 2 agent logs
-- `referee.log` - Referee commentary logs
-- `server.log` - Uvicorn server logs
+### View Individual Log Files
+```bash
+# Server logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/server.log
 
-## Configuration Details
+# Team 1 agent logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/team1.log
 
-### Port Configuration
-Railway automatically sets the `PORT` environment variable. The application will use this port automatically.
+# Team 2 agent logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/team2.log
 
-### Health Checks
-Railway monitors the `/health` endpoint to ensure the application is running correctly. The health check returns:
-```json
-{
-  "status": "healthy",
-  "active_games": 1
-}
+# Referee logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/referee.log
+
+# MCP server logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/mcp.log
+
+# API logs
+curl -H "X-Admin-Key: YOUR_ADMIN_KEY" https://your-app.railway.app/admin/logs/api.log
 ```
 
-### CORS Configuration
-By default, CORS is set to allow all origins (`*`). For production, you should restrict this:
+## Log Components
 
+The unified logging endpoint aggregates logs from:
+
+1. **server.log** - FastAPI uvicorn server output
+2. **api.log** - API-specific application logs
+3. **mcp.log** - MCP server logs (agent communication)
+4. **team1.log** - City Watch Constables agent activity
+5. **team2.log** - Unseen University Adepts agent activity
+6. **referee.log** - Referee commentary and analysis
+
+## Health Check
+
+Railway will monitor the `/health` endpoint to ensure the service is running:
+
+```bash
+curl https://your-app.railway.app/health
 ```
-CORS_ORIGINS=https://your-frontend.com,https://another-allowed-origin.com
+
+## Monitoring the Game
+
+Use the web dashboard to watch the game in real-time:
+
+```bash
+https://your-app.railway.app/
 ```
 
-### Logging
-Logs are stored in the `logs/` directory and are also sent to stdout for Railway's log aggregation.
+The dashboard shows:
+- Current game state
+- Team positions on the pitch
+- Live event log
+- Team statistics
 
-## Troubleshooting
+## Notes
 
-### Application won't start
-1. Check Railway logs for errors
-2. Verify all required environment variables are set
-3. Ensure `OPENROUTER_API_KEY` is valid
-
-### Can't access admin logs
-1. Verify `ADMIN_API_KEY` is set in Railway environment variables
-2. Check that you're passing the correct key in the `X-Admin-Key` header
-3. Ensure the log directory exists and has proper permissions
-
-### Health check failing
-1. Check that the application is binding to the correct `PORT`
-2. Verify the `/health` endpoint is responding
-3. Check Railway logs for startup errors
-
-## Production Recommendations
-
-1. **Security**
-   - Generate a strong random key for `ADMIN_API_KEY`
-   - Restrict CORS origins to only trusted domains
-   - Keep `OPENROUTER_API_KEY` secure
-
-2. **Monitoring**
-   - Regularly check the `/health` endpoint
-   - Monitor log files for errors using the admin API
-   - Set up Railway alerts for downtime
-
-3. **Performance**
-   - Consider upgrading Railway plan for more resources
-   - Monitor memory and CPU usage in Railway dashboard
-   - Adjust log rotation settings if logs grow too large
-
-## Additional Resources
-
-- [Railway Documentation](https://docs.railway.app)
-- [FastAPI Deployment Guide](https://fastapi.tiangolo.com/deployment/)
-- [Application Documentation](./README.md)
+- The application runs continuously with agents auto-restarting when tasks complete
+- All logs are retained in memory and accessible via the admin endpoints
+- The game server runs on the port specified by Railway's PORT environment variable
+- Logs are formatted with timestamps and component tags for easy filtering

@@ -261,18 +261,46 @@ under `./logs/`:
 
 - `api.log` – high-level server activity plus every in-game event and chat
   message emitted by the `GameState`.
-- `agent-<team_id>.log` – step-by-step reasoning, MCP tool usage, and HTTP
-  polling summaries for each LLM-controlled team.
+- `mcp.log` – MCP server logs (agent communication via Model Context Protocol)
+- `server.log` – uvicorn server logs
+- `team1.log` – City Watch Constables agent activity
+- `team2.log` – Unseen University Adepts agent activity
+- `referee.log` – Referee commentary and analysis
 
 Tune the behaviour with environment variables:
 
-- `LOG_DIR` sets a shared directory for all log files. Use `APP_LOG_DIR` or
-  `AGENT_LOG_DIR` to override the API or agent destinations individually.
+- `LOG_DIR` sets a shared directory for all log files (default: `logs`).
 - `APP_LOG_LEVEL` adjusts server verbosity (default: `INFO`).
+- `MCP_LOG_LEVEL` adjusts MCP server verbosity (default: `INFO`).
 - `AGENT_LOG_LEVEL` tunes the Cline agent logs (default: `INFO`).
+- `REFEREE_LOG_LEVEL` tunes the referee agent logs (default: `INFO`).
 - `LOG_MAX_BYTES` / `LOG_BACKUP_COUNT` control rotation for every handler.
 
-You can monitor the game by tailing the log files directly:
+### Unified Log Viewing (Admin Endpoints)
+
+Access all logs through a unified endpoint with admin API key:
+
+```bash
+# Set admin API key
+export ADMIN_API_KEY=your-secret-key
+
+# View all logs combined (sorted by timestamp)
+curl -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8000/admin/logs/all
+
+# View separated by component
+curl -H "X-Admin-Key: $ADMIN_API_KEY" "http://localhost:8000/admin/logs/all?format=separated"
+
+# Last 100 lines from each log
+curl -H "X-Admin-Key: $ADMIN_API_KEY" "http://localhost:8000/admin/logs/all?tail=100"
+
+# List available logs
+curl -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8000/admin/logs
+
+# View specific log
+curl -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8000/admin/logs/team1.log
+```
+
+You can also monitor the game by tailing the log files directly:
 ```bash
 tail -f logs/server.log logs/team1.log logs/team2.log logs/referee.log
 ```
@@ -652,12 +680,29 @@ See [rules.md](rules.md) for complete game rules and mechanics.
 # Install with dev dependencies
 uv pip install -e ".[dev]"
 
-# Run tests (when implemented)
-pytest
+# Run tests with coverage
+uv run --with pytest --with pytest-asyncio --with pytest-cov pytest --cov=app --cov-report=term-missing
 
 # Run with hot reload
 uvicorn app.main:app --reload
 ```
+
+## Deployment
+
+### Railway Deployment
+
+This project is configured for easy deployment on Railway. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete deployment instructions including:
+- Required environment variables
+- Dynamic port configuration
+- Unified logging endpoint access
+- Health check configuration
+- Monitoring the game in production
+
+The Railway deployment runs the full game simulation (`run_game.py`) with:
+- FastAPI server with game API and MCP endpoints
+- Two AI agent teams playing autonomously
+- Referee agent providing live commentary
+- All logs accessible via admin endpoints
 
 ## License
 
