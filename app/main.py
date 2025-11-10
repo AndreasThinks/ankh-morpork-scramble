@@ -607,10 +607,6 @@ app.router.lifespan_context = combined_lifespan
 app.mount("/mcp", mcp_app)
 logger.info("MCP server mounted at /mcp")
 
-
-async def main():
-    # Use run_async() in async contexts
-    await mcp.run_async(transport="http", port=8000)
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
