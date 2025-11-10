@@ -27,9 +27,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
@@ -192,6 +194,101 @@ async def run_referee(config: RefereeConfig, log_file: Path) -> None:
     referee_logger.info("Referee agent shut down")
 
 
+def cleanup_previous_services(logger: logging.Logger) -> None:
+    """Kill any previous game server, referee, or Cline instances and clean up directories.
+    
+    This ensures a clean start by:
+    1. Killing processes on port 8000 (game server)
+    2. Killing referee processes
+    3. Killing Cline instances using team directories
+    4. Removing old Cline data directories
+    """
+    logger.info("Cleaning up previous services...")
+    
+    # 1. Kill process on port 8000 (game server)
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", ":8000"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.stdout.strip():
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                logger.info("Killing process on port 8000 (PID: %s)", pid)
+                try:
+                    subprocess.run(["kill", "-TERM", pid], timeout=2)
+                    time.sleep(1)
+                    # Force kill if still running
+                    subprocess.run(["kill", "-9", pid], stderr=subprocess.DEVNULL, timeout=2)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Timeout killing PID %s", pid)
+    except FileNotFoundError:
+        # lsof not available, try alternative method
+        logger.debug("lsof not available, skipping port cleanup")
+    except Exception as e:
+        logger.warning("Error cleaning port 8000: %s", e)
+    
+    # 2. Kill referee processes
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "referee.py"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.stdout.strip():
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                logger.info("Killing referee process (PID: %s)", pid)
+                try:
+                    subprocess.run(["kill", "-TERM", pid], timeout=2)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Timeout killing referee PID %s", pid)
+    except FileNotFoundError:
+        logger.debug("pgrep not available, skipping referee process cleanup")
+    except Exception as e:
+        logger.warning("Error killing referee processes: %s", e)
+    
+    # 3. Kill Cline instances using team directories
+    for team_dir in ["/tmp/cline-team1", "/tmp/cline-team2"]:
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", team_dir],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    logger.info("Killing Cline process %s using %s", pid, team_dir)
+                    try:
+                        subprocess.run(["kill", "-TERM", pid], timeout=2)
+                    except subprocess.TimeoutExpired:
+                        logger.warning("Timeout killing Cline PID %s", pid)
+        except FileNotFoundError:
+            logger.debug("pgrep not available, skipping Cline process cleanup")
+        except Exception as e:
+            logger.warning("Error killing Cline instances for %s: %s", team_dir, e)
+    
+    # Give processes time to die gracefully
+    time.sleep(2)
+    
+    # 4. Clean up Cline directories
+    for team_dir in ["/tmp/cline-team1", "/tmp/cline-team2"]:
+        team_path = Path(team_dir)
+        if team_path.exists():
+            try:
+                logger.info("Removing directory: %s", team_dir)
+                shutil.rmtree(team_path)
+            except Exception as e:
+                logger.warning("Error removing %s: %s", team_dir, e)
+    
+    logger.info("Cleanup complete")
+
+
 def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Path("logs")) -> subprocess.Popen:
     """Start the FastAPI game server as a subprocess.
 
@@ -261,6 +358,9 @@ async def main() -> int:
     logger.info("Demo Mode: %s", demo_mode)
     logger.info("Model: %s", model)
     logger.info("=" * 80)
+
+    # Clean up any previous services before starting
+    cleanup_previous_services(logger)
 
     # Create log directory
     log_dir = Path("logs")
@@ -388,6 +488,29 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Run Ankh-Morpork Scramble with AI agents")
+    parser.add_argument(
+        "--cleanup-only",
+        action="store_true",
+        help="Only cleanup previous services and exit (don't start game)"
+    )
+    args = parser.parse_args()
+    
+    if args.cleanup_only:
+        # Set up basic logging for cleanup
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+        logger = logging.getLogger(__name__)
+        
+        logger.info("Running cleanup only...")
+        cleanup_previous_services(logger)
+        logger.info("Cleanup complete. Exiting.")
+        sys.exit(0)
+    
     try:
         exit_code = asyncio.run(main())
         sys.exit(exit_code)

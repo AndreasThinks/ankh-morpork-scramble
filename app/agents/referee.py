@@ -187,12 +187,10 @@ class RefereeAgent:
             "Recent Events:",
         ]
 
-        # Add recent history - extract events list from history dict
+        # Add recent history - events are strings from event_log
         events = history.get("events", [])
         for event in events[-5:]:  # Last 5 events
-            event_type = event.get("type", "unknown")
-            description = event.get("description", "")
-            context_parts.append(f"- {event_type}: {description}")
+            context_parts.append(f"- {event}")
 
         return "\n".join(context_parts)
 

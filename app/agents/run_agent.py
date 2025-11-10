@@ -185,6 +185,12 @@ class ClineAgentRunner:
             mask_args=[self.config.api_key],
             description="configure OpenRouter API key",
         )
+        
+        # Note: auto-approval-settings.enabled is already true by default.
+        # MCP auto-approval works through:
+        # 1. MCP settings file's autoApprove array (written in _write_mcp_settings)
+        # 2. Task setting auto-approval-settings.actions.use-mcp=true (set in _create_task)
+        
         # Model selection happens via OPENROUTER_MODEL environment variable
     
     async def _create_task(self, instance_address: str, prompt: str) -> None:
@@ -203,7 +209,6 @@ class ClineAgentRunner:
                 prompt,
                 "--address",
                 instance_address,
-                "-y",
                 "-m",
                 "act",
                 "--setting",
@@ -389,7 +394,12 @@ class ClineAgentRunner:
             self.agent_logger.error(f"Exception during auto-approval: {e}")
 
     def _write_mcp_settings(self) -> None:
-        """Write the MCP server configuration consumed by Cline core."""
+        """Write the MCP server configuration consumed by Cline core.
+        
+        Note: We do NOT use the autoApprove array here. Instead, we rely on the
+        task-level auto-approval setting (auto-approval-settings.actions.use-mcp=true)
+        which is set in _create_task().
+        """
 
         settings_dir = self.cline_dir / "data" / "settings"
         settings_dir.mkdir(parents=True, exist_ok=True)
@@ -401,23 +411,6 @@ class ClineAgentRunner:
                     "url": self.config.mcp_server_url,
                     "disabled": False,
                     "timeout": 120,
-                    "autoApprove": [
-                        "join_game",
-                        "get_game_state",
-                        "get_valid_actions",
-                        "execute_action",
-                        "end_turn",
-                        "use_reroll",
-                        "get_history",
-                        "get_team_budget",
-                        "get_available_positions",
-                        "buy_player",
-                        "buy_reroll",
-                        "place_players",
-                        "ready_to_play",
-                        "send_message",
-                        "get_messages",
-                    ],
                 }
             }
         }
