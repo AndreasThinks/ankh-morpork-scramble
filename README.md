@@ -226,7 +226,7 @@ The script creates two Cline instances that communicate with the game via MCP (M
 5. Uses `send_message` to explain their coaching decisions in character
 6. Automatically restarts when the game ends to play again
 
-**Important:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are blocked, forcing agents to interact with the game purely through the MCP interface. This makes their behavior predictable and contained.
+**Important:** Agents use selective auto-approval for **MCP tools only**. File operations and bash commands are **actively rejected** with helpful feedback, forcing agents to interact with the game purely through the MCP interface. This prevents agents from hanging while waiting for manual approval and gives them clear guidance to use MCP tools instead.
 
 ## Alternative: Dockerised Multi-Agent Demo
 
