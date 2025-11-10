@@ -289,23 +289,25 @@ def cleanup_previous_services(logger: logging.Logger) -> None:
     logger.info("Cleanup complete")
 
 
-def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Path("logs")) -> subprocess.Popen:
+def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Path("logs"), port: int = 8000) -> subprocess.Popen:
     """Start the FastAPI game server as a subprocess.
 
     Args:
         game_id: The game ID to use
         demo_mode: Whether to use demo mode
         log_dir: Directory for log files
+        port: Port to run the server on
 
     Returns:
         The subprocess handle
     """
     logger = logging.getLogger(__name__)
-    logger.info("Starting game server (DEMO_MODE=%s, GAME_ID=%s)", demo_mode, game_id)
+    logger.info("Starting game server (DEMO_MODE=%s, GAME_ID=%s, PORT=%d)", demo_mode, game_id, port)
 
     env = os.environ.copy()
     env["DEMO_MODE"] = "true" if demo_mode else "false"
     env["INTERACTIVE_GAME_ID"] = game_id
+    env["PORT"] = str(port)
 
     # Create log directory if it doesn't exist
     log_dir.mkdir(exist_ok=True)
@@ -317,7 +319,7 @@ def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Pat
 
     # Start uvicorn with output redirected to file
     process = subprocess.Popen(
-        ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
+        ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", str(port)],
         env=env,
         stdout=server_log_file,
         stderr=subprocess.STDOUT,
@@ -366,8 +368,11 @@ async def main() -> int:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
 
+    # Get port from environment (Railway sets this dynamically)
+    port = int(os.getenv("PORT", "8000"))
+
     # Start game server (redirects output to logs/server.log)
-    server_process = start_game_server(game_id, demo_mode, log_dir)
+    server_process = start_game_server(game_id, demo_mode, log_dir, port)
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(signum, frame):
@@ -380,7 +385,8 @@ async def main() -> int:
 
     try:
         # Wait for server to be ready
-        await wait_for_server("http://localhost:8000", timeout=60.0)
+        server_url = f"http://localhost:{port}"
+        await wait_for_server(server_url, timeout=60.0)
 
         # Create configurations for both teams
         base_env = os.environ.copy()
@@ -396,11 +402,12 @@ async def main() -> int:
         base_env["OPENAI_DEFAULT_HEADERS"] = default_headers
 
         # Team 1 configuration
+        mcp_server_url = f"http://localhost:{port}/mcp"
         team1_env = base_env.copy()
         team1_env["TEAM_ID"] = "team1"
         team1_env["TEAM_NAME"] = "City Watch Constables"
         team1_env["GAME_ID"] = game_id
-        team1_env["MCP_SERVER_URL"] = "http://localhost:8000/mcp"
+        team1_env["MCP_SERVER_URL"] = mcp_server_url
         team1_env["OPENROUTER_MODEL"] = model
         team1_env["OPENROUTER_API_KEY"] = api_key
         team1_env["openrouter_api_key"] = api_key
@@ -410,7 +417,7 @@ async def main() -> int:
             team_id="team1",
             team_name="City Watch Constables",
             game_id=game_id,
-            mcp_server_url="http://localhost:8000/mcp",
+            mcp_server_url=mcp_server_url,
             model=model,
             api_key=api_key,
         )
@@ -420,7 +427,7 @@ async def main() -> int:
         team2_env["TEAM_ID"] = "team2"
         team2_env["TEAM_NAME"] = "Unseen University Adepts"
         team2_env["GAME_ID"] = game_id
-        team2_env["MCP_SERVER_URL"] = "http://localhost:8000/mcp"
+        team2_env["MCP_SERVER_URL"] = mcp_server_url
         team2_env["OPENROUTER_MODEL"] = model
         team2_env["OPENROUTER_API_KEY"] = api_key
         team2_env["openrouter_api_key"] = api_key
@@ -430,7 +437,7 @@ async def main() -> int:
             team_id="team2",
             team_name="Unseen University Adepts",
             game_id=game_id,
-            mcp_server_url="http://localhost:8000/mcp",
+            mcp_server_url=mcp_server_url,
             model=model,
             api_key=api_key,
         )
@@ -456,7 +463,7 @@ async def main() -> int:
         if enable_referee:
             referee_config = RefereeConfig(
                 game_id=game_id,
-                api_base_url="http://localhost:8000",
+                api_base_url=f"http://localhost:{port}",
                 commentary_interval=float(os.getenv("REFEREE_COMMENTARY_INTERVAL", "30")),
                 model=os.getenv("REFEREE_MODEL", "anthropic/claude-3.5-haiku"),
                 api_key=api_key,
