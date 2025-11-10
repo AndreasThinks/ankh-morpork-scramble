@@ -920,9 +920,29 @@
                 cell.setAttribute('width', 1);
                 cell.setAttribute('height', 1);
                 const isAlt = (x + y) % 2 === 0;
-                cell.setAttribute('fill', isAlt ? 'rgba(76, 54, 30, 0.82)' : 'rgba(52, 35, 20, 0.82)');
-                cell.setAttribute('stroke', 'rgba(217, 180, 91, 0.22)');
-                cell.setAttribute('stroke-width', '0.03');
+
+                // Endzone styling: x=0 is Team 2 endzone (blue), x=25 is Team 1 endzone (orange)
+                let fillColor, strokeColor, strokeWidth;
+                if (x === 0) {
+                    // Team 2 endzone - blue tint
+                    fillColor = isAlt ? 'rgba(63, 124, 172, 0.45)' : 'rgba(43, 94, 142, 0.45)';
+                    strokeColor = 'rgba(100, 180, 255, 0.5)';
+                    strokeWidth = '0.05';
+                } else if (x === 25) {
+                    // Team 1 endzone - orange tint
+                    fillColor = isAlt ? 'rgba(196, 109, 40, 0.45)' : 'rgba(166, 79, 20, 0.45)';
+                    strokeColor = 'rgba(255, 150, 80, 0.5)';
+                    strokeWidth = '0.05';
+                } else {
+                    // Regular pitch
+                    fillColor = isAlt ? 'rgba(76, 54, 30, 0.82)' : 'rgba(52, 35, 20, 0.82)';
+                    strokeColor = 'rgba(217, 180, 91, 0.22)';
+                    strokeWidth = '0.03';
+                }
+
+                cell.setAttribute('fill', fillColor);
+                cell.setAttribute('stroke', strokeColor);
+                cell.setAttribute('stroke-width', strokeWidth);
                 gridGroup.appendChild(cell);
             }
         }
