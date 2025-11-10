@@ -10,7 +10,7 @@ from app.models.pitch import Position
 from app.state.game_manager import GameManager, GameState
 
 
-# Default identifiers are configurable so docker-compose users can override them
+# Default identifiers are configurable via environment variables
 DEFAULT_GAME_ID = os.getenv("DEFAULT_GAME_ID", "demo-game")
 
 # Pre-configured roster selections for a quick game demo
