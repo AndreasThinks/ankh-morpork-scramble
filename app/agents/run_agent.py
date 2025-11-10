@@ -206,8 +206,7 @@ class ClineAgentRunner:
                 "-y",
                 "-m",
                 "act",
-                "--setting",
-                "auto-approval-settings.actions.use-mcp=true",
+                "--auto-approve-mcp",
                 # Note: We explicitly do NOT auto-approve file operations or bash
                 # commands, forcing agents to rely solely on MCP tools for gameplay
             ],
