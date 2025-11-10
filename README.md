@@ -200,6 +200,7 @@ That's it! The script will:
 **Monitoring the game:**
 - Web UI: Open http://localhost:8000/ui to watch live
 - Agent logs: `tail -f logs/team1.log` and `tail -f logs/team2.log`
+- Server log: `tail -f logs/server.log`
 - Game API: http://localhost:8000/docs
 
 **Configuration options:**

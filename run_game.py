@@ -140,12 +140,13 @@ async def run_agent_with_restart(
     agent_logger.info("Agent %s shutting down", config.team_id)
 
 
-def start_game_server(game_id: str, demo_mode: bool = False) -> subprocess.Popen:
+def start_game_server(game_id: str, demo_mode: bool = False, log_dir: Path = Path("logs")) -> subprocess.Popen:
     """Start the FastAPI game server as a subprocess.
 
     Args:
         game_id: The game ID to use
         demo_mode: Whether to use demo mode
+        log_dir: Directory for log files
 
     Returns:
         The subprocess handle
@@ -157,16 +158,25 @@ def start_game_server(game_id: str, demo_mode: bool = False) -> subprocess.Popen
     env["DEMO_MODE"] = "true" if demo_mode else "false"
     env["INTERACTIVE_GAME_ID"] = game_id
 
-    # Start uvicorn
+    # Create log directory if it doesn't exist
+    log_dir.mkdir(exist_ok=True)
+    server_log_path = log_dir / "server.log"
+
+    # Open log file for server output
+    # This prevents pipe buffer deadlock that would occur if we used PIPE without reading
+    server_log_file = open(server_log_path, "w")
+
+    # Start uvicorn with output redirected to file
     process = subprocess.Popen(
         ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=server_log_file,
         stderr=subprocess.STDOUT,
         text=True,
     )
 
     logger.info("Game server started (PID: %d)", process.pid)
+    logger.info("Server logs: %s", server_log_path)
     return process
 
 
@@ -200,8 +210,12 @@ async def main() -> int:
     logger.info("Model: %s", model)
     logger.info("=" * 80)
 
-    # Start game server
-    server_process = start_game_server(game_id, demo_mode)
+    # Create log directory
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+
+    # Start game server (redirects output to logs/server.log)
+    server_process = start_game_server(game_id, demo_mode, log_dir)
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(signum, frame):
@@ -268,10 +282,6 @@ async def main() -> int:
             model=model,
             api_key=api_key,
         )
-
-        # Create log directory
-        log_dir = Path("logs")
-        log_dir.mkdir(exist_ok=True)
 
         # Run both agents concurrently
         logger.info("Starting both agents...")
