@@ -38,8 +38,8 @@ logger = logging.getLogger("app.main")
 if _LOG_FILE:
     logger.info("API log file initialised at %s", _LOG_FILE)
 
-# Import FastMCP for auto-generating MCP server from FastAPI endpoints
-from fastmcp import FastMCP
+# Import the custom MCP server with manually-crafted tools
+from app.mcp_server import mcp
 
 # Configure MCP-specific logging
 _MCP_LOG_FILE = configure_root_logger(
@@ -95,12 +95,11 @@ async def app_lifespan(app: FastAPI):
     logger.info("FastAPI application shutting down...")
 
 
-# Create FastAPI app
+# Create initial FastAPI app WITHOUT lifespan (will be replaced later)
 app = FastAPI(
     title="Ankh-Morpork Scramble API",
     description="Turn-based sports game server based on Blood Bowl mechanics",
-    version="0.1.0",
-    lifespan=app_lifespan
+    version="0.1.0"
 )
 
 # Expose the lightweight monitoring dashboard
@@ -572,39 +571,35 @@ def rematch_game(game_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# Generate MCP server from FastAPI endpoints
-# This must come after all endpoints are defined
-logger.info("Generating MCP server from FastAPI endpoints...")
-mcp = FastMCP.from_fastapi(
-    app=app,
-    name="Ankh-Morpork Scramble MCP"
-)
-logger.info("MCP server generated with tools for all FastAPI endpoints")
+# Use the custom MCP server from app.mcp_server
+# This server has manually-crafted tools with sanitization, rate limiting, etc.
+logger.info("Using custom MCP server with manually-crafted tools")
 
-# Create MCP ASGI app and mount it
-mcp_app = mcp.http_app(path='/mcp')
+# Create MCP ASGI app with streamable-http transport (required for Cline agents)
+# Specify /mcp path in the app itself, then mount at root to avoid double-pathing
+mcp_app = mcp.http_app(path="/mcp", transport="streamable-http")
 
-# Update FastAPI lifespan to include MCP
+# Define combined lifespan that nests both FastAPI and MCP lifespans
 @asynccontextmanager
-async def combined_lifespan(app: FastAPI):
+async def combined_lifespan(app_instance: FastAPI):
     """Combined lifespan for FastAPI and MCP."""
-    # FastAPI startup
-    logger.info("FastAPI application starting up...")
-    logger.info("Game manager initialized with %d active games", len(game_manager.games))
-    
-    # MCP startup (nested)
-    async with mcp_app.lifespan(app):
-        logger.info("MCP server ready at /mcp")
-        yield
-    
-    # Shutdown
-    logger.info("FastAPI application shutting down...")
+    # Run both lifespans - outer context first, then inner
+    async with app_lifespan(app_instance):
+        async with mcp_app.lifespan(app_instance):
+            logger.info("MCP server ready at /mcp")
+            yield
 
-# Replace the lifespan
-app.router.lifespan_context = combined_lifespan
+# Create new FastAPI app with combined lifespan and all existing routes
+app = FastAPI(
+    title="Ankh-Morpork Scramble API",
+    description="Turn-based sports game server based on Blood Bowl mechanics",
+    version="0.1.0",
+    lifespan=combined_lifespan,
+    routes=app.routes  # Preserve all routes from the initial app
+)
 
-# Mount MCP server
-app.mount("/mcp", mcp_app)
+# Mount MCP server at root so /mcp path is preserved
+app.mount("", mcp_app)
 logger.info("MCP server mounted at /mcp")
 
 if __name__ == "__main__":
