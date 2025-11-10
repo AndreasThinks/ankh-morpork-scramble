@@ -80,9 +80,10 @@ class ClineAgentRunner:
         try:
             # Configure OpenRouter API key for this instance
             await self._apply_configuration(instance_address)
-            
-            # Enable YOLO mode for complete auto-approval including MCP tools
-            await self._enable_yolo_mode(instance_address)
+
+            # Note: We do NOT enable YOLO mode here. Instead, we rely on granular
+            # auto-approval settings in _create_task() to only auto-approve MCP tool
+            # requests. This forces agents to use the MCP interface exclusively.
 
             # Build and create the task
             prompt = self._build_prompt()
@@ -187,8 +188,13 @@ class ClineAgentRunner:
         # Model selection happens via OPENROUTER_MODEL environment variable
     
     async def _create_task(self, instance_address: str, prompt: str) -> None:
-        """Create a task on the specified Cline instance."""
-        
+        """Create a task on the specified Cline instance.
+
+        Only auto-approves MCP tool requests, forcing agents to use the game's
+        MCP interface exclusively. File operations and bash commands will require
+        manual approval (but agents shouldn't need these).
+        """
+
         await self._run_cli_command(
             [
                 "cline",
@@ -202,18 +208,22 @@ class ClineAgentRunner:
                 "act",
                 "--setting",
                 "auto-approval-settings.actions.use-mcp=true",
-                "--setting",
-                "auto-approval-settings.actions.execute-safe-commands=true",
+                # Note: We explicitly do NOT auto-approve file operations or bash
+                # commands, forcing agents to rely solely on MCP tools for gameplay
             ],
             mask_args=[self.config.api_key],
             description="create task",
         )
     
     async def _follow_task(self, instance_address: str) -> None:
-        """Follow the task execution until completion with auto-approval of MCP tools."""
-        
-        self.agent_logger.info("Following task with auto-approval enabled...")
-        
+        """Follow the task execution until completion.
+
+        MCP tools are auto-approved via settings, so we just stream output.
+        If agents try to use non-MCP tools (files, bash), they'll be blocked.
+        """
+
+        self.agent_logger.info("Following task execution (MCP tools auto-approved)...")
+
         process = await asyncio.create_subprocess_exec(
             "cline",
             "task",
@@ -225,22 +235,22 @@ class ClineAgentRunner:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
-        # Create tasks to monitor both stdout and stderr
+
+        # Stream both stdout and stderr (no manual approval needed)
         tasks = []
         if process.stdout is not None:
             tasks.append(asyncio.create_task(
-                self._monitor_and_approve(process.stdout, instance_address)
+                self._stream_output(process.stdout, self.cline_logger.info)
             ))
         if process.stderr is not None:
             tasks.append(asyncio.create_task(
                 self._stream_output(process.stderr, self.cline_logger.error)
             ))
-        
+
         # Wait for all tasks to complete
         if tasks:
             await asyncio.gather(*tasks)
-        
+
         return_code = await process.wait()
         if return_code != 0:
             raise RuntimeError(f"Failed to follow task; exit code {return_code}")
