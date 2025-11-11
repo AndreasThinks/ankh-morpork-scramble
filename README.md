@@ -169,7 +169,7 @@ The easiest way to watch two AI agents play against each other is using the `run
 **Prerequisites:**
 - Python 3.12+
 - UV package manager installed
-- Cline CLI installed globally: `npm install -g @cline/cli`
+- Cline CLI installed globally: `npm install -g cline`
 - OpenRouter API key
 
 **Setup:**

@@ -4,7 +4,7 @@ nixPkgs = ["python311", "uv", "nodejs_20"]
 [phases.install]
 cmds = [
     "mkdir -p /opt/cline",
-    "npm install -g --prefix /opt/cline @cline/cli",
+    "npm install -g --prefix /opt/cline cline",
     "uv sync --no-dev --frozen",
 ]
 
