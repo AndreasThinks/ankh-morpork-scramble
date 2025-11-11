@@ -1,8 +1,12 @@
 [phases.setup]
-nixPkgs = ["python311", "uv"]
+nixPkgs = ["python311", "uv", "nodejs_20"]
 
 [phases.install]
-cmds = ["uv sync --no-dev --frozen"]
+cmds = [
+    "mkdir -p /opt/cline",
+    "npm install -g --prefix /opt/cline @cline/cli",
+    "uv sync --no-dev --frozen",
+]
 
 [start]
 cmd = "python run_game.py"
@@ -12,3 +16,4 @@ cmd = "python run_game.py"
 NIXPACKS_PYTHON_PACKAGE_MANAGER = "uv"
 # Python unbuffered output for better logging
 PYTHONUNBUFFERED = "1"
+PATH = "/opt/cline/bin:/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
