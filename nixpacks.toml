@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = ["uv sync --no-dev --frozen"]
+
+[start]
+cmd = "python run_game.py"
+
+[variables]
+# Explicitly use uv as the package manager
+NIXPACKS_PYTHON_PACKAGE_MANAGER = "uv"
+# Python unbuffered output for better logging
+PYTHONUNBUFFERED = "1"
