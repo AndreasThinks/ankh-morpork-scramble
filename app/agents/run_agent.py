@@ -99,6 +99,18 @@ class ClineAgentRunner:
             # Clean up the instance
             await self._kill_instance(instance_address)
 
+    def _with_config_flag(self, args: list[str]) -> list[str]:
+        """Ensure every Cline CLI invocation points at our isolated config directory."""
+
+        if not args or args[0] != "cline":
+            return args
+
+        if "--config" in args[1:]:
+            return args
+
+        config_path = str(self.cline_dir)
+        return [args[0], "--config", config_path, *args[1:]]
+
     def _ensure_prerequisites(self) -> None:
         if shutil.which("cline") is None:
             raise RuntimeError("cline executable not found on PATH. Ensure npm installed it correctly.")
@@ -108,12 +120,15 @@ class ClineAgentRunner:
 
     async def _start_instance(self) -> str:
         """Start a persistent Cline Core instance and return its address."""
-        
-        process = await asyncio.create_subprocess_exec(
+
+        args = self._with_config_flag([
             "cline",
             "instance",
             "new",
             "--default",
+        ])
+        process = await asyncio.create_subprocess_exec(
+            *args,
             env=self.env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
@@ -139,13 +154,16 @@ class ClineAgentRunner:
     
     async def _kill_instance(self, address: str) -> None:
         """Kill the Cline Core instance at the specified address."""
-        
+
         self.agent_logger.info("Cleaning up Cline instance at %s", address)
-        process = await asyncio.create_subprocess_exec(
+        args = self._with_config_flag([
             "cline",
             "instance",
             "kill",
             address,
+        ])
+        process = await asyncio.create_subprocess_exec(
+            *args,
             env=self.env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
@@ -229,13 +247,16 @@ class ClineAgentRunner:
 
         self.agent_logger.info("Following task execution (MCP auto-approved, non-MCP auto-rejected)...")
 
-        process = await asyncio.create_subprocess_exec(
+        args = self._with_config_flag([
             "cline",
             "task",
             "view",
             "--follow-complete",
             "--address",
             instance_address,
+        ])
+        process = await asyncio.create_subprocess_exec(
+            *args,
             env=self.env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -311,7 +332,7 @@ class ClineAgentRunner:
         )
 
         try:
-            process = await asyncio.create_subprocess_exec(
+            args = self._with_config_flag([
                 "cline",
                 "task",
                 "send",
@@ -319,6 +340,9 @@ class ClineAgentRunner:
                 rejection_message,
                 "--address",
                 instance_address,
+            ])
+            process = await asyncio.create_subprocess_exec(
+                *args,
                 env=self.env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -343,13 +367,17 @@ class ClineAgentRunner:
         """
 
         try:
-            process = await asyncio.create_subprocess_exec(
+            args = self._with_config_flag([
                 "cline",
                 "task",
                 "send",
                 "--approve",
+                "Approved automatically by agent",
                 "--address",
                 instance_address,
+            ])
+            process = await asyncio.create_subprocess_exec(
+                *args,
                 env=self.env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -463,11 +491,12 @@ class ClineAgentRunner:
         mask_args: Optional[Iterable[str]] = None,
         description: str,
     ) -> None:
-        display_cmd = " ".join(self._mask_argument(arg, mask_args) for arg in args)
+        full_args = self._with_config_flag(list(args))
+        display_cmd = " ".join(self._mask_argument(arg, mask_args) for arg in full_args)
         self.agent_logger.info("Executing: %s", display_cmd)
 
         process = await asyncio.create_subprocess_exec(
-            *args,
+            *full_args,
             env=self.env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
