@@ -119,11 +119,17 @@ class ClineAgentRunner:
         )
         
         output, _ = await process.communicate()
-        if process.returncode != 0:
-            raise RuntimeError(f"Failed to start Cline instance; exit code {process.returncode}")
-        
-        # Extract the instance address from output (format: "Address: 127.0.0.1:12345")
         output_text = output.decode(errors="ignore")
+
+        if process.returncode != 0:
+            masked_output = self._mask_text(output_text.strip())
+            self.cline_logger.error("Failed to start instance:\n%s", masked_output)
+            raise RuntimeError(
+                "Failed to start Cline instance; exit code "
+                f"{process.returncode}. Output:\n{masked_output}"
+            )
+
+        # Extract the instance address from output (format: "Address: 127.0.0.1:12345")
         self.cline_logger.info(output_text.strip())
         
         for line in output_text.split("\n"):

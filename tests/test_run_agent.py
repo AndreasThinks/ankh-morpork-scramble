@@ -89,6 +89,39 @@ async def test_wait_for_server_timeout(monkeypatch):
         await run_agent._wait_for_server("http://never-up", timeout=3)
 
 
+@pytest.mark.asyncio
+async def test_start_instance_error_includes_output(tmp_path, monkeypatch, caplog):
+    """When instance creation fails, the error should surface the CLI output."""
+
+    config = _make_config(api_key="top-secret")
+    runner = run_agent.ClineAgentRunner(
+        config,
+        env={},
+        cline_dir=tmp_path,
+        agent_logger=logging.getLogger("test.agent"),
+    )
+
+    class FailingProcess:
+        returncode = 1
+
+        async def communicate(self):
+            return (b"Error: token top-secret invalid", None)
+
+    async def fake_subprocess_exec(*_args, **_kwargs):
+        return FailingProcess()
+
+    monkeypatch.setattr(run_agent.asyncio, "create_subprocess_exec", fake_subprocess_exec)
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(RuntimeError) as exc:
+            await runner._start_instance()
+
+    message = str(exc.value)
+    assert "Output" in message
+    assert "[REDACTED]" in message  # API key should be masked
+    assert "Failed to start instance" in caplog.text
+
+
 def test_ensure_prerequisites_creates_directories(tmp_path, monkeypatch):
     """The runner should validate the CLI and create the data directory structure."""
 
