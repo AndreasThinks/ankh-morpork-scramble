@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["python311"]
+nixPkgs = ["python311", "uv", "nodejs_20"]
 
 [phases.install]
-cmds = ["uv sync --no-dev --frozen"]
+cmds = [
+  "uv sync --no-dev --frozen",
+  "npm install --prefix /opt/app/.cline @cline/cli"
+]
 
 [start]
 cmd = "python run_game.py"

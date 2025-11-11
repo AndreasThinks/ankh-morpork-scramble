@@ -45,6 +45,25 @@ from app.agents.run_agent import ClineAgentRunner
 from app.agents.referee import RefereeAgent, RefereeConfig
 
 
+# Ensure the Cline CLI installed during deployment is on PATH so the agents can
+# discover it. We allow operators to override the location via CLINE_BIN_DIR
+# while also including the default installation directories used by
+# `nixpacks.toml`.
+_existing_path = os.environ.get("PATH", "")
+_cline_bin_dirs = [
+    os.getenv("CLINE_BIN_DIR"),
+    "/opt/app/.cline/node_modules/.bin",
+    "/opt/app/.npm-global/bin",
+]
+_additional_path_entries = [p for p in _cline_bin_dirs if p]
+if _additional_path_entries:
+    os.environ["PATH"] = (
+        ":".join(_additional_path_entries + [_existing_path])
+        if _existing_path
+        else ":".join(_additional_path_entries)
+    )
+
+
 # Global flag for graceful shutdown
 shutdown_requested = False
 
