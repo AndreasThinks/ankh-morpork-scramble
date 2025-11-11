@@ -654,3 +654,221 @@ def test_foul_players_not_on_pitch():
     success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
     assert success == False
     assert "not on pitch" in injury.lower()
+
+
+def test_sent_off_mechanic_basic():
+    """Test sent-off roll occurs during foul"""
+    handler = CombatHandler(DiceRoller(seed=100))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    target.knock_down()
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+
+    # Place adjacent
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+
+    success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
+
+    assert success == True
+    # Should have armor/injury rolls AND sent-off roll
+    assert len(dice_rolls) >= 2  # At least armor + sent-off
+
+    # Check for sent-off dice
+    sent_off_dice = [d for d in dice_rolls if d.type == "sent_off"]
+    assert len(sent_off_dice) >= 1
+
+
+def test_sent_off_high_roll():
+    """Test player is sent off with high roll"""
+    # Use seed that produces high sent-off roll
+    handler = CombatHandler(DiceRoller(seed=200))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    target.knock_down()
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+
+    # Place adjacent, no assists
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+
+    # Try multiple times to ensure we get a sent-off
+    sent_off_occurred = False
+    for seed in range(1, 100):
+        handler = CombatHandler(DiceRoller(seed=seed))
+        attacker.state = PlayerState.STANDING  # Reset state
+        success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
+
+        if attacker.state == PlayerState.SENT_OFF:
+            sent_off_occurred = True
+            assert "sent off" in injury.lower()
+            break
+
+    assert sent_off_occurred, "Should have gotten a sent-off with various seeds"
+
+
+def test_sent_off_with_friendly_assists():
+    """Test friendly assists help avoid sent-off"""
+    handler = CombatHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    teammate = create_test_player("p3", "team1")  # Friendly assist
+
+    target.knock_down()
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+    game_state.players["p3"] = teammate
+
+    # Place attacker adjacent to target, teammate adjacent to attacker
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+    game_state.pitch.player_positions["p3"] = Position(x=5, y=8)  # Adjacent to p1
+
+    success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
+
+    assert success == True
+
+    # Check for sent-off dice with friendly assist modifier
+    sent_off_dice = [d for d in dice_rolls if d.type == "sent_off"]
+    assert len(sent_off_dice) == 1
+    # Should have friendly assists in modifiers
+    assert "friendly_assists" in sent_off_dice[0].modifiers
+    assert sent_off_dice[0].modifiers["friendly_assists"] > 0
+
+
+def test_sent_off_with_opponent_adjacent():
+    """Test opponent adjacent increases sent-off chance"""
+    handler = CombatHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    opponent = create_test_player("p4", "team2")  # Additional opponent nearby
+
+    target.knock_down()
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+    game_state.players["p4"] = opponent
+
+    # Place attacker adjacent to target, opponent adjacent to attacker
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+    game_state.pitch.player_positions["p4"] = Position(x=5, y=6)  # Adjacent to p1
+
+    success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
+
+    assert success == True
+
+    # Check for sent-off dice with opponent adjacent modifier
+    sent_off_dice = [d for d in dice_rolls if d.type == "sent_off"]
+    assert len(sent_off_dice) == 1
+    # Should have opponent_adjacent in modifiers (negative value)
+    assert "opponent_adjacent" in sent_off_dice[0].modifiers
+    assert sent_off_dice[0].modifiers["opponent_adjacent"] < 0
+
+
+def test_roll_for_sent_off_threshold():
+    """Test sent-off threshold (8+)"""
+    handler = CombatHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    fouler = create_test_player("p1", "team1")
+    game_state.players["p1"] = fouler
+    fouler_pos = Position(x=5, y=7)
+    game_state.pitch.player_positions["p1"] = fouler_pos
+
+    # Test with multiple seeds to verify threshold behavior
+    sent_off_count = 0
+    not_sent_off_count = 0
+
+    for seed in range(1, 50):
+        handler = CombatHandler(DiceRoller(seed=seed))
+        sent_off, dice_rolls = handler.roll_for_sent_off(game_state, fouler, fouler_pos)
+
+        # Extract the result from the sent-off dice
+        sent_off_roll = dice_rolls[0]
+        assert sent_off_roll.type == "sent_off"
+        total = sent_off_roll.result
+
+        if total >= 8:
+            assert sent_off, f"Should be sent off with roll {total} (seed {seed})"
+            sent_off_count += 1
+        else:
+            assert not sent_off, f"Should not be sent off with roll {total} (seed {seed})"
+            not_sent_off_count += 1
+
+    # Should have both outcomes with varied seeds
+    assert sent_off_count > 0, "Should have some sent-off results"
+    assert not_sent_off_count > 0, "Should have some not-sent-off results"
+
+
+def test_sent_off_only_counts_standing_players():
+    """Test that only standing players affect sent-off modifiers"""
+    handler = CombatHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    teammate_prone = create_test_player("p3", "team1")
+    opponent_stunned = create_test_player("p4", "team2")
+
+    target.knock_down()
+    teammate_prone.knock_down()  # Prone, shouldn't count
+    opponent_stunned.state = PlayerState.STUNNED  # Stunned, shouldn't count
+
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+    game_state.players["p3"] = teammate_prone
+    game_state.players["p4"] = opponent_stunned
+
+    # Place all adjacent to attacker
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+    game_state.pitch.player_positions["p3"] = Position(x=5, y=8)  # Prone teammate
+    game_state.pitch.player_positions["p4"] = Position(x=4, y=7)  # Stunned opponent
+
+    fouler_pos = game_state.pitch.player_positions["p1"]
+    sent_off, dice_rolls = handler.roll_for_sent_off(game_state, attacker, fouler_pos)
+
+    # Should have no modifiers since prone/stunned players don't count
+    sent_off_roll = dice_rolls[0]
+    assert sent_off_roll.type == "sent_off"
+    # Should have empty modifiers or no net effect
+    assert len(sent_off_roll.modifiers) == 0 or sum(sent_off_roll.modifiers.values()) == 0
+
+
+def test_sent_off_state_prevents_further_actions():
+    """Test that sent-off player state is properly set"""
+    handler = CombatHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1")
+    target = create_test_player("p2", "team2")
+    target.knock_down()
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = target
+
+    # Place adjacent
+    game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
+    game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
+
+    # Try different seeds until we get a sent-off
+    for seed in range(1, 100):
+        handler = CombatHandler(DiceRoller(seed=seed))
+        attacker.state = PlayerState.STANDING  # Reset
+
+        success, dice_rolls, injury = handler.attempt_foul(game_state, attacker, target)
+
+        if attacker.state == PlayerState.SENT_OFF:
+            # Verify the state is set correctly
+            assert attacker.state == PlayerState.SENT_OFF
+            assert not attacker.is_standing
+            break

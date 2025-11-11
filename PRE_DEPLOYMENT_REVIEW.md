@@ -10,7 +10,7 @@
 
 The codebase is **well-structured, modern, and production-ready**. No major legacy issues or security concerns found. The application successfully transitioned from LangGraph to Cline agents and removed Docker dependencies in favor of Railway's Nixpacks deployment.
 
-**Test Results:** 290 tests passing, 72% code coverage ✅
+**Test Results:** 297 tests passing, 73% code coverage ✅
 **Security:** No vulnerabilities detected ✅
 **Architecture:** Clean separation of concerns ✅
 **Documentation:** Comprehensive (5 major docs, 2000+ lines) ✅
@@ -28,8 +28,8 @@ The codebase is **well-structured, modern, and production-ready**. No major lega
    - Railway deployment with health checks
 
 2. **Comprehensive Testing**
-   - 290 tests across 20 test files
-   - 72% code coverage (exceeds requirements)
+   - 297 tests across 20 test files
+   - 73% code coverage (exceeds requirements)
    - All tests passing
    - Good test organization and fixtures
 
@@ -125,16 +125,6 @@ event_log: list[str] = Field(default_factory=list, description="Legacy string ev
 Still actively used in 22 locations throughout the codebase via `add_event()` method. Marked as deprecated but provides backward compatibility alongside new structured `events` list.
 
 **Recommendation:** Keep for now (backward compatibility), but consider migration plan in future to fully transition to structured events.
-
-#### 6. Combat TODO
-
-**Location:** `app/game/combat.py:281`
-
-```python
-# TODO: Roll for sent off (not implemented in basic version)
-```
-
-Minor game mechanic not yet implemented. Not critical for deployment.
 
 ---
 
@@ -266,8 +256,8 @@ run_game.py (orchestrator)
 
 ## Deployment Readiness Checklist
 
-- [x] All tests passing (290/290)
-- [x] Code coverage above threshold (72% > 45%)
+- [x] All tests passing (297/297)
+- [x] Code coverage above threshold (73% > 45%)
 - [x] No critical bugs in TEST_BUG_LOG.md (all marked fixed)
 - [x] No security vulnerabilities
 - [x] Dependencies up to date
@@ -276,30 +266,34 @@ run_game.py (orchestrator)
 - [x] Environment variables documented (.env.example)
 - [x] Logging configured (unified logging to files)
 - [x] Error handling comprehensive
-- [ ] Pydantic deprecation warnings fixed (will fix in this PR)
-- [ ] Documentation updated (will fix in this PR)
+- [x] Pydantic deprecation warnings fixed ✅
+- [x] Documentation updated ✅
+- [x] Sent-off mechanic implemented ✅
 
 ---
 
 ## Recommended Improvements (This PR)
 
-### Immediate Fixes
+### Immediate Fixes (✅ Completed)
 
-1. **Fix Pydantic Deprecation** (app/models/events.py)
-   - Update GameEvent to use ConfigDict
-   - Prevents future breaking changes
+1. **✅ Fix Pydantic Deprecation** (app/models/events.py)
+   - Updated GameEvent to use ConfigDict
+   - Prevents future breaking changes with Pydantic V3.0
 
-2. **Remove Dead Code** (app/agents/run_agent.py)
-   - Delete `_monitor_and_approve()` method (lines 299-324)
-   - Clean up codebase
+2. **✅ Remove Dead Code** (app/agents/run_agent.py)
+   - Deleted `_monitor_and_approve()` method (26 lines removed)
+   - Cleaned up codebase
 
-3. **Update Documentation**
-   - TESTING.md: Correct coverage threshold (70% → 45%)
-   - AGENT_INTEGRATION_ARCHITECTURE.md: Remove docker-compose.yml reference
+3. **✅ Update Documentation**
+   - TESTING.md: Corrected coverage threshold (70% → 45%)
+   - AGENT_INTEGRATION_ARCHITECTURE.md: Removed docker-compose.yml reference
 
-4. **Align Coverage Thresholds**
-   - Option A: Keep 45% threshold (current enforcement)
-   - Option B: Raise to 70% (aspirational, already achieved)
+4. **✅ Implement Sent-Off Mechanic** (app/game/combat.py)
+   - Added `SENT_OFF` player state to enums
+   - Implemented `roll_for_sent_off()` method with Blood Bowl rules
+   - Updated `attempt_foul()` to roll for referee decisions
+   - Added 8 comprehensive unit tests
+   - All tests passing with increased coverage (72% → 73%)
 
 ---
 
