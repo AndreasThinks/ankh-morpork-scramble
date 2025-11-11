@@ -8,7 +8,7 @@ replacing the simple string-based event_log with rich, queryable event data.
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.actions import DiceRoll
 from app.models.pitch import Position
@@ -104,10 +104,11 @@ class GameEvent(BaseModel):
     # Narrative
     description: str = Field(description="Human-readable description")
 
-    class Config:
-        json_encoders = {
+    model_config = ConfigDict(
+        json_encoders={
             datetime: lambda v: v.isoformat()
         }
+    )
 
 
 class TurnoverReason(str, Enum):

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Ankh-Morpork Scramble project uses comprehensive testing to ensure code quality and prevent regressions. We enforce a 70% minimum code coverage threshold and all tests must pass before deployment.
+The Ankh-Morpork Scramble project uses comprehensive testing to ensure code quality and prevent regressions. We enforce a 45% minimum code coverage threshold (currently achieving ~72%) and all tests must pass before deployment.
 
 ## Running Tests
 

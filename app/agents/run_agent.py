@@ -296,33 +296,6 @@ class ClineAgentRunner:
                 pending_request = None
                 await self._auto_reject(instance_address, request_type)
 
-    async def _monitor_and_approve(self, stream: asyncio.StreamReader, instance_address: str) -> None:
-        """Monitor output stream for approval requests and automatically approve them.
-
-        NOTE: This method is no longer used. Kept for reference.
-        """
-
-        approval_pending = False
-
-        while True:
-            line = await stream.readline()
-            if not line:
-                break
-
-            text = line.decode(errors="ignore").rstrip()
-            masked_text = self._mask_text(text)
-            self.cline_logger.info(masked_text)
-
-            # Detect approval request pattern
-            if "Cline is requesting approval" in text or "requesting approval to use this tool" in text:
-                approval_pending = True
-                self.agent_logger.info("Detected approval request - auto-approving...")
-
-            # Auto-approve when we see the approval request
-            if approval_pending and ("Use cline task send --approve" in text or "cline task send --approve" in text):
-                approval_pending = False
-                await self._auto_approve(instance_address)
-    
     async def _auto_reject(self, instance_address: str, request_type: str) -> None:
         """Automatically reject non-MCP tool requests.
 

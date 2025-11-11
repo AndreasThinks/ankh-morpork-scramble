@@ -507,7 +507,7 @@ This gives a balanced view of both agent strategy and game state.
 |------|---------|-----------|
 | `/app/agents/run_agent.py` | Agent runner/orchestrator | 68-99 (run), 273-314 (prompt) |
 | `/app/agents/config.py` | Agent configuration | 19-100 |
-| `/docker-compose.yml` | Agent containers | 21-61 |
+| `/run_game.py` | Orchestrates server & agents | Full file (527 lines) |
 
 ### State Management
 | File | Purpose |

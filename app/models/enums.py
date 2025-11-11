@@ -9,6 +9,7 @@ class PlayerState(str, Enum):
     STUNNED = "stunned"
     KNOCKED_OUT = "knocked_out"
     CASUALTY = "casualty"
+    SENT_OFF = "sent_off"
 
 
 class ActionType(str, Enum):

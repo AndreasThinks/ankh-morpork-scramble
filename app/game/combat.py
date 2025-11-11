@@ -250,7 +250,73 @@ class CombatHandler:
         
         # Armor held - just prone
         return dice_rolls, None
-    
+
+    def roll_for_sent_off(
+        self,
+        game_state: GameState,
+        fouler: Player,
+        fouler_pos: Position
+    ) -> tuple[bool, list[DiceRoll]]:
+        """
+        Roll to see if the fouling player is sent off by the referee.
+
+        In Blood Bowl, after a foul, roll 2d6:
+        - 8+: Player is sent off
+        - Modifiers: -1 per opponent adjacent to fouler, +1 per friendly adjacent
+
+        Args:
+            game_state: Current game state
+            fouler: Player who committed the foul
+            fouler_pos: Position of the fouling player
+
+        Returns:
+            (sent_off, dice_rolls): Whether player was sent off and the dice rolls
+        """
+        dice_rolls = []
+
+        # Roll 2d6
+        roll1 = self.dice.roll_d6()
+        roll2 = self.dice.roll_d6()
+        total = roll1 + roll2
+
+        # Count assists (teammates adjacent) and opponents adjacent
+        friendly_assists = 0
+        opponent_adjacent = 0
+
+        for player_id, pos in game_state.pitch.player_positions.items():
+            if pos.is_adjacent(fouler_pos):
+                player = game_state.get_player(player_id)
+                if player.team_id == fouler.team_id and player.id != fouler.id:
+                    if player.is_standing:
+                        friendly_assists += 1
+                elif player.team_id != fouler.team_id:
+                    if player.is_standing:
+                        opponent_adjacent += 1
+
+        # Apply modifiers
+        modifier = friendly_assists - opponent_adjacent
+        modified_total = total + modifier
+
+        # 8+ means sent off
+        sent_off = modified_total >= 8
+
+        # Record the sent-off roll
+        modifiers = {}
+        if friendly_assists > 0:
+            modifiers["friendly_assists"] = friendly_assists
+        if opponent_adjacent > 0:
+            modifiers["opponent_adjacent"] = -opponent_adjacent
+
+        dice_rolls.append(DiceRoll(
+            type="sent_off",
+            result=total,
+            target=8,
+            success=not sent_off,  # Success means NOT sent off
+            modifiers=modifiers
+        ))
+
+        return sent_off, dice_rolls
+
     def attempt_foul(
         self,
         game_state: GameState,
@@ -258,26 +324,50 @@ class CombatHandler:
         target: Player
     ) -> tuple[bool, list[DiceRoll], Optional[str]]:
         """
-        Attempt a foul on a prone player
-        Returns: (success, dice_rolls, injury_result)
+        Attempt a foul on a prone player.
+
+        The fouling player kicks or stomps on a prone opponent. This always hits
+        but the referee will roll to see if the fouler is sent off.
+
+        Args:
+            game_state: Current game state
+            attacker: Player attempting the foul
+            target: Prone player being fouled
+
+        Returns:
+            (success, dice_rolls, result_message): Tuple of success, all dice rolls, and result message
         """
         # Check if target is prone
         if target.state != PlayerState.PRONE:
             return False, [], "Target must be prone to foul"
-        
+
         # Check if adjacent
         attacker_pos = game_state.pitch.player_positions.get(attacker.id)
         target_pos = game_state.pitch.player_positions.get(target.id)
-        
+
         if not attacker_pos or not target_pos:
             return False, [], "Players not on pitch"
-        
+
         if not attacker_pos.is_adjacent(target_pos):
             return False, [], "Must be adjacent to foul"
-        
+
         # Foul always hits - roll armor and injury
-        dice_rolls, injury_result = self.resolve_injury(target)
-        
-        # TODO: Roll for sent off (not implemented in basic version)
-        
-        return True, dice_rolls, injury_result
+        injury_dice_rolls, injury_result = self.resolve_injury(target)
+        all_dice_rolls = injury_dice_rolls.copy()
+
+        # Roll for sent off
+        sent_off, sent_off_dice = self.roll_for_sent_off(game_state, attacker, attacker_pos)
+        all_dice_rolls.extend(sent_off_dice)
+
+        # Build result message
+        result_parts = []
+        if injury_result:
+            result_parts.append(injury_result)
+
+        if sent_off:
+            attacker.state = PlayerState.SENT_OFF
+            result_parts.append(f"{attacker.display_name} was sent off by the referee!")
+
+        result_message = " | ".join(result_parts) if result_parts else "No injury"
+
+        return True, all_dice_rolls, result_message
