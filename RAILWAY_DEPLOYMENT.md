@@ -33,8 +33,23 @@ Set these in your Railway project's environment variables:
 
 - **`.python-version`** - Specifies Python 3.11 requirement
 - **`pyproject.toml`** - Python dependencies managed via uv
+- **`uv.lock`** - Locked dependency versions for reproducible builds
+- **`nixpacks.toml`** - Nixpacks build configuration (uses uv for package management)
 - **`railway.json`** - Railway build and deployment configuration
 - **`Procfile`** - Process definition for Railway
+
+## Build Process
+
+The application uses Nixpacks with uv for fast, reproducible builds:
+
+1. Nixpacks creates a virtual environment at `/opt/venv`
+2. Dependencies are installed via `uv sync --no-dev --frozen` using the locked versions
+3. The virtual environment is automatically activated for the runtime
+
+This approach ensures:
+- Fast dependency installation with uv's parallel downloads
+- Reproducible builds using the uv.lock file
+- Proper isolation in a virtual environment (not system Python)
 
 ## Accessing Logs
 
