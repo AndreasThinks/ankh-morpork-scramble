@@ -59,13 +59,57 @@ class ActionExecutor:
         return game_state.pitch.player_positions.get(player_id)
 
     def _execute_move(self, game_state: GameState, action: ActionRequest) -> ActionResult:
-        """Execute a move action"""
-        if not action.path:
-            return ActionResult(success=False, message="No path provided for move")
-
+        """Execute a move action
+        
+        Ball Pickup Behavior:
+        - If path is empty or contains only current position and player is on ball:
+          Attempts to pick up the ball (requires agility roll)
+        - If path moves player TO a ball square: auto-pickup after movement
+        
+        Turnover Rules:
+        - Failed dice rolls (dodge, rush, pickup) cause turnovers
+        - Invalid moves (occupied square, etc.) do NOT cause turnovers
+        - They simply fail with success=False, turnover=False
+        
+        Returns:
+            ActionResult with success status, dice rolls, and turnover flag
+        """
         logger = EventLogger(game_state)
         player = game_state.get_player(action.player_id)
         start_pos = self._get_pitch_position(game_state, action.player_id)
+        
+        # Handle empty path or path to current position as pickup attempt
+        if not action.path or (action.path and len(action.path) == 1 and start_pos == action.path[0]):
+            # Player wants to pick up ball at current position
+            if start_pos and game_state.pitch.ball_position == start_pos and not game_state.pitch.ball_carrier:
+                pickup_success, pickup_roll = self.ball.attempt_pickup(game_state, player)
+                logger.log_pickup(action.player_id, start_pos, pickup_roll, pickup_success)
+                
+                if pickup_success:
+                    result = ActionResult(
+                        success=True,
+                        message="Picked up the ball",
+                        dice_rolls=[pickup_roll],
+                        player_moved=None,
+                        new_position=start_pos,
+                        ball_picked_up=True
+                    )
+                else:
+                    result = ActionResult(
+                        success=False,
+                        message="Failed to pick up the ball",
+                        dice_rolls=[pickup_roll],
+                        turnover=True,
+                        ball_dropped=True
+                    )
+                    logger.log_turnover(TurnoverReason.FAILED_PICKUP, action.player_id)
+                
+                player.has_acted = True
+                game_state.add_event(result.message)
+                return result
+            else:
+                return ActionResult(success=False, message="No path provided for move", dice_rolls=[])
+        
         if start_pos is None and action.path:
             start_pos = action.path[0]
 
@@ -84,7 +128,9 @@ class ActionExecutor:
         )
 
         if not success:
-            # Movement failed - turnover
+            # Movement failed - only turnover if dice rolls failed
+            turnover = len(dice_rolls) > 0  # Turnover only if a roll was made and failed
+            
             if dice_rolls:
                 # Log the failed dodge/rush that caused the turnover
                 failed_roll = dice_rolls[-1]
@@ -99,12 +145,13 @@ class ActionExecutor:
                 success=False,
                 message=error or "Movement failed",
                 dice_rolls=dice_rolls,
-                turnover=True
+                turnover=turnover
             )
 
         # Log successful movement
         carrying_ball = game_state.pitch.ball_carrier == action.player_id
-        logger.log_move(action.player_id, start_pos, final_pos, carrying_ball)
+        if start_pos:
+            logger.log_move(action.player_id, start_pos, final_pos, carrying_ball)
 
         result = ActionResult(
             success=True,
@@ -273,7 +320,8 @@ class ActionExecutor:
 
             # Log successful movement
             carrying_ball = game_state.pitch.ball_carrier == action.player_id
-            logger.log_move(action.player_id, start_pos, final_pos, carrying_ball)
+            if start_pos:
+                logger.log_move(action.player_id, start_pos, final_pos, carrying_ball)
 
         # Then scuffle
         if not action.target_player_id:

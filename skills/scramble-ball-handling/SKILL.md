@@ -195,14 +195,28 @@ Response includes:
 - `pitch.ball_carrier`: player_id if carried
 
 ### Pickup Ball
+
+**If player is already on the ball:**
 ```http
 POST /game/{game_id}/action
 {
-  "action_type": "PICKUP",
+  "action_type": "move",
   "player_id": "player-uuid",
-  "position": {"x": 10, "y": 7}
+  "path": []  # Empty path triggers pickup at current position
 }
 ```
+
+**If player needs to move TO the ball:**
+```http
+POST /game/{game_id}/action
+{
+  "action_type": "move",
+  "player_id": "player-uuid",
+  "path": [{"x": 10, "y": 7}]  # Moving to ball square auto-attempts pickup
+}
+```
+
+**Important**: Pickup happens automatically when moving to a ball square OR when providing an empty path while standing on the ball.
 
 ### Pass Ball
 ```http
@@ -239,10 +253,12 @@ POST /game/{game_id}/action
 ## Turnover Triggers
 
 These ball actions cause **immediate turnover** on failure:
-- ❌ Failed PICKUP
+- ❌ Failed PICKUP (dice roll fails)
 - ❌ Failed PASS (result = 1, fumble)
-- ❌ Failed CATCH after pass
+- ❌ Failed CATCH after pass (dice roll fails)
 - ✅ HAND_OFF never causes turnover (automatic success)
+
+**Important**: Only **failed dice rolls** cause turnovers. Invalid action attempts (e.g., trying to move to an occupied square) simply fail without ending your turn. You can try a different action instead.
 
 ## Next Steps
 
