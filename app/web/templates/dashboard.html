@@ -1744,16 +1744,63 @@
             }
             const markdown = await response.text();
 
+            // Reverse the markdown content to show newest events first
+            const reversedMarkdown = reverseMarkdownSections(markdown);
+            
             // Parse and render markdown
-            const html = parseMarkdownToHTML(markdown);
+            const html = parseMarkdownToHTML(reversedMarkdown);
+            
+            // Preserve scroll position or stay at top for new content
+            const wasAtTop = gameLogEntries.scrollTop === 0;
+            const oldScrollHeight = gameLogEntries.scrollHeight;
+            const oldScrollTop = gameLogEntries.scrollTop;
+            
             gameLogEntries.innerHTML = html;
-
-            // Auto-scroll to bottom
-            gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
+            
+            // If user was at top, stay at top (where newest events are)
+            // Otherwise preserve relative scroll position
+            if (!wasAtTop && oldScrollHeight > 0) {
+                const newScrollHeight = gameLogEntries.scrollHeight;
+                const heightDifference = newScrollHeight - oldScrollHeight;
+                gameLogEntries.scrollTop = oldScrollTop + heightDifference;
+            }
         } catch (error) {
             console.error('Failed to fetch game log:', error);
             // Keep existing content on error
         }
+    }
+
+    function reverseMarkdownSections(markdown) {
+        if (!markdown || markdown.trim() === '') {
+            return markdown;
+        }
+
+        // Split by major sections (lines starting with # or ##)
+        const lines = markdown.split('\n');
+        const sections = [];
+        let currentSection = [];
+        
+        for (const line of lines) {
+            // Check if this is a major heading (# or ##)
+            if (line.match(/^##?\s/)) {
+                // Save previous section if it exists
+                if (currentSection.length > 0) {
+                    sections.push(currentSection.join('\n'));
+                    currentSection = [];
+                }
+            }
+            currentSection.push(line);
+        }
+        
+        // Don't forget the last section
+        if (currentSection.length > 0) {
+            sections.push(currentSection.join('\n'));
+        }
+        
+        // Reverse sections (newest first)
+        sections.reverse();
+        
+        return sections.join('\n\n');
     }
 
     function formatGold(amount) {

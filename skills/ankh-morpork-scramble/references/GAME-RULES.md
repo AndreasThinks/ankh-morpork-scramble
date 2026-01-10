@@ -24,6 +24,9 @@ This specification defines a machine-readable, server-oriented rulebook. It is d
 ## 2. Pitch & Setup
 
 - Pitch size: **26 × 15 squares**.
+- **Team placement zones**:
+  - **Team 1 (left/blue)**: X coordinates 0–12, Y coordinates 0–14
+  - **Team 2 (right/orange)**: X coordinates 13–25, Y coordinates 0–14
 - Each half begins with a **Kick-Off**.
 - Team size on pitch: **3–11 players**.
 - Maximum **2** players per wide zone during setup.

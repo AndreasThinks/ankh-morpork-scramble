@@ -130,6 +130,19 @@ class GameManager:
             
             if player.team_id != team_id:
                 raise ValueError(f"Player {player_id} does not belong to team {team_id}")
+            
+            # Validate position is on correct side of pitch
+            # Team 1 (left): x = 0-12, Team 2 (right): x = 13-25
+            if team_id == "team1" and position.x > 12:
+                raise ValueError(
+                    f"Team 1 must place players on left half (x: 0-12). "
+                    f"Invalid position: x={position.x} for player {player_id}"
+                )
+            elif team_id == "team2" and position.x < 13:
+                raise ValueError(
+                    f"Team 2 must place players on right half (x: 13-25). "
+                    f"Invalid position: x={position.x} for player {player_id}"
+                )
 
             game_state.pitch.player_positions[player_id] = position
 

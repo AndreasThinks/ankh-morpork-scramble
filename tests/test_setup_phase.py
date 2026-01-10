@@ -594,3 +594,163 @@ def test_api_budget_enforcement():
     )
     assert response.status_code == 400
     assert "Insufficient funds" in response.json()["detail"]
+
+
+# ============================================================================
+# Player Placement Tests
+# ============================================================================
+
+def test_place_players_team1_valid_positions():
+    """Test Team 1 can place players on left half (x: 0-12)"""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+    
+    # Buy some players
+    for i in range(3):
+        manager.buy_player("test_game", "team1", "constable")
+    
+    # Place on valid Team 1 positions
+    from app.models.pitch import Position
+    positions = {
+        "team1_player_0": Position(x=0, y=7),   # Left edge
+        "team1_player_1": Position(x=6, y=7),   # Middle of left half
+        "team1_player_2": Position(x=12, y=7),  # Right edge of left half
+    }
+    
+    result = manager.place_players("test_game", "team1", positions)
+    
+    # Should succeed
+    assert len(result.pitch.player_positions) == 3
+    assert result.pitch.player_positions["team1_player_0"].x == 0
+    assert result.pitch.player_positions["team1_player_2"].x == 12
+
+
+def test_place_players_team1_invalid_position():
+    """Test Team 1 cannot place players on right half (x: 13-25)"""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+    
+    # Buy a player
+    manager.buy_player("test_game", "team1", "constable")
+    
+    # Try to place on Team 2's side
+    from app.models.pitch import Position
+    positions = {
+        "team1_player_0": Position(x=13, y=7),  # Team 2's side!
+    }
+    
+    with pytest.raises(ValueError, match="Team 1 must place players on left half"):
+        manager.place_players("test_game", "team1", positions)
+
+
+def test_place_players_team2_valid_positions():
+    """Test Team 2 can place players on right half (x: 13-25)"""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+    game.team2.team_type = TeamType.UNSEEN_UNIVERSITY
+    
+    # Buy some players
+    for i in range(3):
+        manager.buy_player("test_game", "team2", "apprentice_wizard")
+    
+    # Place on valid Team 2 positions
+    from app.models.pitch import Position
+    positions = {
+        "team2_player_0": Position(x=13, y=7),  # Left edge of right half
+        "team2_player_1": Position(x=19, y=7),  # Middle of right half
+        "team2_player_2": Position(x=25, y=7),  # Right edge
+    }
+    
+    result = manager.place_players("test_game", "team2", positions)
+    
+    # Should succeed
+    assert len(result.pitch.player_positions) == 3
+    assert result.pitch.player_positions["team2_player_0"].x == 13
+    assert result.pitch.player_positions["team2_player_2"].x == 25
+
+
+def test_place_players_team2_invalid_position():
+    """Test Team 2 cannot place players on left half (x: 0-12)"""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+    game.team2.team_type = TeamType.UNSEEN_UNIVERSITY
+    
+    # Buy a player
+    manager.buy_player("test_game", "team2", "apprentice_wizard")
+    
+    # Try to place on Team 1's side
+    from app.models.pitch import Position
+    positions = {
+        "team2_player_0": Position(x=12, y=7),  # Team 1's side!
+    }
+    
+    with pytest.raises(ValueError, match="Team 2 must place players on right half"):
+        manager.place_players("test_game", "team2", positions)
+
+
+def test_place_players_boundary_enforcement():
+    """Test exact boundary enforcement for both teams"""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+    
+    # Buy players for both teams
+    manager.buy_player("test_game", "team1", "constable")
+    game.team2.team_type = TeamType.UNSEEN_UNIVERSITY
+    manager.buy_player("test_game", "team2", "apprentice_wizard")
+    
+    from app.models.pitch import Position
+    
+    # Team 1: x=12 is valid, x=13 is not
+    valid_positions = {"team1_player_0": Position(x=12, y=7)}
+    manager.place_players("test_game", "team1", valid_positions)
+    
+    invalid_positions = {"team1_player_0": Position(x=13, y=7)}
+    with pytest.raises(ValueError, match="Team 1 must place players on left half"):
+        manager.place_players("test_game", "team1", invalid_positions)
+    
+    # Team 2: x=13 is valid, x=12 is not
+    valid_positions = {"team2_player_0": Position(x=13, y=7)}
+    manager.place_players("test_game", "team2", valid_positions)
+    
+    invalid_positions = {"team2_player_0": Position(x=12, y=7)}
+    with pytest.raises(ValueError, match="Team 2 must place players on right half"):
+        manager.place_players("test_game", "team2", invalid_positions)
+
+
+def test_api_place_players_validation():
+    """Test place-players API endpoint enforces boundaries"""
+    # Create game and buy players
+    response = client.post("/game")
+    game_id = response.json()["game_id"]
+    
+    client.post(f"/game/{game_id}/team/team1/buy-player", params={"position_key": "constable"})
+    client.post(f"/game/{game_id}/team/team1/buy-player", params={"position_key": "constable"})
+    
+    # Try to place on wrong side
+    response = client.post(
+        f"/game/{game_id}/place-players",
+        json={
+            "team_id": "team1",
+            "positions": {
+                "team1_player_0": {"x": 15, "y": 7},  # Wrong side!
+                "team1_player_1": {"x": 16, "y": 7},  # Wrong side!
+            }
+        }
+    )
+    
+    assert response.status_code == 400
+    assert "Team 1 must place players on left half" in response.json()["detail"]
+    
+    # Now place on correct side
+    response = client.post(
+        f"/game/{game_id}/place-players",
+        json={
+            "team_id": "team1",
+            "positions": {
+                "team1_player_0": {"x": 10, "y": 7},  # Correct side
+                "team1_player_1": {"x": 11, "y": 7},  # Correct side
+            }
+        }
+    )
+    
+    assert response.status_code == 200
