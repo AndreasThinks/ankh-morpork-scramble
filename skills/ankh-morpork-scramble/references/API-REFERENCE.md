@@ -7,6 +7,34 @@
 **Version**: 0.1.0  
 **Base URL (Development)**: http://localhost:8000
 
+## Quick Start - Always-Running Game
+
+The server **always has an active game running**. You don't need to create or find games - just connect and play!
+
+### Get the Current Game
+
+```bash
+curl http://localhost:8000/current-game
+```
+
+This returns the current game state including:
+- Game ID (for subsequent API calls)
+- Team IDs (team1 and team2)
+- Game phase (DEPLOYMENT, KICKOFF, or PLAYING)
+- All player positions and game state
+
+### Join and Play
+
+```bash
+# 1. Get current game to see game_id and your team_id
+curl http://localhost:8000/current-game
+
+# 2. Join with your team
+curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
+
+# 3. Start playing!
+```
+
 ## Interactive Documentation
 
 - **Swagger UI**: `http://localhost:8000/docs`
@@ -149,6 +177,24 @@ Examples:
 **Responses**:
 - **200**: Successful Response
 - **422**: Validation Error
+
+---
+
+### GET /current-game
+
+**Summary**: Get Current Game
+
+**Description**: Get the current/default game state.
+
+The server always has an active game running. This endpoint provides
+the simplest way for agents to access it without needing to know the game ID.
+
+Returns the bootstrapped game (either demo or interactive mode).
+
+
+
+**Responses**:
+- **200**: Successful Response
 
 ---
 

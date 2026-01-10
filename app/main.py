@@ -378,6 +378,26 @@ def create_game(game_id: Optional[str] = None):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/current-game", response_model=GameState)
+def get_current_game():
+    """Get the current/default game state.
+    
+    The server always has an active game running. This endpoint provides
+    the simplest way for agents to access it without needing to know the game ID.
+    
+    Returns the bootstrapped game (either demo or interactive mode).
+    """
+    # Return the bootstrapped game
+    if demo_mode and default_demo_game_id:
+        game_state = game_manager.get_game(default_demo_game_id)
+    else:
+        game_state = game_manager.get_game(INTERACTIVE_GAME_ID)
+    
+    if not game_state:
+        raise HTTPException(status_code=500, detail="No active game available")
+    return game_state
+
+
 @app.get("/game/{game_id}", response_model=GameState)
 def get_game(game_id: str):
     """Get current game state"""

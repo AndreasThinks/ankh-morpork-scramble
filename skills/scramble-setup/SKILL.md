@@ -28,6 +28,16 @@ During setup, you must:
 
 ## Step-by-Step Setup
 
+### 0. Get Game Info (If Needed)
+
+If you don't know the `game_id`, get it from the current game:
+
+```bash
+curl http://localhost:8000/current-game
+```
+
+This returns the game state with `game_id` and team information.
+
 ### 1. Check Budget and Available Positions
 
 ```bash

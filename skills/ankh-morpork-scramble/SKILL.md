@@ -39,9 +39,25 @@ The game progresses through these phases:
 
 All API calls use REST HTTP methods with JSON payloads.
 
+**Key Concept**: The server always has an active game running. You don't need to create or search for games!
+
 ## Core Workflow
 
-### 1. Join a Game
+### 1. Get Current Game
+
+```bash
+curl http://localhost:8000/current-game
+```
+
+This returns the current game state including:
+- `game_id` - Use this in subsequent API calls
+- `team1` and `team2` - Team information with IDs
+- `phase` - Current game phase (DEPLOYMENT, KICKOFF, PLAYING)
+- Player positions and all game state
+
+**Extract the `game_id` from this response** - you'll use it for all subsequent calls.
+
+### 2. Join the Game
 
 ```bash
 curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
@@ -49,18 +65,13 @@ curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
 
 Response indicates if you've successfully joined.
 
-### 2. Check Game State
+### 3. Check Game State (When Needed)
 
 ```bash
 curl http://localhost:8000/game/{game_id}
 ```
 
-Returns complete game state including:
-- Phase (setup, kickoff, playing)
-- Player positions
-- Ball location
-- Active team
-- Turn number
+Returns the same information as `/current-game` but requires you to know the game ID.
 
 ### 3. Phase-Specific Actions
 
