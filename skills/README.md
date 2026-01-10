@@ -37,6 +37,85 @@ These skills provide strategic guidance for AI agents to understand and play the
 - Risk assessment and turnover avoidance
 - Scoring tactics
 
+## Installing in Cline
+
+To use these skills with [Cline](https://cline.bot), you need to enable Skills and copy them into your project.
+
+### Prerequisites
+
+1. **Enable Skills** in Cline (experimental feature):
+   - Open Cline Settings → Features
+   - Enable "Skills"
+
+2. **Access Skills Panel**:
+   - Click the scale icon below the chat input
+   - Switch to the "Skills" tab
+
+### Installation Methods
+
+#### Option A: Project-Local Installation (Recommended)
+
+Install skills for a specific project by copying to `.cline/skills/`:
+
+```bash
+# From the ankh-morpork-scramble repository
+make install-skills
+
+# Or manually copy all skills
+mkdir -p /path/to/your-project/.cline/skills
+cp -r skills/* /path/to/your-project/.cline/skills/
+
+# Or create symlinks for auto-updates during development
+mkdir -p /path/to/your-project/.cline/skills
+ln -s $(pwd)/skills/ankh-morpork-scramble /path/to/your-project/.cline/skills/
+ln -s $(pwd)/skills/scramble-setup /path/to/your-project/.cline/skills/
+ln -s $(pwd)/skills/scramble-movement /path/to/your-project/.cline/skills/
+ln -s $(pwd)/skills/scramble-combat /path/to/your-project/.cline/skills/
+ln -s $(pwd)/skills/scramble-ball-handling /path/to/your-project/.cline/skills/
+```
+
+**Alternative locations for project-local skills:**
+- `.cline/skills/` (recommended)
+- `.clinerules/skills/` (also supported)
+- `.claude/skills/` (for Claude Code compatibility)
+
+#### Option B: Global Installation
+
+Install skills for all your Cline projects:
+
+```bash
+# macOS/Linux
+mkdir -p ~/.cline/skills
+cp -r skills/* ~/.cline/skills/
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cline\skills"
+Copy-Item -Recurse skills\* "$env:USERPROFILE\.cline\skills\"
+```
+
+**Note:** When a global skill and project skill have the same name, the global skill takes precedence.
+
+### Verifying Installation
+
+1. Open Cline in your project
+2. Click the scale icon → Skills tab
+3. You should see all 5 skills:
+   - ✅ ankh-morpork-scramble
+   - ✅ scramble-setup
+   - ✅ scramble-movement
+   - ✅ scramble-combat
+   - ✅ scramble-ball-handling
+4. Skills are enabled by default when discovered
+
+### Usage in Cline
+
+Once installed, Cline will automatically:
+- Load the orchestrator skill (`ankh-morpork-scramble`) for game context
+- Suggest specialized skills when relevant to your queries
+- Reference skill instructions when making decisions
+
+You can manually toggle skills on/off in the Skills panel.
+
 ## How to Use
 
 ### For AI Agents

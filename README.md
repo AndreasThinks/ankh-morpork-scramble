@@ -339,6 +339,23 @@ Once the server is running, visit:
 
 The project includes **modular Agent Skills** following the [agentskills.io](https://agentskills.io) specification. These skills provide strategic guidance for AI agents to play the game effectively.
 
+### Installing Skills in Cline
+
+To use these skills with [Cline](https://cline.bot):
+
+```bash
+# Quick install to current project
+make install-skills
+
+# Or install globally for all Cline projects
+mkdir -p ~/.cline/skills
+cp -r skills/* ~/.cline/skills/
+```
+
+**Prerequisites**: Enable Skills in Cline Settings → Features → Enable Skills.
+
+See [skills/README.md](skills/README.md) for detailed installation instructions, verification steps, and usage guide.
+
 ### Available Skills
 
 Located in `skills/` directory:
