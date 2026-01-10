@@ -34,7 +34,7 @@ def render_dashboard(request: Request, game_id: Optional[str] = None) -> HTMLRes
     """
     # If no game_id provided, use the appropriate default based on DEMO_MODE
     if game_id is None:
-        demo_mode = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+        demo_mode = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
         game_id = DEFAULT_GAME_ID if demo_mode else INTERACTIVE_GAME_ID
     
     # Allow configuring poll interval via environment variable (in milliseconds)

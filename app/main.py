@@ -43,9 +43,9 @@ if _LOG_FILE:
     logger.info("API log file initialised at %s", _LOG_FILE)
 
 # Initialize game based on DEMO_MODE setting
-# DEMO_MODE=true (default): Pre-configured demo game ready to play
-# DEMO_MODE=false: Interactive setup where agents must buy and place players
-demo_mode = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+# DEMO_MODE=true: Pre-configured demo game ready to play
+# DEMO_MODE=false (default): Interactive setup where agents must buy and place players
+demo_mode = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 if demo_mode:
     # Demo mode: Create pre-configured game ready to play
