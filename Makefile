@@ -1,4 +1,4 @@
-.PHONY: help install test test-verbose test-coverage test-watch clean deploy-check
+.PHONY: help install test test-verbose test-coverage test-watch clean deploy-check generate-docs check-docs
 
 help:
 	@echo "Ankh-Morpork Scramble - Available Commands"
@@ -9,6 +9,8 @@ help:
 	@echo "  make test-coverage   - Run tests with coverage report"
 	@echo "  make test-watch      - Run tests in watch mode"
 	@echo "  make deploy-check    - Verify tests pass before deployment"
+	@echo "  make generate-docs   - Auto-generate documentation from code"
+	@echo "  make check-docs      - Check if documentation is up to date"
 	@echo "  make clean           - Clean up generated files"
 	@echo "  make run             - Run the development server"
 
@@ -45,3 +47,13 @@ clean:
 
 run:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+generate-docs:
+	@echo "📝 Generating documentation from code..."
+	@uv run python -m docs_generator.generate
+	@echo ""
+	@echo "✅ Documentation generated successfully!"
+
+check-docs:
+	@echo "🔍 Checking if documentation is up to date..."
+	@uv run python -m docs_generator.generate --check

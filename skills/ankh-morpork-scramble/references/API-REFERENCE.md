@@ -1,380 +1,521 @@
 # API Reference
 
-Complete REST API documentation for Ankh-Morpork Scramble server.
+**Auto-generated from FastAPI OpenAPI schema** - Do not edit manually!
 
-## Base URL
+## Ankh-Morpork Scramble API
 
-Default: `http://localhost:8000`
+**Version**: 0.1.0  
+**Base URL (Development)**: http://localhost:8000
 
-## Authentication
+## Interactive Documentation
 
-No authentication required for local games. For hosted games, check with your server administrator.
-
-## Common Response Format
-
-All endpoints return JSON. Successful responses include relevant data. Error responses include:
-
-```json
-{
-  "detail": "Error message description"
-}
-```
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
 ## Endpoints
 
-### Game Management
+### GET /ui
 
-#### GET /
+**Summary**: Render Dashboard
 
-Root endpoint - returns API information.
+**Description**: Render the live game dashboard.
 
-**Response:**
-```json
+The dashboard uses simple JavaScript polling to display the current game
+state, event log, and chat messages for the configured game identifier.
+
+Args:
+    request: FastAPI request object
+    game_id: Game identifier to monitor. If not provided, uses the appropriate
+             default based on DEMO_MODE environment variable.
+
+Returns:
+    HTML response with rendered dashboard
+
+**Parameters**:
+- `game_id` (query): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /
+
+**Summary**: Root
+
+**Description**: Root endpoint
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /health
+
+**Summary**: Health Check
+
+**Description**: Health check endpoint for Railway monitoring
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /admin/logs
+
+**Summary**: List Logs
+
+**Description**: List all available log files (requires admin API key)
+
+**Parameters**:
+- `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /admin/logs/all
+
+**Summary**: View All Logs
+
+**Description**: View all log files in a unified view (requires admin API key)
+
+This endpoint aggregates logs from all components:
+- server.log: FastAPI server logs
+- mcp.log: MCP server logs
+- team1.log: Team 1 agent logs
+- team2.log: Team 2 agent logs
+- referee.log: Referee agent logs
+- api.log: API-specific logs
+
+Query parameters:
+- tail: Show last N lines from each log file
+- format: 'combined' (interleaved by timestamp) or 'separated' (grouped by file)
+
+Examples:
+- /admin/logs/all - All logs in combined format
+- /admin/logs/all?tail=100 - Last 100 lines from each log
+- /admin/logs/all?format=separated - Logs grouped by file
+
+**Parameters**:
+- `tail` (query): - `format` (query): string- `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /admin/logs/{log_name}
+
+**Summary**: View Log
+
+**Description**: View a specific log file (requires admin API key)
+
+Query parameters:
+- tail: Show last N lines
+- head: Show first N lines (ignored if tail is set)
+
+Examples:
+- /admin/logs/api.log - Full log
+- /admin/logs/api.log?tail=100 - Last 100 lines
+- /admin/logs/mcp.log?head=50 - First 50 lines
+
+**Parameters**:
+- `log_name` (path): string *required*- `tail` (query): - `head` (query): - `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game
+
+**Summary**: Create Game
+
+**Description**: Create a new game
+
+**Parameters**:
+- `game_id` (query): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}
+
+**Summary**: Get Game
+
+**Description**: Get current game state
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/statistics
+
+**Summary**: Get Game Statistics
+
+**Description**: Return aggregated statistics for a completed or in-progress game.
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/setup-team
+
+**Summary**: Setup Team
+
+**Description**: Set up a team with player roster
+
+Example player_positions:
 {
-  "name": "Ankh-Morpork Scramble API",
-  "version": "0.1.0",
-  "status": "running"
+    "constable": "5",
+    "clerk_runner": "1",
+    "fleet_recruit": "2",
+    "watch_sergeant": "3"
 }
-```
-
-#### GET /health
-
-Health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "active_games": 1
-}
-```
-
-#### POST /game
-
-Create a new game.
-
-**Query Parameters:**
-- `game_id` (optional): Custom game ID
-
-**Response:** Complete GameState object
-
-#### GET /game/{game_id}
-
-Get current game state.
-
-**Response:** Complete GameState object including:
-- `game_id`: Game identifier
-- `phase`: Current phase (setup/kickoff/playing)
-- `team1`, `team2`: Team objects with rosters
-- `players`: Dictionary of all players
-- `pitch`: Player positions and ball location
-- `turn`: Turn information
-- `event_log`: Game history
-
-### Team Setup (DEPLOYMENT Phase)
-
-#### POST /game/{game_id}/join
-
-Mark a team as joined.
-
-**Query Parameters:**
-- `team_id`: Your team ID (e.g., "team1" or "team2")
-
-**Response:**
-```json
-{
-  "success": true,
-  "team_id": "team1",
-  "players_ready": false
-}
-```
-
-#### GET /game/{game_id}/team/{team_id}/budget
-
-Get team budget information.
-
-**Response:**
-```json
-{
-  "team_id": "team1",
-  "initial_budget": 1000000,
-  "spent": 200000,
-  "remaining": 800000,
-  "purchases": [...]
-}
-```
-
-#### GET /game/{game_id}/team/{team_id}/available-positions
-
-Get available player positions for purchase.
-
-**Response:**
-```json
-{
-  "positions": [
-    {
-      "key": "constable",
-      "role": "Constable",
-      "cost": 50000,
-      "quantity_limit": 16,
-      "quantity_owned": 2,
-      "can_afford": true,
-      "stats": {...}
-    }
-  ],
-  "budget_status": {...},
-  "reroll_cost": 50000,
-  "rerolls_owned": 0,
-  "max_rerolls": 8
-}
-```
-
-#### POST /game/{game_id}/team/{team_id}/buy-player
-
-Purchase a player.
-
-**Query Parameters:**
-- `position_key`: Position to buy (e.g., "constable")
-
-**Response:**
-```json
-{
-  "success": true,
-  "player_id": "team1_player_3",
-  "position": "Constable",
-  "cost": 50000,
-  "budget": {...}
-}
-```
-
-#### POST /game/{game_id}/team/{team_id}/buy-reroll
-
-Purchase a team reroll.
-
-**Response:**
-```json
-{
-  "success": true,
-  "cost": 50000,
-  "rerolls_total": 1,
-  "budget": {...}
-}
-```
-
-#### POST /game/{game_id}/place-players
-
-Place players on the pitch.
-
-**Request Body:**
-```json
-{
-  "team_id": "team1",
-  "positions": {
-    "team1_player_0": {"x": 5, "y": 7},
-    "team1_player_1": {"x": 6, "y": 6},
-    "team1_player_2": {"x": 6, "y": 8}
-  }
-}
-```
-
-**Response:** Updated GameState
-
-### Gameplay
-
-#### POST /game/{game_id}/start
-
-Start the game (moves from DEPLOYMENT to KICKOFF).
-
-**Response:** Updated GameState
-
-#### GET /game/{game_id}/valid-actions
-
-Get all valid actions for the current active team.
-
-**Response:**
-```json
-{
-  "current_team": "team1",
-  "phase": "playing",
-  "can_charge": true,
-  "can_hurl": true,
-  "can_quick_pass": true,
-  "can_boot": true,
-  "can_blitz": true,
-  "can_pass": true,
-  "can_hand_off": true,
-  "can_foul": true,
-  "movable_players": ["team1_player_0", "team1_player_1"],
-  "blockable_targets": {
-    "team1_player_0": ["team2_player_5"]
-  },
-  "ball_carrier": "team1_player_2",
-  "ball_on_ground": false,
-  "ball_position": {"x": 10, "y": 7}
-}
-```
-
-#### POST /game/{game_id}/action
-
-Execute a game action.
-
-**Request Body:**
-```json
-{
-  "action_type": "move",
-  "player_id": "team1_player_0",
-  "target_position": {"x": 10, "y": 7},
-  "path": [{"x": 10, "y": 7}],
-  "target_player_id": null,
-  "target_receiver_id": null,
-  "use_reroll": false
-}
-```
-
-**Action Types:**
-- `move`: Move to target_position (requires path)
-- `scuffle`: Block target_player_id (must be adjacent)
-- `charge`: Move then block (requires target_player_id and optional target_position)
-- `hurl`: Pass ball to target_receiver_id or target_position
-- `quick_pass`: Hand off to adjacent target_receiver_id
-- `boot`: Attack prone target_player_id
-- `stand_up`: Stand up from prone
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Player moved to (10, 7)",
-  "dice_rolls": [],
-  "turnover": false,
-  "player_moved": "team1_player_0",
-  "new_position": {"x": 10, "y": 7},
-  "details": {}
-}
-```
-
-#### POST /game/{game_id}/end-turn
-
-Manually end the current turn.
-
-**Response:** Updated GameState with new active team
-
-#### POST /game/{game_id}/reroll
-
-Use a team reroll (if available).
-
-**Query Parameters:**
-- `team_id`: Your team ID
-
-**Response:**
-```json
-{
-  "success": true,
-  "rerolls_remaining": 2
-}
-```
-
-### Information
-
-#### GET /game/{game_id}/history
-
-Get game event history.
-
-**Query Parameters:**
-- `limit` (default: 50): Number of recent events
-
-**Response:**
-```json
-{
-  "game_id": "demo-game",
-  "events": [
-    "Game created",
-    "Team team1 joined",
-    "Player moved to (10, 7)",
-    ...
-  ]
-}
-```
-
-#### GET /game/{game_id}/suggest-path
-
-Get suggested path for movement with risk assessment.
-
-**Query Parameters:**
-- `player_id`: Player to move
-- `target_x`: Target X coordinate
-- `target_y`: Target Y coordinate
-
-**Response:**
-```json
-{
-  "path": [{"x": 10, "y": 7}, {"x": 11, "y": 7}],
-  "movement_cost": 2,
-  "requires_rushing": false,
-  "total_risk_score": 0.0,
-  "risks": [],
-  "is_valid": true
-}
-```
-
-### Messaging
-
-#### POST /game/{game_id}/message
-
-Send a message in the game.
-
-**Query Parameters:**
-- `sender_id`: Your ID
-- `sender_name`: Your display name
-- `content`: Message text
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": {
-    "sender_id": "team1",
-    "sender_name": "Player1",
-    "content": "Good game!",
-    "timestamp": "2026-01-10T12:00:00",
-    "turn_number": 5
-  }
-}
-```
-
-#### GET /game/{game_id}/messages
-
-Get messages from the game.
-
-**Query Parameters:**
-- `turn_number` (optional): Filter by turn
-- `limit` (optional): Limit number of messages
-
-**Response:**
-```json
-{
-  "game_id": "demo-game",
-  "count": 3,
-  "messages": [...]
-}
-```
-
-## Error Codes
-
-- **400**: Bad Request - Invalid parameters or illegal action
-- **404**: Not Found - Game or resource doesn't exist
-- **429**: Too Many Requests - Rate limit exceeded
-- **500**: Internal Server Error - Server-side error
-
-## Rate Limiting
-
-- 100 requests per minute per IP address per endpoint
-- Exceeding limit returns 429 error
-
-## Tips
-
-1. Always check game phase before actions
-2. Use `valid-actions` to see available options
-3. Check `turnover` field in action responses
-4. Monitor `event_log` for game history
-5. Use `suggest-path` for complex movements
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (query): string *required*- `team_type` (query):  *required*
+**Request Body**: `application/json`
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/team/{team_id}/budget
+
+**Summary**: Get Team Budget
+
+**Description**: Get budget information for a team
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/team/{team_id}/available-positions
+
+**Summary**: Get Available Positions
+
+**Description**: Get available player positions and rerolls for purchase
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/team/{team_id}/buy-player
+
+**Summary**: Buy Player
+
+**Description**: Purchase a player for a team during setup phase
+
+Args:
+    game_id: Game identifier
+    team_id: Team identifier (e.g., "team1")
+    position_key: Position to purchase (e.g., "constable", "apprentice_wizard")
+
+Returns:
+    PurchaseResult with updated budget status
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (path): string *required*- `position_key` (query): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/team/{team_id}/buy-reroll
+
+**Summary**: Buy Reroll
+
+**Description**: Purchase a team reroll during setup phase
+
+Args:
+    game_id: Game identifier
+    team_id: Team identifier (e.g., "team1")
+
+Returns:
+    PurchaseResult with updated budget status
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/place-players
+
+**Summary**: Place Players
+
+**Description**: Place players on the pitch during setup
+
+**Parameters**:
+- `game_id` (path): string *required*
+**Request Body**: `application/json`
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/start
+
+**Summary**: Start Game
+
+**Description**: Start the game
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/action
+
+**Summary**: Execute Action
+
+**Description**: Execute a game action
+
+**Parameters**:
+- `game_id` (path): string *required*
+**Request Body**: `application/json`
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/end-turn
+
+**Summary**: End Turn
+
+**Description**: Manually end the current turn.
+
+Raises HTTP 400 if the game has already concluded or if no turn is active.
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/reroll
+
+**Summary**: Use Reroll
+
+**Description**: Use a team re-roll
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (query): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/valid-actions
+
+**Summary**: Get Valid Actions
+
+**Description**: Get all valid actions for current game state
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/history
+
+**Summary**: Get History
+
+**Description**: Get game event history
+
+**Parameters**:
+- `game_id` (path): string *required*- `limit` (query): integer
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/log
+
+**Summary**: Export Game Log
+
+**Description**: Export complete game log with events, dice rolls, and statistics.
+
+Formats:
+- markdown: Human-readable narrative with full details
+- json: Structured event data
+
+The log includes:
+- All game events chronologically
+- Dice rolls and outcomes
+- Turn-by-turn breakdown
+- Game statistics
+
+**Parameters**:
+- `game_id` (path): string *required*- `format` (query): string
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/suggest-path
+
+**Summary**: Suggest Path
+
+**Description**: Suggest a path for a player to reach a target position with risk assessment.
+
+Returns path with detailed risk information including:
+- Dodge requirements
+- Rush square identification
+- Success probabilities
+- Total risk score
+
+**Parameters**:
+- `game_id` (path): string *required*- `player_id` (query): string *required*- `target_x` (query): integer *required*- `target_y` (query): integer *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/join
+
+**Summary**: Join Game
+
+**Description**: Mark a team as joined
+
+**Parameters**:
+- `game_id` (path): string *required*- `team_id` (query): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/message
+
+**Summary**: Send Message
+
+**Description**: Send a message in the game
+
+**Parameters**:
+- `game_id` (path): string *required*- `sender_id` (query): string *required*- `sender_name` (query): string *required*- `content` (query): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### GET /game/{game_id}/messages
+
+**Summary**: Get Messages
+
+**Description**: Get messages from the game
+
+**Parameters**:
+- `game_id` (path): string *required*- `turn_number` (query): - `limit` (query): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/reset
+
+**Summary**: Reset Game
+
+**Description**: Reset game to setup phase, preserving join status and message history
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### POST /game/{game_id}/rematch
+
+**Summary**: Rematch Game
+
+**Description**: Prepare and start a fresh match after the current game concludes.
+
+**Parameters**:
+- `game_id` (path): string *required*
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+
+## Common Request/Response Models
+
+Refer to interactive docs at `/docs` for detailed schema definitions.
+
+---
+
+*This file is auto-generated from the FastAPI application. To update, modify `app/main.py` endpoints and run `make generate-docs`.*

@@ -1,0 +1,52 @@
+# API Reference
+
+**Auto-generated from FastAPI OpenAPI schema** - Do not edit manually!
+
+## {{ title }}
+
+**Version**: {{ version }}  
+**Base URL (Development)**: {{ base_url_dev }}
+
+## Interactive Documentation
+
+- **Swagger UI**: `{{ base_url_dev }}/docs`
+- **ReDoc**: `{{ base_url_dev }}/redoc`
+
+## Endpoints
+
+{% for endpoint in endpoints %}
+### {{ endpoint.method }} {{ endpoint.path }}
+
+**Summary**: {{ endpoint.summary or "No summary" }}
+
+{% if endpoint.description %}
+**Description**: {{ endpoint.description }}
+{% endif %}
+
+{% if endpoint.parameters %}
+**Parameters**:
+{% for param in endpoint.parameters %}
+- `{{ param.name }}` ({{ param.in }}): {{ param.schema.type if param.schema else "unknown" }}{% if param.required %} *required*{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if endpoint.request_body %}
+**Request Body**: `application/json`
+{% endif %}
+
+**Responses**:
+{% for status, response in endpoint.responses.items() %}
+- **{{ status }}**: {{ response.description or "Success" }}
+{% endfor %}
+
+---
+
+{% endfor %}
+
+## Common Request/Response Models
+
+Refer to interactive docs at `/docs` for detailed schema definitions.
+
+---
+
+*This file is auto-generated from the FastAPI application. To update, modify `app/main.py` endpoints and run `make generate-docs`.*

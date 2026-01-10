@@ -19,3 +19,11 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [commit]
+      
+      - id: check-docs
+        name: Check documentation is current
+        entry: uv run python -m docs_generator.generate --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]

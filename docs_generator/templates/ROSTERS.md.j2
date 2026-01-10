@@ -1,0 +1,69 @@
+# Team Rosters Reference
+
+**Auto-generated from `app/models/team.py`** - Do not edit manually!
+
+Team rosters for Ankh-Morpork Scramble, including player positions, costs, stats, and skills.
+
+## Standard Team Budget
+
+**{{ standard_budget | format_gold }}** gold pieces per team
+
+---
+
+## {{ city_watch.name }}
+
+**Reroll Cost**: {{ city_watch.reroll_cost | format_gold }}  
+**Maximum Rerolls**: {{ city_watch.max_rerolls }}
+
+### Positions
+
+| Position | Cost | Qty | MA | ST | AG | PA | AV | Skills | Primary | Secondary |
+|----------|------|-----|----|----|----|----|----|----|---------|-----------|
+{%- for pos in city_watch.positions %}
+| {{ pos.role }}{{ " ⭐" if pos.is_star_player else "" }} | {{ pos.cost | format_gold }} | {{ pos.max_quantity }} | {{ pos.ma }} | {{ pos.st }} | {{ pos.ag }} | {{ pos.pa }} | {{ pos.av }} | {{ pos.skills | join(", ") if pos.skills else "—" }} | {{ pos.primary | join(", ") }} | {{ pos.secondary | join(", ") if pos.secondary else "—" }} |
+{%- endfor %}
+
+**⭐** = Star Player (unique, maximum 1)
+
+---
+
+## {{ unseen_university.name }}
+
+**Reroll Cost**: {{ unseen_university.reroll_cost | format_gold }}  
+**Maximum Rerolls**: {{ unseen_university.max_rerolls }}
+
+### Positions
+
+| Position | Cost | Qty | MA | ST | AG | PA | AV | Skills | Primary | Secondary |
+|----------|------|-----|----|----|----|----|----|----|---------|-----------|
+{%- for pos in unseen_university.positions %}
+| {{ pos.role }}{{ " ⭐" if pos.is_star_player else "" }} | {{ pos.cost | format_gold }} | {{ pos.max_quantity }} | {{ pos.ma }} | {{ pos.st }} | {{ pos.ag }} | {{ pos.pa }} | {{ pos.av }} | {{ pos.skills | join(", ") if pos.skills else "—" }} | {{ pos.primary | join(", ") }} | {{ pos.secondary | join(", ") if pos.secondary else "—" }} |
+{%- endfor %}
+
+**⭐** = Star Player (unique, maximum 1)
+
+---
+
+## Stat Definitions
+
+- **Cost**: Gold pieces required to purchase this position
+- **Qty**: Maximum quantity allowed on roster
+- **MA**: Movement Allowance (squares per turn)
+- **ST**: Strength (for blocking/combat)
+- **AG**: Agility (target number for dodge/catch/pickup rolls, e.g., "3+" means need 3-6 on d6)
+- **PA**: Passing Ability (target number for throwing, e.g., "4+" means need 4-6 on d6)
+- **AV**: Armour Value (target number for armor rolls, e.g., "9+" means need 9+ on 2d6 to injure)
+- **Skills**: Starting skills for this position
+- **Primary**: Primary skill categories for advancement (cheaper)
+- **Secondary**: Secondary skill categories for advancement (more expensive)
+
+## Skill Categories
+
+- **G**: General (universal skills)
+- **A**: Agility (dodging, catching, movement)
+- **S**: Strength (blocking, injuries)
+- **P**: Passing (throwing, hand-offs)
+
+---
+
+*This file is auto-generated from code. To update rosters, edit `app/models/team.py` and run `make generate-docs`.*

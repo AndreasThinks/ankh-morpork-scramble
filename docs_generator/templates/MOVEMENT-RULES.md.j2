@@ -8,17 +8,17 @@ Complete movement rules for Ankh-Morpork Scramble.
 
 - **Movement Allowance (MA)**: Each player has a base MA value (typically 4-8 squares)
 - **Normal Movement**: Can move up to MA squares per turn
-- **Rush Moves**: Can move up to 2 additional squares beyond MA
-- **Stand Up Cost**: 3 MA to stand up from prone
+- **Rush Moves**: Can move up to {{ max_rush_moves }} additional squares beyond MA
+- **Stand Up Cost**: {{ stand_up_cost }} MA to stand up from prone
 
 ## Pitch Dimensions
 
-- **Width**: 26 columns (x: 0-25)
-- **Height**: 15 rows (y: 0-14)
+- **Width**: {{ pitch_dimensions.width }} columns (x: 0-25)
+- **Height**: {{ pitch_dimensions.height }} rows (y: 0-14)
 
 ## Tackle Zones
 
-- **Range**: Adjacent squares (1 square away, orthogonal or diagonal)
+- **Range**: Adjacent squares ({{ tackle_zone_range }} square away, orthogonal or diagonal)
 - **Effect**: Standing enemy players exert tackle zones
 - **Dodge Required**: Must dodge when leaving enemy tackle zones
 
@@ -29,14 +29,14 @@ Complete movement rules for Ankh-Morpork Scramble.
 **Dodge Roll**: d6 ≥ player's Agility target
 
 **Modifiers**:
-- -1 per tackle zone at **destination** square
+- {{ dodge_penalties.per_tackle_zone }} per tackle zone at **destination** square
 
 **Failure**: Player knocked down + **TURNOVER**
 
 ## Rush Moves
 
-- **Maximum**: 2 rush moves per turn (beyond MA)
-- **Rush Roll**: Need 2+ on d6 per rush square
+- **Maximum**: {{ max_rush_moves }} rush moves per turn (beyond MA)
+- **Rush Roll**: Need {{ rush_target }}+ on d6 per rush square
 - **Failure**: Player knocked down + **TURNOVER**
 
 ## Movement with the Ball
@@ -47,7 +47,7 @@ Complete movement rules for Ankh-Morpork Scramble.
 
 ## Standing Up
 
-- **Cost**: 3 MA
+- **Cost**: {{ stand_up_cost }} MA
 - **Action**: STAND_UP action type
 - **Restriction**: Must have enough MA remaining
 

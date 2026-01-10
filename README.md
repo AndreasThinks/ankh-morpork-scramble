@@ -335,162 +335,43 @@ Once the server is running, visit:
 - `POST /game/{game_id}/message` - Send a message
 - `GET /game/{game_id}/messages` - Get messages
 
-## MCP Integration for LLM Agents
+## Agent Skills for LLM Gameplay
 
-The server includes an MCP (Model Context Protocol) interface at `http://localhost:8000/mcp` that allows LLM agents to play the game. This enables AI-vs-AI matches or AI-vs-human gameplay.
+The project includes **modular Agent Skills** following the [agentskills.io](https://agentskills.io) specification. These skills provide strategic guidance for AI agents to play the game effectively.
 
-### Available MCP Tools
+### Available Skills
 
-LLM agents have access to **16 specialized tools** for game interaction, all with enhanced validation to provide clear error messages:
+Located in `skills/` directory:
 
-**Setup & Budget Tools** (for DEMO_MODE=false):
-1. **get_team_budget** - Check remaining budget and purchase history
-2. **get_available_positions** - View purchasable players and rerolls with costs
-3. **buy_player** - Purchase a player position (costs gold)
-4. **buy_reroll** - Purchase a team reroll (costs gold)
-5. **place_players** - Position players on the pitch
-6. **ready_to_play** - Mark team as ready after setup completion
+1. **ankh-morpork-scramble** - Core orchestrator skill
+   - Game flow management and coordination
+   - Complete API reference and game rules
 
-**Core Gameplay Tools**:
-7. **join_game** - Join a game that's been set up
-8. **get_game_state** - View complete game state
-9. **get_valid_actions** - Check available moves
-10. **execute_action** - Perform game actions (move, scuffle, charge, etc.)
-11. **end_turn** - Finish your turn
-12. **use_reroll** - Use a team reroll token
-13. **get_history** - View event log
-14. **send_message** - Chat with opponent
-15. **get_messages** - Read messages
-16. **suggest_path** - Get movement path suggestions with risk assessment
+2. **scramble-setup** - Deployment phase guidance
+   - Team roster selection and budgeting
+   - Player positioning strategies
 
-### Available MCP Resources
+3. **scramble-movement** - Movement tactics
+   - Path planning and dodge mechanics
+   - Tackle zone navigation
 
-In addition to tools, the MCP server provides **5 read-only resources** using URI-based access. Resources are optimized for frequent polling and state observation without executing actions:
+4. **scramble-combat** - Blocking strategy
+   - Strength comparison and dice probabilities
+   - Block result interpretation
 
-1. **game://{game_id}/state** - Complete game state snapshot
-2. **game://{game_id}/actions** - Valid actions for current turn
-3. **game://{game_id}/history** - Full event log
-4. **game://{game_id}/team/{team_id}/budget** - Budget status and purchase history
-5. **game://{game_id}/team/{team_id}/positions** - Available positions and costs
+5. **scramble-ball-handling** - Ball control
+   - Pickup, pass, catch strategies
+   - Risk assessment and scoring tactics
 
-**Tools vs Resources:**
-- **Tools** = Actions that modify game state (buy player, execute move, end turn) with validation
-- **Resources** = Read-only queries using URI patterns (efficient for polling game state)
+Each skill includes:
+- **SKILL.md** - Strategic guidance and decision frameworks
+- **references/** - Detailed mechanics auto-generated from code
 
-**Enhanced Validation:**
-All MCP tools include comprehensive validation that catches errors early and provides clear, specific error messages to LLM agents:
-- Position validators ensure coordinates are within pitch bounds (0-25, 0-14)
-- Action validators check required parameters (e.g., MOVE needs target_position, SCUFFLE needs target_player_id)
-- Game state validators verify preconditions (player can act, players are adjacent, etc.)
-- Better error context helps LLM agents understand what went wrong and how to fix it
+See [skills/README.md](skills/README.md) for complete documentation.
 
-Resources use the MCP resource protocol for efficient data access:
+### How LLM Agents Use Skills
 
-```python
-# Read a resource using URI pattern
-state = await client.read_resource("game://demo-game/state")
-actions = await client.read_resource("game://demo-game/actions")
-budget = await client.read_resource("game://demo-game/team/team1/budget")
-```
-
-### How LLM Agents Play
-
-**Demo Mode (DEMO_MODE=true):**
-1. Server creates pre-configured game at startup
-2. Agents join using `join_game(game_id, team_id)`
-3. Game starts automatically when both teams join
-4. Proceed to gameplay phase
-
-**Interactive Mode (DEMO_MODE=false):**
-1. Server creates empty game in DEPLOYMENT phase
-2. Agents join using `join_game(game_id, team_id)`
-3. Each agent builds their roster:
-   - Check budget: `get_team_budget(game_id, team_id)`
-   - View options: `get_available_positions(game_id, team_id)`
-   - Purchase players: `buy_player(game_id, team_id, position_key)` (minimum 3)
-   - Purchase rerolls: `buy_reroll(game_id, team_id)` (optional)
-   - Place players: `place_players(game_id, team_id, positions)`
-   - Mark ready: `ready_to_play(game_id, team_id)`
-4. Game starts automatically when both teams are ready
-
-**Gameplay Phase (both modes):**
-1. Wait for your turn
-2. Check options with `get_valid_actions(game_id)`
-3. Execute actions with `execute_action(...)` using Discworld terminology:
-   - **SCUFFLE** (was BLOCK) - Attack adjacent opponent
-   - **CHARGE** (was BLITZ) - Move + attack (once per turn)
-   - **HURL** (was PASS) - Throw the ball (once per turn)
-   - **QUICK_PASS** (was HAND_OFF) - Give ball to adjacent teammate (once per turn)
-   - **BOOT** (was FOUL) - Attack prone opponent (once per turn)
-4. End turn with `end_turn(game_id, team_id)`
-5. Communicate with `send_message` and `get_messages`
-
-### MCP Client Example
-
-```python
-from fastmcp.client import Client
-import asyncio
-
-async def play_game():
-    # Connect to MCP server
-    async with Client("http://localhost:8000/mcp") as client:
-        # Join the game
-        await client.call_tool("join_game", {
-            "game_id": "game123",
-            "team_id": "team1"
-        })
-        
-        # Check game state
-        state = await client.call_tool("get_game_state", {
-            "game_id": "game123"
-        })
-        
-        # Send greeting
-        await client.call_tool("send_message", {
-            "game_id": "game123",
-            "sender_id": "team1",
-            "sender_name": "AI Watch Captain",
-            "content": "Good luck!"
-        })
-        
-        # Get available actions
-        actions = await client.call_tool("get_valid_actions", {
-            "game_id": "game123"
-        })
-        
-        # Execute a move
-        result = await client.call_tool("execute_action", {
-            "game_id": "game123",
-            "action_type": "move",
-            "player_id": "team1_player_0",
-            "target_position": {"x": 7, "y": 7}
-        })
-        
-        # End turn
-        await client.call_tool("end_turn", {
-            "game_id": "game123",
-            "team_id": "team1"
-        })
-
-asyncio.run(play_game())
-```
-
-### Testing MCP Integration
-
-```bash
-# Run MCP tests
-pytest tests/test_mcp_server.py -v
-
-# Run specific MCP test
-pytest tests/test_mcp_server.py::test_integration_two_llm_agents_playing -v
-```
-
-### MCP vs REST API
-
-- **REST API**: Full game setup and management, suitable for coordinators
-- **MCP Interface**: Focused on gameplay actions, designed for LLM agents
-- Both share the same game state and can work together
-- MCP provides better tool descriptions and validation for LLM understanding
+Agents load the orchestrator skill first, then activate specialized skills as needed during gameplay. Skills follow progressive disclosure - lightweight metadata for discovery, comprehensive guidance when activated. All strategic advice is at a "basic" guidance level, providing frameworks without hand-holding.
 
 ## Example Usage
 
@@ -648,6 +529,38 @@ curl -X POST http://localhost:8000/game/{game_id}/end-turn
 - ⭐ **Archchancellor Ridcully** (140k, 0-1): Leader with Robust Physique, Booming Voice & Arcane Mastery
 - **Team Reroll**: 60k (max 8)
 
+## Documentation Generator
+
+The project includes an **automated documentation generator** that keeps Agent Skills and API references synchronized with code changes.
+
+### Auto-Generated Documentation
+
+Six reference files are generated from code sources of truth:
+- `ROSTERS.md` - Team rosters extracted from `app/models/team.py`
+- `API-REFERENCE.md` - API endpoints from FastAPI OpenAPI schema
+- `GAME-RULES.md` - Formatted from `rules.md`
+- `MOVEMENT-RULES.md` - Movement mechanics from `app/game/movement.py`
+- `BLOCK-DICE.md` - Combat mechanics from `app/game/combat.py`
+- `PASS-RULES.md` - Ball handling from `app/game/ball_handling.py`
+
+### Usage
+
+```bash
+# Regenerate all documentation
+make generate-docs
+
+# Check if docs are current (for CI)
+make check-docs
+```
+
+### Automation
+
+Documentation stays synchronized through:
+- **Pre-commit hook**: Blocks commits if docs are stale
+- **CI check**: Fails PR if documentation is outdated
+
+See [docs_generator/README.md](docs_generator/README.md) for implementation details.
+
 ## Architecture
 
 ```
@@ -667,7 +580,9 @@ app/
 ├── state/           # State management
 │   ├── action_executor.py # Execute validated actions
 │   └── game_manager.py    # Game orchestration
-└── main.py          # FastAPI application
+├── main.py          # FastAPI application
+skills/              # Agent Skills for LLM gameplay
+└── docs_generator/  # Auto-generates docs from code
 ```
 
 ## Game Rules

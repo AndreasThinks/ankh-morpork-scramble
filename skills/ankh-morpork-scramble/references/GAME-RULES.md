@@ -1,204 +1,303 @@
-# Game Rules Summary
+# Game Rules Reference
 
-Condensed rules for quick reference during gameplay.
+**Auto-generated from `rules.md`** - Do not edit manually!
 
-## Game Structure
+# Ankh-Morpork Scramble — Official Rules (Server Edition)
 
-- **Objective**: Score "Scratches" by getting ball into opponent end zone
-- **Match**: 2 halves, 8 turns per team each half
-- **Pitch**: 26×15 squares
-- **Team Size**: 3-11 players on pitch
+> **DISCLAIMER**: This is an unofficial, non-commercial fan project created purely for entertainment and educational purposes. It is inspired by Games Workshop's Blood Bowl and Terry Pratchett's Discworld universe. This project is not affiliated with, endorsed by, or connected to Games Workshop Limited, Terry Pratchett's estate, or any official Discworld or Blood Bowl properties. All rights to Blood Bowl belong to Games Workshop. All rights to Discworld characters and settings belong to the Terry Pratchett estate. This is a tribute project by fans, for fans.
 
-## Turn Structure
+Welcome to **Ankh-Morpork Scramble**, the city's most prestigious, least-regulated street-sport where the **City Watch** attempts to maintain order while the **Wizards of the Unseen University** attempt to… *improvise applied thaumic physics on the opposing team*. The ball is regulation-approved (the paperwork says so), violence is discouraged but deeply traditional, and the Patrician absolutely denies ever having sanctioned this.
 
-1. Active team executes actions
-2. Can perform multiple actions until turnover or manual end
-3. One action per player per turn (usually)
-4. Turn automatically ends on turnover
-5. Otherwise, manually end turn
+This specification defines a machine-readable, server-oriented rulebook. It is designed for deterministic, turn-based execution where the server stores and validates all game state. The rules below are written as clean formal Markdown — suitable for programmatic reference or rule-engine implementation.
 
-## Action Limits Per Turn
+---
 
-| Action | Limit |
-|--------|-------|
-| Move | Unlimited (1 per player) |
-| Scuffle (Block) | Unlimited |
-| Charge | 1 per turn |
-| Hurl (Pass) | 1 per turn |
-| Quick Pass | 1 per turn |
-| Boot (Foul) | 1 per turn |
+## 1. Game Summary
 
-## Movement
+- Two teams compete to score **Scratches** by carrying the ball into the opponent's end zone.
+- A match consists of **two halves**, each **8 turns per team**.
+- The team with the most Scratches at the end of the match wins.
+- Draws are allowed, unless the Patrician says otherwise (consult optional overtime rules).
 
-- **Movement Allowance (MA)**: Each player has MA value (4-8 typically)
-- **Normal Move**: Up to MA squares
-- **Rush**: 2 additional squares max, each requires 2+ roll
-- **Standing Up**: Costs 3 MA
-- **Tackle Zones**: Adjacent to standing opponents
+---
 
-### Dodge Roll
+## 2. Pitch & Setup
 
-Required when leaving a square with enemy tackle zones:
-- Roll against player's Agility (AG) value
-- **Modifiers**: -1 per tackle zone at destination
-- **Failure**: Player knocked down, turnover
-- **Example**: AG 3+ means need 3-6 on d6 to succeed
+- Pitch size: **26 × 15 squares**.
+- Each half begins with a **Kick-Off**.
+- Team size on pitch: **3–11 players**.
+- Maximum **2** players per wide zone during setup.
+- Receiving team may place up to **2** players in opponent half during setup (not beyond LOS).
 
-## Blocking (Scuffling)
+---
 
-### Strength Comparison
+## 3. Turn Structure
 
-Compare attacker ST vs defender ST:
+Each turn consists of:
 
-| Comparison | Block Dice | Who Chooses |
-|------------|------------|-------------|
-| Attacker +2 ST | 3 dice | Attacker |
-| Attacker +1 ST | 2 dice | Attacker |
-| Equal ST | 1 die | Neither (roll) |
-| Defender +1 ST | 2 dice | Defender |
-| Defender +2 ST | 3 dice | Defender |
+1. Validate active team
+2. Declare and execute actions (see below)
+3. Check turnover conditions
+4. End turn
 
-### Block Dice Results
+A **turnover** immediately ends the active turn.
 
-- **Attacker Down**: Attacker knocked down
-- **Both Down**: Both knocked down (unless Block skill)
-- **Push**: Defender pushed back one square
-- **Defender Stumbles**: Defender pushed, may go prone
-- **Defender Down**: Defender knocked down
+---
 
-### Armor Roll
+## 4. Actions (Per Turn) — Discworld Terminology
 
-When knocked down:
-1. Roll 2d6 vs Armor Value (AV)
-2. If roll ≥ AV: No injury
-3. If roll < AV: Roll injury (2d6):
-   - 2-7: Stunned
-   - 8-9: Knocked Out
-   - 10+: Casualty (may die or lose stats)
+| Action | Limit | Description |
+|---|---|---|
+| Move | Unlimited (1 per player) | Move a player along the pitch |
+| Scuffle | Unlimited | Attack an adjacent opponent (Ankh-Morpork street fighting) |
+| Charge | **1 per turn** | Aggressive rush: Move + Scuffle |
+| Hurl | **1 per turn** | Throw the ball to a teammate |
+| Quick Pass | **1 per turn** | Short transfer to adjacent teammate |
+| Boot | **1 per turn** | Ankh-Morpork street tactics: attack prone opponent |
+| Stand Up | As needed | Stand up from prone (costs 3 MA) |
 
-## Ball Handling
+Players may perform **one action** per turn unless otherwise permitted by skills.
 
-### Pick-Up
-- Requires Agility test
-- **Failure**: Ball bounces, turnover
-- **Modifiers**: +1 if in tackle zones
+---
 
-### Passing
-- One pass attempt per turn
-- Roll against Passing Ability (PA)
-- Results: Accurate, Inaccurate, Wild, Fumble
-- **Fumble**: Turnover
+## 5. Player States
 
-### Catching
-- Requires Agility test
-- **Failure**: Ball bounces
-- If active team fails catch: Turnover
+- **Standing**
+- **Prone**
+- **Stunned**
+- **Knocked Out**
+- **Casualty/Removed**
 
-### Hand-Off (Quick Pass)
-- Transfer to adjacent teammate
-- Safer than throwing
-- Still requires catch roll
+---
 
-## Turnover Events
+## 6. Movement Rules
 
-Turn immediately ends if:
-- Ball carrier knocked down
-- Failed pick-up attempt
-- Failed dodge roll
-- Failed rush roll (extra movement)
-- Failed pass (fumble)
+- A player may move up to **Movement Allowance (MA)**.
+- **Rush** (extra movement): up to **2 squares**, each requiring a **2+** roll.
+- Leaving a square in an enemy **Tackle Zone** requires a **Dodge** roll.
+- Standing up costs **3 MA**.
+- No entering occupied squares.
+
+---
+
+## 7. Ball Handling
+
+- **Pick-Up**: Agility test; failure causes turnover.
+- **Catch**: Agility test; success required to gain possession.
+- **Scatter**: If ball is dropped or missed, scatter one square for drop, or per pass result.
+
+---
+
+## 8. Passing
+
+- One **Pass Action** per turn.
+- Roll vs **Passing Ability (PA)**.
+- Result categories:
+  - Accurate
+  - Inaccurate
+  - Wildly Inaccurate
+  - Fumble (turnover)
+
+Interference (interception attempt) is one roll by a single eligible opponent.
+
+---
+
+## 9. Blocking (Scuffling)
+
+- Adjacent opponent required.
+- Compare Strength; determine dice:
+  - Stronger: attacker chooses result
+  - Equal: dice per standard strength table
+- Block dice outcomes:
+  - Attacker Down
+  - Both Down
+  - Push
+  - Defender Stumbles
+  - Defender Down
+
+Follow-ups optional unless compelled by a trait.
+
+---
+
+## 10. Armour & Injury
+
+1. If knocked down, roll **2d6 vs Armour Value (AV)**.
+2. On success, roll **2d6 injury**:
+   - **2–7** Stunned
+   - **8–9** Knocked Out
+   - **10+** Casualty
+
+Casualties roll on **d16 lasting injury** table (e.g. stat loss, miss next game, death).
+
+---
+
+## 11. Turnovers
+
+Turn ends immediately if:
+
+- Ball carrier is knocked down
+- Failed pick-up
+- Failed pass (fumble or no valid catch after scatter)
 - Failed catch by active team
-- Active team loses possession
+- Failed dodge
+- Failed rush
+- Illegal action attempt
+- Team commits a foul and is sent off
 
-## Rerolls
+---
 
-- Team rerolls: Limited per half
-- Can reroll any one roll
-- Cannot reroll same roll twice
-- Skills may provide specific rerolls
+## 12. Re-Rolls
 
-## Player States
+- Team re-rolls: one per roll, per turn.
+- Skill-based re-rolls follow individual rules.
+- No roll may be re-rolled more than once.
 
-- **Standing**: Normal, can act
-- **Prone**: Lying down, must stand (costs 3 MA)
-- **Stunned**: Prone + skip next action
-- **Knocked Out**: Off pitch temporarily
-- **Casualty**: Injured, may not return
+---
 
-## Key Stats
+## 13. Teams & Rosters
 
-### Movement Allowance (MA)
-- How far player can move per turn
-- Common values: 4-8
+Each team has a **1,000,000 gold** budget for purchasing players and rerolls during setup.
 
-### Strength (ST)
-- Used for blocking
-- Common values: 2-5
-- Higher is better for blocking
+### 13.1 City Watch
 
-### Agility (AG)
-- Used for dodging, catching, picking up
-- Format: "3+" means need 3-6 on d6
-- Lower number needed = better
+| Role | Qty | Cost | MA | ST | AG | PA | AV | Skills | Prim | Sec |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---|---|
+| Constable | 0–16 | 50k | 6 | 3 | 3+ | 4+ | 9+ | — | G | A,S |
+| Clerk-Runner | 0–2 | 80k | 6 | 3 | 3+ | 2+ | 9+ | Pigeon Post, Chain of Custody | G,P | A,S |
+| Fleet Recruit | 0–4 | 65k | 8 | 2 | 3+ | 5+ | 8+ | Quick Grab, Sidestep Shuffle | A,G | P,S |
+| Watch Sergeant | 0–4 | 85k | 7 | 3 | 3+ | 4+ | 9+ | Drill-Hardened | G,S | A,P |
+| Troll Constable | 0–2 | 115k | 4 | 5 | 5+ | 6+ | 10+ | Thick as a Brick, Rock Solid, Really Thick | S | G,A |
+| Street Veteran | 0–4 | 50k | 6 | 2 | 3+ | 5+ | 8+ | Street Fighting, Slippery | G,A | S |
+| Watchdog | 0–2 | 90k | 7 | 3 | 3+ | 4+ | 9+ | Lupine Speed, Keen Senses, Regenerative | G,A | S,P |
+| ⭐ Sergeant Detritus | 0–1 | 150k | 5 | 5 | 4+ | 6+ | 10+ | Cooling Helmet, Rock Solid, Thick as a Brick, Crossbow Training, Break Heads, Kingly Presence | S | G |
+| ⭐ Captain Carrot | 0–1 | 130k | 6 | 4 | 3+ | 3+ | 10+ | True King, Kingly Presence, Honest Fighter, Will Not Back Down, Diplomatic Immunity, Trusted by All | G,P | S,A |
 
-### Passing Ability (PA)
-- Used for throwing ball
-- Format: "3+" means need 3-6 on d6
-- Lower number needed = better
+**Team Re-rolls:** 50k each (max 8)
 
-### Armor Value (AV)
-- Resistance to injury
-- Format: "9+" means need 9+ on 2d6
-- Higher is better (harder to injure)
+### 13.2 Unseen University Wizards
 
-## Scoring
+| Role | Qty | Cost | MA | ST | AG | PA | AV | Skills/Traits | Prim | Sec |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---|---|
+| Apprentice Wizard | 0–12 | 45k | 6 | 2 | 3+ | 4+ | 8+ | Blink, Small & Sneaky, Portable, Pointy Hat Padding | A | G,P,S |
+| Senior Wizard | 0–6 | 90k | 4 | 4 | 4+ | 5+ | 10+ | Reroll the Thesis, Grappling Cantrip | G,S | A,P |
+| Animated Gargoyle | 0–1 | 115k | 4 | 5 | 5+ | 5+ | 10+ | Bound Spirit, Stone-Thick, Pigeon-Proof, Mindless Masonry, Weathered, Lob the Lackey, Occasional Bite Mark | S | A,G,P |
+| Battle Mage | 0–4 | 85k | 5 | 3 | 3+ | 5+ | 9+ | Combat Evocation, Arcane Strike | G,S | A,P |
+| Haste Mage | 0–2 | 75k | 8 | 2 | 3+ | 5+ | 7+ | Haste Spell, Blink Dodge, Fleet Footed | A | G,P |
+| Technomancer | 0–2 | 80k | 6 | 2 | 3+ | 3+ | 8+ | Hex-Assisted, Calculated Trajectory | G,P | A |
+| Orangutan Scholar | 0–1 | 115k | 7 | 4 | 3+ | 6+ | 9+ | Simian Agility, Four Limbs, Independent | G,S | A,P |
+| ⭐ The Librarian | 0–1 | 145k | 8 | 4 | 2+ | 5+ | 9+ | Prehensile Everything, Library Swinging, Protective Instinct, Bibliophile Rage, Independent, Terrifying Glare | G,S | A,P |
+| ⭐ Archchancellor Ridcully | 0–1 | 140k | 5 | 4 | 3+ | 4+ | 10+ | Archchancellor, Robust Physique, Booming Voice, Arcane Mastery, Headology Expert, Stubborn | G,P,S | A |
 
-- Score by moving ball carrier into opponent end zone
-- Each score = 1 "Scratch"
-- Team with most Scratches wins
+**Team Re-rolls:** 60k each (max 8)
 
-## Special Zones
+---
 
-- **End Zones**: Scoring areas at each end
-- **Wide Zones**: Sides of pitch (max 2 players in setup)
-- **Line of Scrimmage**: Center line for kickoffs
+## 14. Skills (Thematic Names → Blood Bowl Equivalents)
 
-## Weather (Optional)
+### City Watch Skills
+| Themed Name | Blood Bowl Effect |
+|---|---|
+| Drill-Hardened | Block |
+| Pigeon Post | Pass |
+| Chain of Custody | Sure Hands |
+| Quick Grab | Catch |
+| Sidestep Shuffle | Dodge |
+| Thick as a Brick | Thick Skull |
+| Rock Solid | Stand Firm |
+| Really Thick | Bone Head |
+| Cooling Helmet | Bone Head (2+ only) |
+| Crossbow Training | Mighty Blow +1 |
+| Break Heads | Break Tackle |
+| Street Fighting | Dirty Player +1 |
+| Slippery | Dodge |
+| Lupine Speed | Sure Feet |
+| Keen Senses | Catch |
+| Regenerative | Regeneration |
+| True King | Leader |
+| Kingly Presence | Guard |
+| Honest Fighter | Block |
+| Will Not Back Down | Dauntless |
+| Diplomatic Immunity | Fend |
+| Trusted by All | Inspiring Presence |
 
-May affect gameplay:
-- **Sweltering**: Players tire
-- **Sunny**: Passing harder (-1)
-- **Rain**: Ball handling harder (-1)
-- **Blizzard**: Movement and passing affected
+### Wizard Skills
+| Themed Name | Blood Bowl Effect |
+|---|---|
+| Blink | Dodge |
+| Small & Sneaky | Stunty |
+| Portable | Right Stuff |
+| Pointy Hat Padding | Thick Skull |
+| Reroll the Thesis | Brawler |
+| Grappling Cantrip | Grab |
+| Bound Spirit | Loner (3+) |
+| Stone-Thick | Mighty Blow (+1) |
+| Pigeon-Proof | Projectile Vomit |
+| Mindless Masonry | Really Stupid |
+| Weathered | Regeneration |
+| Lob the Lackey | Throw Team-Mate |
+| Occasional Bite Mark | Always Hungry |
+| Combat Evocation | Block |
+| Arcane Strike | Mighty Blow +1 |
+| Battle Hardened | Thick Skull |
+| Aggressive Casting | Juggernaut |
+| Haste Spell | Sprint |
+| Blink Dodge | Dodge |
+| Fleet Footed | Sure Feet |
+| Hex-Assisted | Sure Hands |
+| Calculated Trajectory | Pass |
+| Safe Pair of Hands | Safe Pass |
+| Dump-Off Spell | Dump-Off |
+| Prehensile Everything | Extra Arms |
+| Library Swinging | Leap |
+| Protective Instinct | Guard |
+| Bibliophile Rage | Frenzy |
+| Terrifying Glare | Disturbing Presence |
+| Archchancellor | Leader |
+| Robust Physique | Block |
+| Booming Voice | Guard |
+| Arcane Mastery | Pass |
+| Headology Expert | Hypnotic Gaze |
+| Stubborn | Stand Firm |
+| Simian Agility | Leap |
+| Four Limbs | Extra Arms |
+| Independent | Loner 4+ |
 
-## Common Situations
+---
 
-### Protecting Ball Carrier
-- Surround with teammates
-- Create screen of tackle zones
-- Avoid leaving exposed to blocks
+## 15. Weather (Optional)
 
-### Blitzing Ball Carrier
-- Use Charge action (move + block)
-- Target ball carrier directly
-- Knockdown causes turnover
+| Roll | Weather | Effect |
+|---:|---|---|
+| 2 | Sweltering Heat | D3 players rest next drive |
+| 3 | Very Sunny | –1 to passing |
+| 4–10 | Perfect | Normal |
+| 11 | Pouring Rain | –1 to ball handling |
+| 12 | Blizzard | –1 rush; only short passes |
 
-### Safe Plays
-- Move players in safe areas first
-- Save risky moves for end of turn
-- Keep rerolls for critical moments
+---
 
-### Cage Formation
-- 4 players around ball carrier
-- Diamond or square shape
-- Protects from most angles
+## 16. Server Requirements
 
-## Tips
+- Server maintains authoritative state: board, players, turn, re-rolls, ball, modifiers.
+- All moves validated against state rules before execution.
+- Server logs all events and dice rolls.
+- Suggested API actions:
+  - `/create`, `/join`, `/state`
+  - `/setup`, `/action`, `/reroll`
+  - `/valid-actions`, `/end-turn`
 
-1. **Count tackle zones** before moving
-2. **Protect the ball** carrier always
-3. **Screen opponent** blockers from ball carrier
-4. **Use safe moves first**, risky last
-5. **Save rerolls** for critical failures
-6. **Position for next turn**, not just this one
-7. **Know when to end turn** (don't push luck)
+---
+
+## 17. Victory
+
+- Highest Scratches at end of second half wins.
+- Optional sudden-death overtime if configured.
+
+---
+
+##End of Specification
+
+
+---
+
+*This file is auto-generated from `rules.md`. To update, edit the source file and run `make generate-docs`.*

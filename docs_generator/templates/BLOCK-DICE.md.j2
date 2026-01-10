@@ -1,0 +1,57 @@
+# Block Dice Probabilities Reference
+
+**Auto-generated from `app/game/combat.py`** - Do not edit manually!
+
+Complete blocking/combat mechanics for Ankh-Morpork Scramble.
+
+## Block Dice Results
+
+{% for result in block_results %}
+### {{ result.symbol }} {{ result.result | upper | replace("_", " ") }}
+
+{{ result.description }}
+
+{% endfor %}
+
+## Strength Comparison Table
+
+Number of dice rolled and who chooses the result:
+
+| Situation | Condition | Dice | Chooser |
+|-----------|-----------|------|---------|
+{% for key, comp in strength_comparison.items() -%}
+| {{ key | replace("_", " ") | title }} | {{ comp.condition }} | {{ comp.dice }} | {{ comp.choose | title }} |
+{% endfor %}
+
+## Injury Rolls
+
+After a player is knocked down, roll {{ armor_roll.dice }} against their Armour Value (AV).
+
+**Armor Roll**: {{ armor_roll.description }}
+
+If armor is broken (roll ≥ AV), make an injury roll:
+
+| Roll (2d6) | Result | Effect |
+|------------|--------|--------|
+{% for injury in injury_results -%}
+| {{ injury.roll }} | {{ injury.result | upper }} | {{ injury.description }} |
+{% endfor %}
+
+## Block Dice Faces (Single Die)
+
+Each face of a standard block die shows:
+{% for face in block_dice_faces['1_die'] %}
+- {{ face | replace("_", " ") | title }}
+{% endfor %}
+
+## Combat Strategy
+
+- **Much Stronger (+2 ST)**: Roll 3 dice, choose best → very favorable
+- **Stronger (+1 ST)**: Roll 2 dice, choose best → favorable  
+- **Equal ST**: Roll 1 die, must use result → neutral
+- **Weaker (-1 ST)**: Roll 2 dice, opponent chooses → unfavorable
+- **Much Weaker (-2 ST)**: Roll 3 dice, opponent chooses → very unfavorable
+
+---
+
+*This file is auto-generated from game mechanics. To update, edit `app/game/combat.py` constants and run `make generate-docs`.*

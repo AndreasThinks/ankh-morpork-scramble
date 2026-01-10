@@ -8,10 +8,9 @@ Complete rules for passing, catching, and ball scatter in Ankh-Morpork Scramble.
 
 | Range | Distance | Modifier | Risk Level |
 |-------|----------|----------|------------|
-| Quick | 1-3 | +1 | Low |
-| Short | 4-6 | 0 | Medium |
-| Long | 7-12 | -1 | High |
-| Long Bomb | 13+ | -2 | Very High |
+{% for range in pass_ranges -%}
+| {{ range.name }} | {{ range.distance }} | {{ range.modifier }} | {{ range.risk }} |
+{% endfor %}
 
 ## Pass Accuracy Results
 
@@ -19,10 +18,9 @@ After rolling d6 and adding modifiers, compare to passer's Passing target:
 
 | Condition | Result | Scatter | From | Turnover? |
 |-----------|--------|---------|------|-----------|
-| Natural 1 | FUMBLE | 1x | thrower | ✅ |
-| < Target | WILDLY_INACCURATE | 3x | target | ❌ |
-| Target to Target+2 | INACCURATE | 1x | target | ❌ |
-| ≥ Target+3 | ACCURATE | 0x | — | ❌ |
+{% for result in pass_results -%}
+| {{ result.condition }} | {{ result.result | upper }} | {{ result.scatter }}x | {{ result.scatter_from or "—" }} | {{ "✅" if result.turnover else "❌" }} |
+{% endfor %}
 
 ## Scatter Directions
 
@@ -38,38 +36,33 @@ When ball scatters, roll d8 for direction:
 
 | Roll | Direction | Movement |
 |------|-----------|----------|
-| 1 | NE | (+1, +1) |
-| 2 | E | (+1, +0) |
-| 3 | SE | (+1, -1) |
-| 4 | S | (+0, -1) |
-| 5 | SW | (-1, -1) |
-| 6 | W | (-1, +0) |
-| 7 | NW | (-1, +1) |
-| 8 | N | (+0, +1) |
+{% for roll, dir in scatter_directions.items() -%}
+| {{ roll }} | {{ dir.name }} | ({{ "+%d" % dir.dx if dir.dx >= 0 else dir.dx }}, {{ "+%d" % dir.dy if dir.dy >= 0 else dir.dy }}) |
+{% endfor %}
 
 ## Catching
 
-**Roll d6 ≥ Agility target**
+**{{ catch_rules.base }}**
 
-**Modifiers**: −1 per tackle zone, +1 for Quick Grab skill
+**Modifiers**: {{ catch_rules.modifiers }}
 
-**Failure**: Ball scatters + TURNOVER
+**Failure**: {{ catch_rules.failure }}
 
 ## Pickup
 
-**Roll d6 ≥ Agility target**
+**{{ pickup_rules.base }}**
 
-**Modifiers**: −1 per tackle zone, +1 for Chain of Custody skill
+**Modifiers**: {{ pickup_rules.modifiers }}
 
-**Failure**: Ball scatters + TURNOVER
+**Failure**: {{ pickup_rules.failure }}
 
 ## Hand-Off
 
-**Requirements**: Adjacent teammates only
+**Requirements**: {{ hand_off_rules.requirements }}
 
-**Roll Needed**: None (automatic success)
+**Roll Needed**: {{ hand_off_rules.roll }}
 
-**Failure**: Never (if legal)
+**Failure**: {{ hand_off_rules.failure }}
 
 ## Summary
 
