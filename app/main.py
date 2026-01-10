@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
+from app.api.middleware import rate_limiter, sanitize_id
 
 from app.models.game_state import GameState
 from app.models.team import TeamType
@@ -40,19 +41,6 @@ _LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
 logger = logging.getLogger("app.main")
 if _LOG_FILE:
     logger.info("API log file initialised at %s", _LOG_FILE)
-
-# Import the custom MCP server with manually-crafted tools
-from app.mcp_server import mcp
-
-# Configure MCP-specific logging
-_MCP_LOG_FILE = configure_root_logger(
-    service_name="mcp",
-    env_prefix="MCP_",
-    default_level=os.getenv("MCP_LOG_LEVEL", "INFO")
-)
-mcp_logger = logging.getLogger("fastmcp")
-if _MCP_LOG_FILE:
-    mcp_logger.info("MCP logging initialized at %s", _MCP_LOG_FILE)
 
 # Initialize game based on DEMO_MODE setting
 # DEMO_MODE=true (default): Pre-configured demo game ready to play
@@ -98,16 +86,18 @@ async def app_lifespan(app: FastAPI):
     logger.info("FastAPI application shutting down...")
 
 
-# Create initial FastAPI app WITHOUT lifespan (will be replaced later)
+# Configure CORS origins
+cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="Ankh-Morpork Scramble API",
     description="Turn-based sports game server based on Blood Bowl mechanics",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=app_lifespan
 )
 
 # Configure CORS for web dashboard and external clients
-# In production, set CORS_ORIGINS environment variable to restrict origins
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in cors_origins],
@@ -115,6 +105,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting middleware
+app.middleware("http")(rate_limiter)
 
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
@@ -828,37 +821,6 @@ def rematch_game(game_id: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# Use the custom MCP server from app.mcp_server
-# This server has manually-crafted tools with sanitization, rate limiting, etc.
-logger.info("Using custom MCP server with manually-crafted tools")
-
-# Create MCP ASGI app with streamable-http transport (required for Cline agents)
-# Specify /mcp path in the app itself, then mount at root to avoid double-pathing
-mcp_app = mcp.http_app(path="/mcp", transport="streamable-http")
-
-# Define combined lifespan that nests both FastAPI and MCP lifespans
-@asynccontextmanager
-async def combined_lifespan(app_instance: FastAPI):
-    """Combined lifespan for FastAPI and MCP."""
-    # Run both lifespans - outer context first, then inner
-    async with app_lifespan(app_instance):
-        async with mcp_app.lifespan(app_instance):
-            logger.info("MCP server ready at /mcp")
-            yield
-
-# Create new FastAPI app with combined lifespan and all existing routes
-app = FastAPI(
-    title="Ankh-Morpork Scramble API",
-    description="Turn-based sports game server based on Blood Bowl mechanics",
-    version="0.1.0",
-    lifespan=combined_lifespan,
-    routes=app.routes  # Preserve all routes from the initial app
-)
-
-# Mount MCP server at root so /mcp path is preserved
-app.mount("", mcp_app)
-logger.info("MCP server mounted at /mcp")
 
 if __name__ == "__main__":
     import uvicorn
