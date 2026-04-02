@@ -553,6 +553,11 @@ def execute_action(game_id: str, action: ActionRequest):
             scored_team = game_manager.check_scoring(game_id)
             if scored_team:
                 result.details["scored"] = scored_team
+            
+            # Attach current game state context to result
+            result.details['pitch'] = game_state.pitch.model_dump()
+            result.details['turn'] = game_state.turn.model_dump() if game_state.turn else None
+            result.details['phase'] = game_state.phase.value
         
         # If turnover, automatically end turn
         if result.turnover:
@@ -622,8 +627,13 @@ def get_valid_actions(game_id: str):
                 targets = []
                 for adj_player_id in game_state.pitch.get_adjacent_players(player_pos):
                     adj_player = game_state.get_player(adj_player_id)
-                    if adj_player.team_id != player.team_id and adj_player.is_active:
-                        targets.append(adj_player_id)
+                    # Check adjacency (distance <= 1 in both x and y)
+                    adj_pos = game_state.pitch.player_positions.get(adj_player_id)
+                    if adj_pos:
+                        dx = abs(player_pos.x - adj_pos.x)
+                        dy = abs(player_pos.y - adj_pos.y)
+                        if dx <= 1 and dy <= 1 and adj_player.team_id != player.team_id and adj_player.is_active:
+                            targets.append(adj_player_id)
                 
                 if targets:
                     blockable_targets[player_id] = targets

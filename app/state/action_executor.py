@@ -203,7 +203,7 @@ class ActionExecutor:
     def _execute_scuffle(self, game_state: GameState, action: ActionRequest) -> ActionResult:
         """Execute a scuffle action (block/brawl)"""
         if not action.target_player_id:
-            return ActionResult(success=False, message="No target player specified")
+            return ActionResult(success=False, message="No target player specified", turnover=False)
 
         logger = EventLogger(game_state)
         attacker = game_state.get_player(action.player_id)
@@ -212,7 +212,7 @@ class ActionExecutor:
         # Check if block is valid
         can_block, error = self.combat.can_block(game_state, attacker, defender)
         if not can_block:
-            return ActionResult(success=False, message=error or "Cannot block")
+            return ActionResult(success=False, message=error or "Cannot block", turnover=False)
 
         # Execute block
         block_result, dice_rolls, defender_down, attacker_down = self.combat.execute_block(
@@ -301,6 +301,9 @@ class ActionExecutor:
             all_dice_rolls.extend(dice_rolls)
 
             if not success:
+                # Only turnover if dice rolls failed (not invalid path)
+                turnover = len(dice_rolls) > 0
+                
                 # Log failed movement
                 if dice_rolls:
                     failed_roll = dice_rolls[-1]
@@ -315,7 +318,7 @@ class ActionExecutor:
                     success=False,
                     message=f"Charge movement failed: {error}",
                     dice_rolls=all_dice_rolls,
-                    turnover=True
+                    turnover=turnover
                 )
 
             # Log successful movement
@@ -338,7 +341,8 @@ class ActionExecutor:
             return ActionResult(
                 success=False,
                 message=f"Cannot block: {error}",
-                dice_rolls=all_dice_rolls
+                dice_rolls=all_dice_rolls,
+                turnover=False
             )
 
         block_result, block_dice, defender_down, attacker_down = self.combat.execute_block(

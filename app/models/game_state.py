@@ -148,6 +148,10 @@ class GameState(BaseModel):
         if not self.turn:
             raise ValueError("No active turn")
         
+        # Transition from KICKOFF to PLAYING after first turn
+        if self.phase == GamePhase.KICKOFF:
+            self.phase = GamePhase.PLAYING
+        
         # Reset active team's players
         active_team = self.get_active_team()
         for player in self.get_team_players(active_team.id):
