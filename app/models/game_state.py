@@ -37,6 +37,9 @@ class TurnState(BaseModel):
     hurl_used: bool = False  # was pass_used
     quick_pass_used: bool = False  # was hand_off_used
     boot_used: bool = False  # was foul_used
+    
+    # Turnover tracking to prevent double end_turn
+    turnover_ended_turn: bool = False
 
 
 class GameState(BaseModel):
@@ -147,6 +150,9 @@ class GameState(BaseModel):
         """Switch to the other team's turn"""
         if not self.turn:
             raise ValueError("No active turn")
+        
+        # Reset turnover flag at the start
+        self.turn.turnover_ended_turn = False
         
         # Transition from KICKOFF to PLAYING after first turn
         if self.phase == GamePhase.KICKOFF:

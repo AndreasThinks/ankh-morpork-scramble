@@ -561,6 +561,8 @@ def execute_action(game_id: str, action: ActionRequest):
         
         # If turnover, automatically end turn
         if result.turnover:
+            # Set flag before calling end_turn to prevent double calls
+            game_state.turn.turnover_ended_turn = True
             game_manager.end_turn(game_id)
             result.details["turn_ended"] = True
         

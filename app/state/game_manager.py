@@ -196,6 +196,10 @@ class GameManager:
 
         if game_state.phase == GamePhase.CONCLUDED:
             raise ValueError("Cannot end turn on a concluded game")
+        
+        # Guard against double end_turn calls
+        if game_state.turn.turnover_ended_turn:
+            return game_state
 
         # Log turn end for current team
         event_logger = EventLogger(game_state)

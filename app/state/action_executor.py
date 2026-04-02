@@ -130,6 +130,7 @@ class ActionExecutor:
         if not success:
             # Movement failed - only turnover if dice rolls failed
             turnover = len(dice_rolls) > 0  # Turnover only if a roll was made and failed
+            ball_dropped = False
             
             if dice_rolls:
                 # Log the failed dodge/rush that caused the turnover
@@ -140,12 +141,20 @@ class ActionExecutor:
                 elif "rush" in failed_roll.type.lower() or "gfi" in failed_roll.type.lower():
                     logger.log_rush(action.player_id, final_pos, failed_roll, False)
                     logger.log_turnover(TurnoverReason.FAILED_RUSH, action.player_id)
+                
+                # Drop ball if player was carrying it
+                if game_state.pitch.ball_carrier == action.player_id:
+                    game_state.pitch.drop_ball()
+                    ball_dropped = True
+                    if start_pos:
+                        logger.log_drop(action.player_id, start_pos, 'dodge failed')
 
             return ActionResult(
                 success=False,
                 message=error or "Movement failed",
                 dice_rolls=dice_rolls,
-                turnover=turnover
+                turnover=turnover,
+                ball_dropped=ball_dropped
             )
 
         # Log successful movement
@@ -303,6 +312,7 @@ class ActionExecutor:
             if not success:
                 # Only turnover if dice rolls failed (not invalid path)
                 turnover = len(dice_rolls) > 0
+                ball_dropped = False
                 
                 # Log failed movement
                 if dice_rolls:
@@ -313,12 +323,20 @@ class ActionExecutor:
                     elif "rush" in failed_roll.type.lower() or "gfi" in failed_roll.type.lower():
                         logger.log_rush(action.player_id, final_pos, failed_roll, False)
                         logger.log_turnover(TurnoverReason.FAILED_RUSH, action.player_id)
+                    
+                    # Drop ball if player was carrying it
+                    if game_state.pitch.ball_carrier == action.player_id:
+                        game_state.pitch.drop_ball()
+                        ball_dropped = True
+                        if start_pos:
+                            logger.log_drop(action.player_id, start_pos, 'dodge failed')
 
                 return ActionResult(
                     success=False,
                     message=f"Charge movement failed: {error}",
                     dice_rolls=all_dice_rolls,
-                    turnover=turnover
+                    turnover=turnover,
+                    ball_dropped=ball_dropped
                 )
 
             # Log successful movement
