@@ -183,6 +183,164 @@ def _parse_step(text: str) -> tuple[str, dict | None]:
     return "", None
 
 
+def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> str:
+     """Convert the /valid-actions JSON into human-readable sentences the LLM can reason about."""
+     players = state.get("players") or {}
+     pitch = state.get("pitch") or {}
+     player_positions = pitch.get("player_positions") or {}
+
+     lines = ["WHAT YOU CAN DO THIS ACTION:"]
+
+     # Per-player move opportunities
+     movable = valid_actions.get("movable_players") or []
+     if movable:
+         lines.append("")
+         lines.append("Players who can still MOVE (have MA remaining, not yet acted):")
+         for pid in movable:
+             p = players.get(pid) or {}
+             pos = player_positions.get(pid) or {}
+             position_data = p.get("position") or {}
+             role = position_data.get("role", pid)
+             ma_total = position_data.get("ma", "?")
+             movement_used = p.get("movement_used", 0)
+             if isinstance(ma_total, int):
+                 ma_remaining = max(0, ma_total - movement_used)
+                 ma_note = f"{ma_remaining} squares remaining (used {movement_used}/{ma_total})"
+             else:
+                 ma_note = f"MA{ma_total}"
+             x, y = pos.get("x", "?"), pos.get("y", "?")
+             lines.append(f"  - [{pid}] {role} at ({x},{y}): {ma_note}")
+     else:
+         lines.append("  No players can move (all have acted or exhausted MA).")
+
+     # Block/scuffle opportunities
+     blockable = valid_actions.get("blockable_targets") or {}
+     if blockable:
+         lines.append("")
+         lines.append("Players who can BLOCK (scuffle) — already adjacent to an opponent:")
+         for attacker_pid, target_pids in blockable.items():
+             p = players.get(attacker_pid) or {}
+             pos = player_positions.get(attacker_pid) or {}
+             position_data = p.get("position") or {}
+             role = position_data.get("role", attacker_pid)
+             x, y = pos.get("x", "?"), pos.get("y", "?")
+             target_descs = []
+             for tpid in target_pids:
+                 tp = players.get(tpid) or {}
+                 tpos = player_positions.get(tpid) or {}
+                 trole = (tp.get("position") or {}).get("role", tpid)
+                 tx, ty = tpos.get("x", "?"), tpos.get("y", "?")
+                 target_descs.append(f"[{tpid}] {trole} at ({tx},{ty})")
+             lines.append(f"  - [{attacker_pid}] {role} at ({x},{y}) can scuffle: {'; '.join(target_descs)}")
+
+     # One-per-turn special actions
+     specials = []
+     if valid_actions.get("can_charge"):
+         specials.append("CHARGE (move + block in one action) — not yet used this turn")
+     else:
+         specials.append("CHARGE — already used this turn (only once allowed)")
+     if valid_actions.get("can_hurl"):
+         specials.append("HURL (pass the ball) — not yet used this turn")
+     else:
+         specials.append("HURL — already used this turn")
+     if valid_actions.get("can_quick_pass"):
+         specials.append("QUICK PASS (hand-off to adjacent teammate) — not yet used this turn")
+     else:
+         specials.append("QUICK PASS — already used this turn")
+
+     lines.append("")
+     lines.append("One-per-turn special actions:")
+     for s in specials:
+         lines.append(f"  - {s}")
+
+     # Ball state
+     ball_carrier = valid_actions.get("ball_carrier")
+     ball_on_ground = valid_actions.get("ball_on_ground", False)
+     ball_pos = valid_actions.get("ball_position")
+     lines.append("")
+     if ball_carrier:
+         bc = players.get(ball_carrier) or {}
+         bc_team = bc.get("team_id", "?")
+         bc_role = (bc.get("position") or {}).get("role", ball_carrier)
+         ownership = "YOUR player" if bc_team == team_id else "OPPONENT'S player"
+         bpos = player_positions.get(ball_carrier) or {}
+         bx, by = bpos.get("x", "?"), bpos.get("y", "?")
+         lines.append(f"Ball: carried by {ownership} [{ball_carrier}] {bc_role} at ({bx},{by})")
+     elif ball_on_ground and ball_pos:
+         lines.append(f"Ball: loose on ground at ({ball_pos.get('x','?')},{ball_pos.get('y','?')}) — move a player there to pick it up")
+     else:
+         lines.append("Ball: not yet in play")
+
+     lines.append("")
+     lines.append("You may also return action=null to end your turn voluntarily.")
+
+     return "\n".join(lines)
+
+
+def _build_failure_note(last_failure: str, last_action: dict | None, state: dict, team_id: str) -> str:
+     """Build a rich, contextual failure message for the LLM retry prompt."""
+     if not last_failure:
+         return ""
+
+     lines = ["PREVIOUS ACTION FAILED — choose a different valid action."]
+     lines.append(f"  Error: {last_failure}")
+
+     if last_action:
+         action_type = last_action.get("action_type", "unknown")
+         player_id = last_action.get("player_id")
+         lines.append(f"  Failed action: {action_type}" + (f" by player [{player_id}]" if player_id else ""))
+
+         if player_id:
+             players = state.get("players") or {}
+             pitch = state.get("pitch") or {}
+             player_positions = pitch.get("player_positions") or {}
+             p = players.get(player_id) or {}
+             pos = player_positions.get(player_id) or {}
+             position_data = p.get("position") or {}
+             role = position_data.get("role", player_id)
+             ma_total = position_data.get("ma", "?")
+             movement_used = p.get("movement_used", 0)
+             has_acted = p.get("has_acted", False)
+             state_val = p.get("state", "standing")
+             x, y = pos.get("x", "?"), pos.get("y", "?")
+
+             if isinstance(ma_total, int):
+                 ma_remaining = max(0, ma_total - movement_used)
+                 ma_note = f"{ma_remaining}/{ma_total} remaining"
+             else:
+                 ma_note = f"MA{ma_total}"
+
+             lines.append(f"  Player [{player_id}] {role} stats:")
+             lines.append(f"    Position: ({x},{y})  State: {state_val}  MA: {ma_note}  Already acted: {has_acted}")
+
+             if has_acted:
+                 lines.append("    -> This player has already acted this turn. Pick a different player.")
+             if isinstance(ma_total, int) and ma_total - movement_used <= 0:
+                 lines.append("    -> This player has no MA remaining. Pick a different player or end turn.")
+             if state_val in ("knocked_out", "casualty"):
+                 lines.append("    -> This player is off the pitch and cannot act.")
+             if state_val == "stunned":
+                 lines.append("    -> This player is stunned and cannot act.")
+
+         # If it was a move, note path length constraint
+         if action_type == "move":
+             path = last_action.get("path") or []
+             lines.append(f"  Path you tried had {len(path)} steps.")
+             if player_id:
+                 players = state.get("players") or {}
+                 p = players.get(player_id) or {}
+                 position_data = p.get("position") or {}
+                 ma_total = position_data.get("ma", "?")
+                 movement_used = p.get("movement_used", 0)
+                 if isinstance(ma_total, int):
+                     ma_remaining = max(0, ma_total - movement_used)
+                     lines.append(f"  Player can move at most {ma_remaining} squares (+ up to 2 rush squares with dice).")
+                     lines.append(f"  Path must be exactly the squares you want to traverse — don't include starting square.")
+
+     lines.append("")
+     return "\n".join(lines)
+
+
 def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
               model: str = None, system_prompt: str = None,
               base_url: str = "http://localhost:8000") -> None:
@@ -197,6 +355,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
 
     actions_taken = 0
     last_failure: str | None = None
+    last_action: dict | None = None
 
     while actions_taken < MAX_ACTIONS_PER_TURN:
         # Refresh state before each action
@@ -211,14 +370,24 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
             logger.info(f"[{team_name}] Turn passed (turnover or phase change).")
             return
 
-        summary = summarize_for_player(state, team_id)
+        summary, players_unacted = summarize_for_player(state, team_id)
         valid_r = requests.get(f"{base_url}/game/{game_id}/valid-actions", timeout=5)
         valid_actions = valid_r.json() if valid_r.status_code == 200 else {}
 
-        failure_note = f"\nPREVIOUS ACTION FAILED: {last_failure}\nChoose a different valid action.\n" if last_failure else ""
+        valid_actions_prose = _describe_valid_actions(valid_actions, state, team_id)
+
+        if players_unacted == 0:
+            turn_status = "TURN STATUS: All your players have acted — consider ending your turn (return action=null)."
+        elif players_unacted == 1:
+            turn_status = "TURN STATUS: 1 player has not yet acted this turn."
+        else:
+            turn_status = f"TURN STATUS: {players_unacted} players have not yet acted this turn."
+
+        failure_note = _build_failure_note(last_failure, last_action, state, team_id)
         user_msg = (
             f"{summary}\n\n"
-            f"VALID ACTIONS:\n{json.dumps(valid_actions, indent=2)}\n"
+            f"{turn_status}\n\n"
+            f"{valid_actions_prose}\n"
             f"{failure_note}\n"
             "What is your next single action? Return one JSON object with 'thought' and 'action'."
         )
@@ -255,15 +424,18 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
 
                 if ok:
                     last_failure = None
+                    last_action = None
                     actions_taken += 1
                     break
                 else:
                     last_failure = msg
+                    last_action = action
                     if attempt < MAX_RETRIES_PER_ACTION - 1:
                         # Ask LLM for a different action on next loop iteration
                         break
             except Exception as e:
                 last_failure = str(e)
+                last_action = action
                 logger.warning(f"[{team_name}] Action error: {e}")
                 break
 
