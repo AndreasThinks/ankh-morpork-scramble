@@ -108,7 +108,7 @@ def run_setup() -> None:
     logger.info("Waiting for both teams to be ready...")
     for _ in range(30):
         state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
-        if state.get("players_ready"):
+        if state.get("team1_ready") and state.get("team2_ready"):
             r = requests.post(f"{SERVER_URL}/game/{GAME_ID}/start")
             if r.status_code == 200:
                 logger.info("Game started!")
