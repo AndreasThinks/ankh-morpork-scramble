@@ -137,7 +137,7 @@ def run_game() -> None:
             final_comment(GAME_ID, state, COMMENTATOR_MODEL, SERVER_URL)
             break
 
-        if phase in ("kickoff", "setup"):
+        if phase in ("setup",):
             time.sleep(1)
             continue
 
