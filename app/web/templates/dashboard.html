@@ -544,68 +544,260 @@
 
         .game-log .log-entries {
             flex: 1;
-            font-size: 0.88rem;
-            color: var(--muted);
-            line-height: 1.6;
-            overflow-y: auto;
-            max-height: 400px;
-            white-space: pre-wrap;
-            font-family: 'Courier New', monospace;
-        }
-
-        .game-log .log-entries h1,
-        .game-log .log-entries h2,
-        .game-log .log-entries h3 {
-            color: var(--accent-gold);
-            font-family: "Cinzel", "Times New Roman", serif;
-            margin: 0.8rem 0 0.4rem;
-            line-height: 1.3;
-        }
-
-        .game-log .log-entries h1 {
-            font-size: 1.3rem;
-            border-bottom: 2px solid rgba(217, 180, 91, 0.3);
-            padding-bottom: 0.3rem;
-        }
-
-        .game-log .log-entries h2 {
-            font-size: 1.1rem;
-            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
-            padding-bottom: 0.25rem;
-        }
-
-        .game-log .log-entries h3 {
-            font-size: 1rem;
-        }
-
-        .game-log .log-entries strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .game-log .log-entries hr {
-            border: none;
-            border-top: 1px solid rgba(217, 180, 91, 0.25);
-            margin: 0.8rem 0;
-        }
-
-        .game-log .log-entries ul {
-            margin: 0.3rem 0;
-            padding-left: 1.2rem;
-        }
-
-        .game-log .log-entries li {
-            margin: 0.2rem 0;
-        }
-
-        .game-log .log-entries table {
-            margin: 0.5rem 0;
             font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+            overflow-y: auto;
+            max-height: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
 
-        .game-log .log-entries th {
+        /* Log panel header: title + count badge on one row */
+        .log-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .log-header h3 {
+            margin: 0;
+        }
+
+        .log-count-badge {
+            background: rgba(217, 180, 91, 0.18);
+            border: 1px solid rgba(217, 180, 91, 0.35);
             color: var(--accent-gold);
+            font-size: 0.72rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            padding: 0.1em 0.55em;
+            border-radius: 999px;
+            letter-spacing: 0.04em;
+            min-width: 1.8em;
+            text-align: center;
+        }
+
+        /* Filter bar */
+        .log-filter-bar {
+            display: flex;
+            gap: 0.3rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .log-filter {
+            background: rgba(217, 180, 91, 0.06);
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            color: rgba(242, 227, 198, 0.6);
+            font-size: 0.72rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.2em 0.75em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+        .log-filter:hover {
+            background: rgba(217, 180, 91, 0.14);
+            color: rgba(242, 227, 198, 0.85);
+        }
+
+        .log-filter.active {
+            background: rgba(217, 180, 91, 0.22);
+            border-color: rgba(217, 180, 91, 0.5);
+            color: var(--accent-gold);
+        }
+
+        /* Base event row */
+        .log-event {
+            display: flex;
+            align-items: baseline;
+            gap: 0.4rem;
+            padding: 0.25rem 0.5rem;
+            border-left: 2px solid transparent;
+            transition: background 0.1s;
+            font-size: 0.82rem;
+        }
+
+        .log-event:hover {
+            background: rgba(242, 227, 198, 0.04);
+        }
+
+        .log-event-icon {
+            flex-shrink: 0;
+            width: 1.2em;
+            text-align: center;
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .log-event-body {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.35rem;
+        }
+
+        .log-event-desc {
+            color: var(--muted);
+            word-break: break-word;
+        }
+
+        .log-event-turn {
+            flex-shrink: 0;
+            font-size: 0.68rem;
+            color: rgba(217, 180, 91, 0.45);
+            letter-spacing: 0.04em;
+            margin-left: auto;
+            padding-left: 0.4rem;
+            font-family: "Cinzel", serif;
+        }
+
+        /* Result colour overrides */
+        .log-event-desc.result--success {
+            color: rgba(190, 220, 175, 0.85);
+        }
+
+        .log-event-desc.result--failure {
+            color: rgba(220, 140, 120, 0.85);
+        }
+
+        .log-event-desc.result--turnover {
+            color: rgba(230, 100, 90, 0.9);
+        }
+
+        /* Tier: quiet — MOVE, STAND_UP, TURN_START, TURN_END, ARMOR_BREAK, SCATTER, REROLL */
+        .log-event--tier-quiet {
+            opacity: 0.65;
+            padding-top: 0.15rem;
+            padding-bottom: 0.15rem;
+            font-size: 0.78rem;
+        }
+
+        .log-event--tier-quiet .log-event-icon {
+            opacity: 0.5;
+        }
+
+        /* Tier: action — BLOCK, FOUL, PASS, CATCH, PICKUP, DROP, HANDOFF, KICKOFF,
+                          DODGE, RUSH, KNOCKDOWN */
+        .log-event--tier-action {
+            border-left-color: rgba(217, 180, 91, 0.2);
+        }
+
+        .log-event--tier-action .log-event-desc {
+            color: rgba(242, 227, 198, 0.82);
+        }
+
+        /* Tier: dramatic — TURNOVER, INJURY, CASUALTY */
+        .log-event--tier-dramatic {
+            border-left-color: rgba(220, 100, 80, 0.6);
+            background: rgba(220, 100, 80, 0.06);
+        }
+
+        .log-event--tier-dramatic .log-event-desc {
+            color: rgba(242, 210, 180, 0.9);
+        }
+
+        /* Tier: landmark — TOUCHDOWN, HALF_START, HALF_END, GAME_START, GAME_END */
+        .log-event--tier-landmark {
+            border-left: none;
+            background: rgba(217, 180, 91, 0.1);
+            border-top: 1px solid rgba(217, 180, 91, 0.25);
+            border-bottom: 1px solid rgba(217, 180, 91, 0.25);
+            padding: 0.45rem 0.6rem;
+            margin: 0.35rem 0;
+        }
+
+        .log-event--tier-landmark .log-event-desc {
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 0.88em;
+            color: var(--accent-gold);
+            letter-spacing: 0.04em;
+        }
+
+        /* TOUCHDOWN: gold banner */
+        .log-event--touchdown {
+            background: rgba(217, 180, 91, 0.18) !important;
+            border-top: 1px solid rgba(217, 180, 91, 0.45) !important;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.45) !important;
+            padding: 0.55rem 0.7rem !important;
+            margin: 0.5rem 0 !important;
+        }
+
+        .log-event--touchdown .log-event-desc {
+            font-size: 0.95em !important;
             font-weight: 600;
+            color: #f0d87a !important;
+        }
+
+        /* TURNOVER: red accent */
+        .log-event--turnover {
+            border-left-color: rgba(220, 70, 60, 0.75) !important;
+            background: rgba(220, 70, 60, 0.08) !important;
+        }
+
+        /* CASUALTY: dark red */
+        .log-event--casualty {
+            border-left-color: rgba(180, 40, 40, 0.8) !important;
+            background: rgba(180, 40, 40, 0.1) !important;
+        }
+
+        /* HALF_START divider */
+        .log-event--half-start {
+            border-left: none !important;
+            border-top: 2px solid rgba(217, 180, 91, 0.35) !important;
+            border-bottom: 2px solid rgba(217, 180, 91, 0.35) !important;
+            background: rgba(217, 180, 91, 0.07) !important;
+            margin: 0.5rem 0 !important;
+            text-align: center;
+            justify-content: center;
+        }
+
+        /* Inline die display */
+        .log-dice {
+            display: inline-flex;
+            gap: 0.2rem;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .die {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.4em;
+            height: 1.4em;
+            border-radius: 3px;
+            font-size: 1em;
+            cursor: default;
+            border: 1px solid rgba(217, 180, 91, 0.2);
+            background: rgba(217, 180, 91, 0.07);
+            color: var(--muted);
+        }
+
+        .die--success {
+            border-color: rgba(120, 200, 120, 0.45);
+            background: rgba(100, 180, 100, 0.1);
+            color: rgba(160, 220, 140, 0.9);
+        }
+
+        .die--failure {
+            border-color: rgba(220, 100, 80, 0.45);
+            background: rgba(200, 80, 60, 0.1);
+            color: rgba(230, 140, 120, 0.9);
+        }
+
+        /* Placeholder row (shown before game starts) */
+        .log-event--placeholder {
+            opacity: 0.5;
+            font-style: italic;
         }
 
         .roster-panel {
@@ -1063,8 +1255,24 @@
             <span><span class="swatch" style="background: var(--accent-gold);"></span> Ball</span>
         </div>
         <div class="game-log" id="game-log">
-            <h3>Recent Events</h3>
-            <div class="log-entries" id="game-log-entries">The crowd waits for the opening whistle…</div>
+            <div class="log-header">
+                <h3>Match Events</h3>
+                <span class="log-count-badge" id="log-count-badge" title="Total events logged">0</span>
+            </div>
+            <div class="log-filter-bar" id="log-filter-bar" role="group" aria-label="Filter events">
+                <button class="log-filter active" data-filter="all">All</button>
+                <button class="log-filter" data-filter="combat">Combat</button>
+                <button class="log-filter" data-filter="ball">Ball</button>
+                <button class="log-filter" data-filter="turnovers">Turnovers</button>
+            </div>
+            <div class="log-entries" id="game-log-entries" role="log" aria-live="polite" aria-label="Match events">
+                <div class="log-event log-event--tier-quiet log-event--placeholder">
+                    <span class="log-event-icon" aria-hidden="true">⏳</span>
+                    <div class="log-event-body">
+                        <span class="log-event-desc">The crowd waits for the opening whistle…</span>
+                    </div>
+                </div>
+            </div>
         </div>
         <details class="roster-toggle" id="roster-toggle">
             <summary>Players on the Pitch</summary>
@@ -1485,12 +1693,6 @@
         });
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     async function renderThoughts(state) {
         try {
             // Fetch the latest messages from the API
@@ -1699,28 +1901,239 @@
         rosterBody.innerHTML = rows.join('');
     }
 
-    function parseMarkdownToHTML(markdown) {
-        let html = markdown;
+    // -----------------------------------------------------------------------
+    // Game log helpers
+    // -----------------------------------------------------------------------
 
-        // Headers
-        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    /** Minimal HTML entity escaping for user-visible strings. */
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"');
+    }
 
-        // Horizontal rules
-        html = html.replace(/^---$/gm, '<hr>');
+    /** Unicode die faces for d6 results 1-6. */
+    const DICE_FACES = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
-        // Bold
-        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    /** Icon for each event type. */
+    const EVENT_ICONS = {
+        touchdown:   '🏈',
+        turnover:    '🔄',
+        casualty:    '🚑',
+        injury:      '⚡',
+        knockdown:   '💫',
+        armor_break: '🛡',
+        block:       '💥',
+        foul:        '👢',
+        pass:        '📤',
+        catch:       '🤲',
+        pickup:      '⬆',
+        drop:        '💧',
+        scatter:     '🌬',
+        handoff:     '🤝',
+        kickoff:     '⚡',
+        move:        '→',
+        dodge:       '↩',
+        rush:        '💨',
+        stand_up:    '↑',
+        reroll:      '🎲',
+        half_start:  '📊',
+        half_end:    '🏁',
+        game_start:  '🎺',
+        game_end:    '🏆',
+        turn_start:  '▶',
+        turn_end:    '⏸',
+    };
 
-        // Lists (basic support)
-        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-        html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    /** Visual tier for each event type — controls size and background. */
+    function getEventTier(eventType) {
+        const LANDMARK = new Set([
+            'touchdown', 'half_start', 'half_end', 'game_start', 'game_end'
+        ]);
+        const DRAMATIC = new Set([
+            'turnover', 'casualty', 'injury'
+        ]);
+        const QUIET = new Set([
+            'move', 'stand_up', 'turn_start', 'turn_end', 'armor_break', 'scatter', 'reroll'
+        ]);
+        if (LANDMARK.has(eventType)) return 'landmark';
+        if (DRAMATIC.has(eventType)) return 'dramatic';
+        if (QUIET.has(eventType)) return 'quiet';
+        return 'action';
+    }
 
-        // Line breaks
-        html = html.replace(/\n/g, '<br>');
+    /** Filter category for each event type. */
+    function getEventCategory(eventType) {
+        const COMBAT = new Set([
+            'block', 'knockdown', 'armor_break', 'injury', 'casualty', 'foul'
+        ]);
+        const BALL = new Set([
+            'pickup', 'drop', 'pass', 'catch', 'scatter', 'handoff', 'kickoff', 'touchdown'
+        ]);
+        if (COMBAT.has(eventType)) return 'combat';
+        if (BALL.has(eventType)) return 'ball';
+        return 'other';
+    }
 
-        return html;
+    /** Whether an event is visible under the currently active filter. */
+    function eventMatchesFilter(eventType, result, filter) {
+        if (filter === 'all') return true;
+        if (filter === 'combat') return getEventCategory(eventType) === 'combat';
+        if (filter === 'ball')   return getEventCategory(eventType) === 'ball';
+        if (filter === 'turnovers') {
+            return eventType === 'turnover' || result === 'failure';
+        }
+        return true;
+    }
+
+    /** Render dice rolls as inline die-face spans. */
+    function renderDiceHTML(diceRolls) {
+        if (!diceRolls || diceRolls.length === 0) return '';
+        const dice = diceRolls.map(d => {
+            const face = (d.result >= 1 && d.result <= 6)
+                ? DICE_FACES[d.result]
+                : String(d.result);
+            const cls = d.success ? 'die--success' : 'die--failure';
+            const tip = d.target
+                ? `${d.type}: rolled ${d.result}, needed ${d.target}+`
+                : `${d.type}: ${d.result}`;
+            return `<span class="die ${cls}" title="${escapeHtml(tip)}">${face}</span>`;
+        });
+        return `<span class="log-dice">${dice.join('')}</span>`;
+    }
+
+    /**
+     * Build a single event row DOM element.
+     * Uses createElement (not innerHTML) to avoid nested escaping issues for the
+     * description text; innerHTML is only used for the dice sub-element where we
+     * control the content entirely.
+     */
+    function buildEventRow(event) {
+        const el = document.createElement('div');
+        const tier = getEventTier(event.event_type);
+        const category = getEventCategory(event.event_type);
+        const icon = EVENT_ICONS[event.event_type] || '•';
+        const turnLabel = (event.turn_number > 0)
+            ? `H${event.half}T${event.turn_number}`
+            : '';
+
+        // CSS class list: base + tier + specific type (underscores → hyphens)
+        const typeClass = 'log-event--' + event.event_type.replace(/_/g, '-');
+        el.className = `log-event ${typeClass} log-event--tier-${tier}`;
+
+        // Data attributes used by the filter logic
+        el.dataset.eventId   = event.event_id;
+        el.dataset.category  = category;
+        el.dataset.eventType = event.event_type;
+        el.dataset.result    = event.result || '';
+
+        // Icon
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'log-event-icon';
+        iconSpan.setAttribute('aria-hidden', 'true');
+        iconSpan.textContent = icon;
+        el.appendChild(iconSpan);
+
+        // Body: description + dice
+        const body = document.createElement('div');
+        body.className = 'log-event-body';
+
+        const desc = document.createElement('span');
+        const resultClass = event.result === 'success'  ? 'result--success'
+                          : event.result === 'failure'  ? 'result--failure'
+                          : event.result === 'turnover' ? 'result--turnover'
+                          : '';
+        desc.className = 'log-event-desc' + (resultClass ? ' ' + resultClass : '');
+        desc.textContent = event.description || '';
+        body.appendChild(desc);
+
+        const diceHTML = renderDiceHTML(event.dice_rolls);
+        if (diceHTML) {
+            const diceEl = document.createElement('span');
+            diceEl.innerHTML = diceHTML;
+            body.appendChild(diceEl.firstChild);  // append the .log-dice span
+        }
+
+        el.appendChild(body);
+
+        // Turn label
+        if (turnLabel) {
+            const turn = document.createElement('span');
+            turn.className = 'log-event-turn';
+            turn.textContent = turnLabel;
+            el.appendChild(turn);
+        }
+
+        return el;
+    }
+
+    /**
+     * Incrementally render new events into the log panel.
+     *
+     * Called with the full `state.events` array on every state poll.
+     * Only events beyond `lastRenderedEventCount` are processed, so DOM
+     * work is O(new events), not O(total events).
+     *
+     * If the events array has shrunk (game reset / rematch), the log is
+     * cleared and rebuilt from scratch.
+     *
+     * Events are appended at the bottom (chronological order). The panel
+     * auto-scrolls to show new events only when the user was already near
+     * the bottom.
+     */
+    function renderGameLog(events) {
+        if (!events) return;
+
+        const container = document.getElementById('game-log-entries');
+        if (!container) return;
+
+        // Game reset detected — clear and restart
+        if (events.length < lastRenderedEventCount) {
+            container.innerHTML = '';
+            lastRenderedEventCount = 0;
+        }
+
+        const newEvents = events.slice(lastRenderedEventCount);
+        if (newEvents.length === 0) return;
+
+        // Remove placeholder row on first real event
+        if (lastRenderedEventCount === 0) {
+            const placeholder = container.querySelector('.log-event--placeholder');
+            if (placeholder) placeholder.remove();
+        }
+
+        // Determine scroll position before touching DOM
+        const wasNearBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+
+        // Build and append new rows
+        const fragment = document.createDocumentFragment();
+        for (const event of newEvents) {
+            const el = buildEventRow(event);
+            // Apply current filter immediately so the row has the right visibility
+            el.hidden = !eventMatchesFilter(
+                event.event_type,
+                event.result || '',
+                activeLogFilter
+            );
+            fragment.appendChild(el);
+        }
+        container.appendChild(fragment);
+
+        // Advance the pointer
+        lastRenderedEventCount = events.length;
+
+        // Update count badge
+        const badge = document.getElementById('log-count-badge');
+        if (badge) badge.textContent = String(events.length);
+
+        // Auto-scroll to bottom only when user was already there
+        if (wasNearBottom) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 
     function stopPolling() {
@@ -1945,7 +2358,7 @@
             renderPitch(nextState);
             renderThoughts(nextState);
             renderRoster(nextState);
-            fetchGameLog();
+            renderGameLog(nextState.events || []);
 
             if (!isPolling) {
                 startPolling();
@@ -1957,75 +2370,6 @@
             scoreboardNote.textContent = `Could not start a new game: ${error.message}`;
         }
     });
-
-    async function fetchGameLog() {
-        try {
-            const response = await fetch(`/game/${gameId}/log?format=markdown`);
-            if (!response.ok) {
-                throw new Error(`Failed to load game log (${response.status})`);
-            }
-            const markdown = await response.text();
-
-            // Reverse the markdown content to show newest events first
-            const reversedMarkdown = reverseMarkdownSections(markdown);
-            
-            // Parse and render markdown
-            const html = parseMarkdownToHTML(reversedMarkdown);
-            
-            // Preserve scroll position or stay at top for new content
-            const wasAtTop = gameLogEntries.scrollTop === 0;
-            const oldScrollHeight = gameLogEntries.scrollHeight;
-            const oldScrollTop = gameLogEntries.scrollTop;
-            
-            gameLogEntries.innerHTML = html;
-            
-            // Scroll: snap to bottom if near it, otherwise preserve relative position
-            const isNearBottom = gameLogEntries.scrollHeight - gameLogEntries.scrollTop - gameLogEntries.clientHeight < 120;
-            if (isNearBottom) {
-                gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
-            } else if (!wasAtTop && oldScrollHeight > 0) {
-                const newScrollHeight = gameLogEntries.scrollHeight;
-                const heightDifference = newScrollHeight - oldScrollHeight;
-                gameLogEntries.scrollTop = oldScrollTop + heightDifference;
-            }
-        } catch (error) {
-            console.error('Failed to fetch game log:', error);
-            // Keep existing content on error
-        }
-    }
-
-    function reverseMarkdownSections(markdown) {
-        if (!markdown || markdown.trim() === '') {
-            return markdown;
-        }
-
-        // Split by major sections (lines starting with # or ##)
-        const lines = markdown.split('\n');
-        const sections = [];
-        let currentSection = [];
-        
-        for (const line of lines) {
-            // Check if this is a major heading (# or ##)
-            if (line.match(/^##?\s/)) {
-                // Save previous section if it exists
-                if (currentSection.length > 0) {
-                    sections.push(currentSection.join('\n'));
-                    currentSection = [];
-                }
-            }
-            currentSection.push(line);
-        }
-        
-        // Don't forget the last section
-        if (currentSection.length > 0) {
-            sections.push(currentSection.join('\n'));
-        }
-        
-        // Reverse sections (newest first)
-        sections.reverse();
-        
-        return sections.join('\n\n');
-    }
 
     function formatGold(amount) {
         return amount.toLocaleString() + 'g';
@@ -2139,6 +2483,8 @@
     let prevTeam2Score = -1;
     let lastUpdateTime = Date.now();
     let prevPlayerPositions = {};
+    let lastRenderedEventCount = 0;  // incremental log rendering
+    let activeLogFilter = 'all';     // current filter tab
 
     async function fetchState() {
         try {
@@ -2170,8 +2516,8 @@
                 hideScoreboard();
             }
 
-            // Fetch and render game log
-            fetchGameLog();
+            // Render game log from structured events (already in state response)
+            renderGameLog(data.events || []);
 
             // Clear any error messages
             if (meta.querySelector('.connection-error')) {
@@ -2263,9 +2609,29 @@
         }
     }, 2000);
 
+    // Filter bar click handler
+    document.getElementById('log-filter-bar').addEventListener('click', (e) => {
+        const btn = e.target.closest('.log-filter');
+        if (!btn) return;
+        const filter = btn.dataset.filter;
+        if (!filter) return;
+        activeLogFilter = filter;
+        // Update active class
+        document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // Re-apply filter to all existing rows
+        const container = document.getElementById('game-log-entries');
+        if (container) {
+            container.querySelectorAll('.log-event').forEach(row => {
+                const eventType = row.dataset.eventType || '';
+                const result = row.dataset.result || '';
+                row.hidden = !eventMatchesFilter(eventType, result, filter);
+            });
+        }
+    });
+
     // Initialize
     initPitchGrid();
-    fetchGameLog();  // Initial log fetch
     startPolling();
 </script>
 </body>
