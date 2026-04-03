@@ -43,41 +43,46 @@
         }
 
         header {
-            padding: clamp(1.8rem, 3vw, 3rem) clamp(1.2rem, 4vw, 4rem) clamp(1.2rem, 3vw, 2.2rem);
+            padding: 0.5rem clamp(1.2rem, 4vw, 4rem);
             border-bottom: 1px solid rgba(217, 180, 91, 0.25);
             background: linear-gradient(135deg, rgba(36, 23, 12, 0.85), rgba(15, 9, 4, 0.75));
             box-shadow: inset 0 -1px 0 rgba(217, 180, 91, 0.15);
+            display: flex;
+            align-items: center;
+            gap: clamp(0.75rem, 2vw, 2rem);
+            flex-wrap: wrap;
         }
 
         header h1 {
-            margin: 0 0 0.5rem;
+            margin: 0;
             font-family: "Cinzel", "Times New Roman", serif;
-            font-size: clamp(2.2rem, 3.4vw, 3.1rem);
-            letter-spacing: 0.12em;
+            font-size: clamp(0.85rem, 1.3vw, 1.1rem);
+            letter-spacing: 0.16em;
             text-transform: uppercase;
             color: var(--accent-gold);
-            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+            opacity: 0.85;
         }
 
         header .score-line {
+            flex: 1;
             display: flex;
-            align-items: baseline;
+            align-items: center;
             justify-content: center;
-            gap: clamp(1rem, 5vw, 3rem);
+            gap: clamp(0.5rem, 2vw, 1.25rem);
             flex-wrap: wrap;
-            border: 1px solid rgba(217, 180, 91, 0.35);
-            border-radius: 18px;
-            padding: 0.85rem 1.25rem;
-            background: radial-gradient(circle at 50% 20%, rgba(217, 180, 91, 0.18), rgba(36, 23, 12, 0.85));
-            box-shadow: 0 10px 24px rgba(10, 4, 0, 0.6);
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            background: none;
+            box-shadow: none;
         }
 
         header .score-line span {
             font-family: "Cinzel", "Times New Roman", serif;
-            font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+            font-size: clamp(0.8rem, 1.2vw, 1rem);
             font-weight: 600;
-            letter-spacing: 0.08em;
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+            letter-spacing: 0.06em;
         }
 
         header .score-line .score-team {
@@ -96,7 +101,8 @@
         header .score-line .score-value {
             color: var(--accent-gold);
             position: relative;
-            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-size: clamp(1.3rem, 2.2vw, 2rem);
+            font-weight: 700;
         }
 
         @keyframes scoreFlash {
@@ -131,17 +137,18 @@
         }
 
         header .meta {
-            margin-top: 0.75rem;
+            margin-top: 0;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.6rem;
+            gap: 0.4rem;
+            flex-shrink: 0;
         }
 
         header .meta span {
             background: rgba(73, 50, 24, 0.65);
-            padding: 0.35rem 0.8rem;
+            padding: 0.2rem 0.55rem;
             border-radius: 999px;
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             letter-spacing: 0.04em;
             border: 1px solid rgba(217, 180, 91, 0.22);
             text-transform: uppercase;
@@ -154,6 +161,47 @@
             color: var(--accent-gold);
             border-color: rgba(217, 180, 91, 0.35);
         }
+
+        /* Collapsible sidebar sections */
+        .panel-section {
+            margin-top: 0.75rem;
+            border-top: 1px solid rgba(217, 180, 91, 0.15);
+        }
+        .panel-section > summary {
+            cursor: pointer;
+            padding: 0.4rem 0;
+            font-family: "Cinzel", serif;
+            font-size: 0.72rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(217, 180, 91, 0.55);
+            list-style: none;
+            user-select: none;
+            transition: color 0.15s;
+        }
+        .panel-section > summary:hover { color: rgba(217, 180, 91, 0.85); }
+        .panel-section > summary::before { content: "▶  "; font-size: 0.6em; }
+        .panel-section[open] > summary::before { content: "▼  "; }
+
+        /* Collapsible roster table */
+        .roster-toggle {
+            margin-top: 1rem;
+            border-top: 1px solid rgba(217, 180, 91, 0.15);
+        }
+        .roster-toggle > summary {
+            cursor: pointer;
+            padding: 0.5rem 0;
+            font-family: "Cinzel", serif;
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(217, 180, 91, 0.6);
+            list-style: none;
+            user-select: none;
+        }
+        .roster-toggle > summary:hover { color: rgba(217, 180, 91, 0.9); }
+        .roster-toggle > summary::before { content: "▶  "; font-size: 0.65em; }
+        .roster-toggle[open] > summary::before { content: "▼  "; }
 
         .status-bar {
             display: flex;
@@ -985,16 +1033,17 @@
     <aside class="panel thoughts" id="team1-thoughts-panel">
         <h2 id="team1-thoughts-title">Team 1 Strategy</h2>
         <ul id="team1-thoughts"></ul>
-        
-        <div class="budget-status" id="team1-budget">
-            <h3>Treasury</h3>
-            <div class="budget-details">Loading...</div>
-        </div>
-        
-        <div class="positions-panel" id="team1-positions">
-            <h3>Available Positions</h3>
-            <div class="positions-list">Loading...</div>
-        </div>
+        <details class="panel-section" id="team1-roster-section">
+            <summary>Roster &amp; Treasury</summary>
+            <div class="budget-status" id="team1-budget">
+                <h3>Treasury</h3>
+                <div class="budget-details">Loading...</div>
+            </div>
+            <div class="positions-panel" id="team1-positions">
+                <h3>Available Positions</h3>
+                <div class="positions-list">Loading...</div>
+            </div>
+        </details>
     </aside>
 
     <section class="panel pitch-panel">
@@ -1017,9 +1066,9 @@
             <h3>Recent Events</h3>
             <div class="log-entries" id="game-log-entries">The crowd waits for the opening whistle…</div>
         </div>
-        <div class="roster-panel">
-            <h2>Players on the Pitch</h2>
-            <div style="overflow-x: auto;">
+        <details class="roster-toggle" id="roster-toggle">
+            <summary>Players on the Pitch</summary>
+            <div style="overflow-x: auto; margin-top: 0.5rem;">
                 <table>
                     <thead>
                         <tr>
@@ -1037,22 +1086,23 @@
                     <tbody id="roster-body"></tbody>
                 </table>
             </div>
-        </div>
+        </details>
     </section>
 
     <aside class="panel thoughts" id="team2-thoughts-panel">
         <h2 id="team2-thoughts-title">Team 2 Strategy</h2>
         <ul id="team2-thoughts"></ul>
-        
-        <div class="budget-status" id="team2-budget">
-            <h3>Treasury</h3>
-            <div class="budget-details">Loading...</div>
-        </div>
-        
-        <div class="positions-panel" id="team2-positions">
-            <h3>Available Positions</h3>
-            <div class="positions-list">Loading...</div>
-        </div>
+        <details class="panel-section" id="team2-roster-section">
+            <summary>Roster &amp; Treasury</summary>
+            <div class="budget-status" id="team2-budget">
+                <h3>Treasury</h3>
+                <div class="budget-details">Loading...</div>
+            </div>
+            <div class="positions-panel" id="team2-positions">
+                <h3>Available Positions</h3>
+                <div class="positions-list">Loading...</div>
+            </div>
+        </details>
     </aside>
 </main>
 <footer>
@@ -2190,6 +2240,30 @@
             liveChip.style.color = secs > 15 ? "#e07856" : "";
         }
     }, 1000);
+
+    // Phase-aware collapse: open roster sections during setup, close during play
+    let lastPhaseForCollapse = null;
+    function updateCollapseState(phase) {
+        if (phase === lastPhaseForCollapse) return;
+        lastPhaseForCollapse = phase;
+        const isSetup = phase === 'setup' || phase === 'kickoff';
+        ['team1-roster-section', 'team2-roster-section'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.open = isSetup;
+        });
+        const rosterToggle = document.getElementById('roster-toggle');
+        if (rosterToggle) rosterToggle.open = false; // roster table always collapsed by default
+    }
+
+    // Drive collapse state from the status-phase chip (updated each poll)
+    setInterval(() => {
+        const phaseChip = document.getElementById('status-phase');
+        if (phaseChip && phaseChip.textContent) {
+            const txt = phaseChip.textContent.toLowerCase();
+            const phase = txt.replace('phase:', '').trim();
+            if (phase) updateCollapseState(phase);
+        }
+    }, 2000);
 
     // Initialize
     initPitchGrid();
