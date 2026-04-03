@@ -935,6 +935,36 @@
             letter-spacing: 0.03em;
             text-align: center;
         }
+
+        .scoring-toast {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(217, 180, 91, 0.95), rgba(196, 109, 40, 0.95));
+            color: rgba(18, 11, 6, 0.95);
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 1.1rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 600;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            animation: toastIn 0.4s ease-out;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
     </style>
 </head>
 <body data-game-id="{{ game_id }}">
@@ -1180,6 +1210,17 @@
         pitchSvg.appendChild(tokensGroup);
     }
 
+    function showScoringToast(teamName) {
+        const toast = document.createElement('div');
+        toast.className = 'scoring-toast';
+        toast.textContent = `${teamName} Scores!`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3500);
+    }
+
     function updateScoreboard(data) {
         const team1 = data.team1;
         const team2 = data.team2;
@@ -1198,12 +1239,18 @@
                 scoreElem.classList.add('score-changed');
                 setTimeout(() => scoreElem.classList.remove('score-changed'), 700);
             }
+            if (team1.score > prevTeam1Score) {
+                showScoringToast(team1.name);
+            }
         }
         if (prevTeam2Score !== -1 && team2.score !== prevTeam2Score) {
             const scoreElem = document.getElementById('team2-score-value');
             if (scoreElem) {
                 scoreElem.classList.add('score-changed');
                 setTimeout(() => scoreElem.classList.remove('score-changed'), 700);
+            }
+            if (team2.score > prevTeam2Score) {
+                showScoringToast(team2.name);
             }
         }
         
@@ -1365,6 +1412,27 @@
             ball.setAttribute('stroke-width', '0.08');
             tokensGroup.appendChild(ball);
         }
+
+        // Highlight players whose position changed
+        playerEntries.forEach(([playerId, pos]) => {
+            const prevPos = prevPlayerPositions[playerId];
+            if (prevPos && (prevPos.x !== pos.x || prevPos.y !== pos.y)) {
+                const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                highlight.setAttribute('cx', pos.x + 0.5);
+                highlight.setAttribute('cy', pos.y + 0.5);
+                highlight.setAttribute('r', 0.42);
+                highlight.setAttribute('fill', 'none');
+                highlight.setAttribute('stroke', 'rgba(255,240,120,0.85)');
+                highlight.setAttribute('stroke-width', '2.5');
+                tokensGroup.appendChild(highlight);
+            }
+        });
+
+        // Update previous positions
+        prevPlayerPositions = {};
+        playerEntries.forEach(([playerId, pos]) => {
+            prevPlayerPositions[playerId] = { x: pos.x, y: pos.y };
+        });
     }
 
     function escapeHtml(text) {
@@ -1861,6 +1929,10 @@
             
             gameLogEntries.innerHTML = html;
             
+            // Auto-scroll if user is near bottom
+            const isNearBottom = gameLogEntries.scrollHeight - gameLogEntries.scrollTop - gameLogEntries.clientHeight < 120;
+            if (isNearBottom) gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
+            
             // If user was at top, stay at top (where newest events are)
             // Otherwise preserve relative scroll position
             if (!wasAtTop && oldScrollHeight > 0) {
@@ -2018,6 +2090,7 @@
     let prevTeam1Score = -1;
     let prevTeam2Score = -1;
     let lastUpdateTime = Date.now();
+    let prevPlayerPositions = {};
 
     async function fetchState() {
         try {
