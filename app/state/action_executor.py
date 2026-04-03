@@ -297,15 +297,14 @@ class ActionExecutor:
                 logger.log_knockdown(attacker.id, attacker_pos)
 
         # Check for turnover - if ball carrier is knocked down
+        # Only turnover if OWN ball carrier (attacker) goes down, not opponent's
         if defender_down and game_state.pitch.ball_carrier == defender.id:
             drop_pos = defender_pos
             game_state.pitch.drop_ball()
-            result.turnover = True
             result.ball_dropped = True
             result.message += " - Ball carrier knocked down!"
             if drop_pos:
                 logger.log_drop(defender.id, drop_pos, "knocked down")
-            logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, defender.id)
 
         if attacker_down and game_state.pitch.ball_carrier == attacker.id:
             drop_pos = attacker_pos
