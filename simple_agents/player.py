@@ -23,16 +23,19 @@ GAME RULES:
 - Knocking down the ball carrier causes a turnover for THEM — top priority target.
 - Move a player onto the ball square to pick it up (automatic if you have Sure Hands, rolled otherwise).
 
-Respond ONLY with a valid JSON array of actions. Use exact player_id strings from the game state.
-Return ONLY the JSON array, no explanation, no markdown.
+Each turn you will be called once per action. Return ONE action at a time as a JSON object with this exact shape:
+  {"thought": "brief in-character reasoning (1-2 sentences)", "action": <action object or null to end turn>}
 
-Action formats:
-  Move:    {"action_type":"move","player_id":"...","path":[{"x":N,"y":N},...]}
-  Block:   {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
-  Charge:  {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
-  Pass:    {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
-  Handoff: {"action_type":"quick_pass","player_id":"...","target_player_id":"..."}
-  Standup: {"action_type":"stand_up","player_id":"..."}
+Action formats for the "action" field:
+  Move:     {"action_type":"move","player_id":"...","path":[{"x":N,"y":N},...]}
+  Block:    {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
+  Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
+  Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
+  Handoff:  {"action_type":"quick_pass","player_id":"...","target_player_id":"..."}
+  Standup:  {"action_type":"stand_up","player_id":"..."}
+  End turn: null
+
+Return ONLY the JSON object. No markdown, no explanation outside the "thought" field.
 """
 
 DEFAULT_SYSTEM_PROMPTS = {
@@ -140,10 +143,50 @@ def setup_team(game_id: str, team_id: str, team_name: str,
 
 # ── turn execution ─────────────────────────────────────────────────────────
 
+COACH_NAMES = {
+    "team1": "Captain Carrot",
+    "team2": "Archchancellor Ridcully",
+}
+
+MAX_ACTIONS_PER_TURN = 20   # hard cap to prevent infinite loops
+MAX_RETRIES_PER_ACTION = 3  # retries on rejection before giving up
+
+
+def _post_message(base_url: str, game_id: str, team_id: str, team_name: str, content: str) -> None:
+    """Post a coach message to the game chat."""
+    coach_name = COACH_NAMES.get(team_id, team_name)
+    try:
+        requests.post(
+            f"{base_url}/game/{game_id}/message",
+            params={"sender_id": team_id, "sender_name": coach_name, "content": content},
+            timeout=5,
+        )
+    except Exception:
+        pass  # non-critical
+
+
+def _parse_step(text: str) -> tuple[str, dict | None]:
+    """Parse a single-action LLM response into (thought, action).
+
+    Returns (thought, None) to signal end-of-turn.
+    """
+    text = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`").strip()
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        try:
+            obj = json.loads(match.group())
+            thought = obj.get("thought", "")
+            action = obj.get("action")  # None means end turn
+            return thought, action
+        except json.JSONDecodeError:
+            pass
+    return "", None
+
+
 def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
               model: str = None, system_prompt: str = None,
               base_url: str = "http://localhost:8000") -> None:
-    """Execute one full turn: call LLM once, execute the returned actions."""
+    """Execute one full turn: one LLM call per action, with retry on failure."""
     model = model or DEFAULT_MODELS.get(team_id, DEFAULT_MODEL)
 
     my_end_zone = 25 if team_id == "team1" else 0
@@ -152,45 +195,81 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     sys_prompt = (system_prompt or DEFAULT_SYSTEM_PROMPTS.get(team_id, DEFAULT_SYSTEM_PROMPTS["team1"]))
     sys_prompt = sys_prompt.replace("{my_end_zone}", str(my_end_zone)).replace("{opp_end_zone}", str(opp_end_zone))
 
-    summary = summarize_for_player(state, team_id)
+    actions_taken = 0
+    last_failure: str | None = None
 
-    valid_r = requests.get(f"{base_url}/game/{game_id}/valid-actions")
-    valid_actions = valid_r.json() if valid_r.status_code == 200 else {}
-
-    user_msg = (
-        f"{summary}\n\n"
-        f"VALID ACTIONS:\n{json.dumps(valid_actions, indent=2)}\n\n"
-        "Return your planned actions for this turn as a JSON array."
-    )
-
-    logger.info(f"[{team_name}] Requesting turn plan from LLM...")
-    try:
-        response = call_llm(sys_prompt, user_msg, model)
-        actions = _parse_actions(response)
-        logger.info(f"[{team_name}] {len(actions)} actions planned.")
-    except Exception as e:
-        logger.error(f"[{team_name}] LLM error: {e}")
-        actions = []
-
-    for action in actions:
+    while actions_taken < MAX_ACTIONS_PER_TURN:
+        # Refresh state before each action
         try:
-            r = requests.post(f"{base_url}/game/{game_id}/action", json=action, timeout=10)
-            result = r.json() if r.status_code == 200 else {}
-            ok = result.get("success", False)
-            msg = result.get("message", "")[:80]
-            logger.info(f"[{team_name}] {action.get('action_type')} → {'OK' if ok else 'FAIL'} {msg}")
-            if result.get("turnover"):
-                logger.info(f"[{team_name}] Turnover — turn ended by server.")
-                return
+            state = requests.get(f"{base_url}/game/{game_id}", timeout=5).json()
+        except Exception:
+            break
+
+        # Check if turn is still ours
+        turn = state.get("turn") or {}
+        if turn.get("active_team_id") != team_id:
+            logger.info(f"[{team_name}] Turn passed (turnover or phase change).")
+            return
+
+        summary = summarize_for_player(state, team_id)
+        valid_r = requests.get(f"{base_url}/game/{game_id}/valid-actions", timeout=5)
+        valid_actions = valid_r.json() if valid_r.status_code == 200 else {}
+
+        failure_note = f"\nPREVIOUS ACTION FAILED: {last_failure}\nChoose a different valid action.\n" if last_failure else ""
+        user_msg = (
+            f"{summary}\n\n"
+            f"VALID ACTIONS:\n{json.dumps(valid_actions, indent=2)}\n"
+            f"{failure_note}\n"
+            "What is your next single action? Return one JSON object with 'thought' and 'action'."
+        )
+
+        try:
+            response = call_llm(sys_prompt, user_msg, model)
+            thought, action = _parse_step(response)
         except Exception as e:
-            logger.warning(f"[{team_name}] Action error: {e}")
+            logger.error(f"[{team_name}] LLM error: {e}")
+            break
+
+        # Post thought as coach message if present
+        if thought:
+            logger.info(f"[{team_name}] 💬 {thought}")
+            _post_message(base_url, game_id, team_id, team_name, thought)
+
+        # End turn if action is null
+        if action is None:
+            logger.info(f"[{team_name}] Coach called end of turn.")
+            break
+
+        # Execute the action, retry up to MAX_RETRIES_PER_ACTION on failure
+        for attempt in range(MAX_RETRIES_PER_ACTION):
+            try:
+                r = requests.post(f"{base_url}/game/{game_id}/action", json=action, timeout=10)
+                result = r.json() if r.content else {}
+                ok = result.get("success", False)
+                msg = result.get("message", "")[:120]
+                logger.info(f"[{team_name}] {action.get('action_type')} → {'OK' if ok else 'FAIL'} {msg}")
+
+                if result.get("turnover"):
+                    logger.info(f"[{team_name}] Turnover — server ended turn.")
+                    return
+
+                if ok:
+                    last_failure = None
+                    actions_taken += 1
+                    break
+                else:
+                    last_failure = msg
+                    if attempt < MAX_RETRIES_PER_ACTION - 1:
+                        # Ask LLM for a different action on next loop iteration
+                        break
+            except Exception as e:
+                last_failure = str(e)
+                logger.warning(f"[{team_name}] Action error: {e}")
+                break
 
     # End turn explicitly
-    r = requests.post(f"{base_url}/game/{game_id}/end-turn", params={"team_id": team_id})
-    if r.status_code in (200, 403):
-        logger.info(f"[{team_name}] Turn ended (status {r.status_code}).")
-    else:
-        logger.warning(f"[{team_name}] end-turn returned {r.status_code}: {r.text[:80]}")
+    r = requests.post(f"{base_url}/game/{game_id}/end-turn", params={"team_id": team_id}, timeout=5)
+    logger.info(f"[{team_name}] Turn ended (status {r.status_code}).")
 
 
 def _parse_actions(text: str) -> list:
