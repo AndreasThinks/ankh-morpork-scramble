@@ -1576,8 +1576,8 @@
 
             container.innerHTML = teamThoughts.map(({ speaker, text }) => `
                 <li>
-                    <span class="speaker">${speaker}</span>
-                    ${text}
+                    <span class="speaker">${escapeHtml(speaker)}</span>
+                    ${escapeHtml(text)}
                 </li>
             `).join('');
         });
@@ -1639,15 +1639,15 @@
                 location = `(${pitchPos.x}, ${pitchPos.y})`;
                 locationClass = 'roster-location-pitch';
                 sortPriority = 0;
-            } else if (player.state === 'RESERVES') {
+            } else if (player.state === 'reserves') {
                 location = 'Reserves';
                 locationClass = 'roster-location-reserves';
                 sortPriority = 1;
-            } else if (player.state === 'KOD') {
+            } else if (player.state === 'knocked_out') {
                 location = 'KO Box';
                 locationClass = 'roster-location-ko';
                 sortPriority = 2;
-            } else if (player.state === 'INJURED' || player.state === 'CASUALTY') {
+            } else if (player.state === 'casualty') {
                 location = 'Casualty';
                 locationClass = 'roster-location-casualty';
                 sortPriority = 3;
@@ -1745,7 +1745,7 @@
 
     function formatAttempt(success = 0, attempts = 0) {
         if (!attempts) {
-            return `${success}/${attempts}`;
+            return '—';
         }
         const rate = Math.round((success / attempts) * 100);
         return `${success}/${attempts} (${rate}%)`;
@@ -1979,13 +1979,11 @@
             
             gameLogEntries.innerHTML = html;
             
-            // Auto-scroll if user is near bottom
+            // Scroll: snap to bottom if near it, otherwise preserve relative position
             const isNearBottom = gameLogEntries.scrollHeight - gameLogEntries.scrollTop - gameLogEntries.clientHeight < 120;
-            if (isNearBottom) gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
-            
-            // If user was at top, stay at top (where newest events are)
-            // Otherwise preserve relative scroll position
-            if (!wasAtTop && oldScrollHeight > 0) {
+            if (isNearBottom) {
+                gameLogEntries.scrollTop = gameLogEntries.scrollHeight;
+            } else if (!wasAtTop && oldScrollHeight > 0) {
                 const newScrollHeight = gameLogEntries.scrollHeight;
                 const heightDifference = newScrollHeight - oldScrollHeight;
                 gameLogEntries.scrollTop = oldScrollTop + heightDifference;
@@ -2161,10 +2159,10 @@
             renderRoster(data);
             
             // Fetch budget and positions for both teams
-            fetchAndRenderBudget(data.team1.id, 'team1-budget');
-            fetchAndRenderBudget(data.team2.id, 'team2-budget');
-            fetchAndRenderPositions(data.team1.id, 'team1-positions');
-            fetchAndRenderPositions(data.team2.id, 'team2-positions');
+            await fetchAndRenderBudget(data.team1.id, 'team1-budget');
+            await fetchAndRenderBudget(data.team2.id, 'team2-budget');
+            await fetchAndRenderPositions(data.team1.id, 'team1-positions');
+            await fetchAndRenderPositions(data.team2.id, 'team2-positions');
 
             if (data.phase === 'finished') {
                 await showScoreboard(data);

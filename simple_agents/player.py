@@ -30,9 +30,9 @@ Action formats for the "action" field:
   Move:     {"action_type":"move","player_id":"...","path":[{"x":N,"y":N},...]}
   Block:    {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
   Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
-  Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
-  Handoff:  {"action_type":"quick_pass","player_id":"...","target_player_id":"..."}
-  Standup:  {"action_type":"stand_up","player_id":"..."}
+   Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
+   Handoff:  {"action_type":"quick_pass","player_id":"...","target_receiver_id":"..."}
+   Standup:  {"action_type":"stand_up","player_id":"..."}
   End turn: null
 
 Return ONLY the JSON object. No markdown, no explanation outside the "thought" field.

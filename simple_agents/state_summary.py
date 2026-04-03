@@ -70,8 +70,8 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
         if has_acted:
             flags.append("ACTED")
         else:
-            # Only count on-pitch, not-yet-acted players
-            if state_val not in ("knocked_out", "casualty"):
+            # Only count players who are physically able to act this turn
+            if state_val in ("standing", "prone"):
                 my_players_unacted += 1
         if pid == ball_carrier_id:
             flags.append("BALL")
