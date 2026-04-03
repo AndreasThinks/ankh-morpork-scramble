@@ -96,6 +96,17 @@
         header .score-line .score-value {
             color: var(--accent-gold);
             position: relative;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+        }
+
+        @keyframes scoreFlash {
+            0% { color: var(--accent-gold); }
+            50% { color: #fff; text-shadow: 0 0 20px rgba(217,180,91,0.9); }
+            100% { color: var(--accent-gold); }
+        }
+
+        .score-changed {
+            animation: scoreFlash 0.6s ease;
         }
 
         header .score-line .score-value small {
@@ -142,6 +153,46 @@
             background: rgba(217, 180, 91, 0.2);
             color: var(--accent-gold);
             border-color: rgba(217, 180, 91, 0.35);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.5rem clamp(1.2rem, 4vw, 4rem);
+            background: rgba(15, 9, 4, 0.6);
+            border-bottom: 1px solid rgba(217, 180, 91, 0.15);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .status-chip {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-family: "Cinzel", serif;
+            border: 1px solid rgba(217, 180, 91, 0.25);
+            background: rgba(73, 50, 24, 0.5);
+            color: var(--muted);
+        }
+
+        .status-chip.danger {
+            background: rgba(180,60,60,0.3);
+            border-color: rgba(220,80,80,0.5);
+            color: #e07856;
+        }
+
+        .status-chip.ok {
+            background: rgba(60,140,60,0.3);
+            border-color: rgba(80,180,80,0.5);
+            color: #7ecb7e;
+        }
+
+        .status-live {
+            color: rgba(127,200,127,0.9);
+            border-color: rgba(80,180,80,0.4);
+            font-size: 0.72rem;
         }
 
         main {
@@ -894,6 +945,12 @@
     </div>
     <div class="meta" id="game-meta"></div>
 </header>
+<div id="status-bar" class="status-bar">
+    <span id="status-phase" class="status-chip"></span>
+    <span id="status-turn" class="status-chip"></span>
+    <span id="status-ball" class="status-chip"></span>
+    <span id="status-live" class="status-chip status-live">● LIVE</span>
+</div>
 <main>
     <aside class="panel thoughts" id="team1-thoughts-panel">
         <h2 id="team1-thoughts-title">Team 1 Strategy</h2>
@@ -1123,31 +1180,51 @@
         pitchSvg.appendChild(tokensGroup);
     }
 
-    function updateScoreboard(state) {
-        const team1 = state.team1;
-        const team2 = state.team2;
+    function updateScoreboard(data) {
+        const team1 = data.team1;
+        const team2 = data.team2;
         scoreLine.innerHTML = `
             <span class="score-team score-team--home">${team1.name}</span>
-            <span class="score-value">${team1.score}<small> Scratches</small></span>
+            <span class="score-value" id="team1-score-value">${team1.score}<small> Scratches</small></span>
             <span class="score-divider">VS</span>
-            <span class="score-value">${team2.score}<small> Scratches</small></span>
+            <span class="score-value" id="team2-score-value">${team2.score}<small> Scratches</small></span>
             <span class="score-team score-team--away">${team2.name}</span>
         `;
 
-        const chips = [];
-        chips.push(`<span>Phase: ${state.phase}</span>`);
+        // Check for score changes and trigger flash animation
+        if (prevTeam1Score !== -1 && team1.score !== prevTeam1Score) {
+            const scoreElem = document.getElementById('team1-score-value');
+            if (scoreElem) {
+                scoreElem.classList.add('score-changed');
+                setTimeout(() => scoreElem.classList.remove('score-changed'), 700);
+            }
+        }
+        if (prevTeam2Score !== -1 && team2.score !== prevTeam2Score) {
+            const scoreElem = document.getElementById('team2-score-value');
+            if (scoreElem) {
+                scoreElem.classList.add('score-changed');
+                setTimeout(() => scoreElem.classList.remove('score-changed'), 700);
+            }
+        }
+        
+        // Update previous scores
+        prevTeam1Score = team1.score;
+        prevTeam2Score = team2.score;
 
-        if (state.turn) {
-            chips.push(`<span>Half: ${state.turn.half}</span>`);
-            chips.push(`<span>Turn: ${state.turn.team_turn}</span>`);
-            chips.push(`<span>Active team: ${state.turn.active_team_id}</span>`);
+        const chips = [];
+        chips.push(`<span>Phase: ${data.phase}</span>`);
+
+        if (data.turn) {
+            chips.push(`<span>Half: ${data.turn.half}</span>`);
+            chips.push(`<span>Turn: ${data.turn.team_turn}</span>`);
+            chips.push(`<span>Active team: ${data.turn.active_team_id}</span>`);
         } else {
             chips.push('<span>No active turn</span>');
         }
 
         const ballStatus = (() => {
-            const carrier = state.pitch.ball_carrier;
-            const ballPos = state.pitch.ball_position;
+            const carrier = data.pitch.ball_carrier;
+            const ballPos = data.pitch.ball_position;
             if (carrier) {
                 return `Carried by ${carrier}`;
             }
@@ -1159,6 +1236,33 @@
         chips.push(`<span data-role="ball">${ballStatus}</span>`);
 
         meta.innerHTML = chips.join('');
+
+        // Update status bar chips
+        const statusPhase = document.getElementById("status-phase");
+        const statusTurn = document.getElementById("status-turn");
+        const statusBall = document.getElementById("status-ball");
+
+        if (statusPhase) statusPhase.textContent = `Phase: ${data.phase || "unknown"}`;
+
+        if (statusTurn && data.turn) {
+            statusTurn.textContent = `Half ${data.turn.half} · Turn ${data.turn.team_turn + 1} · ${data.turn.active_team_id === data.team1?.id ? data.team1?.name : data.team2?.name}`;
+            statusTurn.className = "status-chip ok";
+        } else if (statusTurn) {
+            statusTurn.textContent = "No active turn";
+            statusTurn.className = "status-chip";
+        }
+
+        // Ball state — check pitch.ball_position
+        const ballPos = data.pitch?.ball_position;
+        if (statusBall) {
+            if (!ballPos) {
+                statusBall.textContent = "Ball: off pitch";
+                statusBall.className = "status-chip danger";
+            } else {
+                statusBall.textContent = `Ball: (${ballPos.x}, ${ballPos.y})`;
+                statusBall.className = "status-chip";
+            }
+        }
     }
 
     function createPlayerTooltip(player, team, position, isCarrier) {
@@ -1911,6 +2015,9 @@
     let isPolling = false;
     let scoreboardVisible = false;
     let scoreboardStatsCache = null;
+    let prevTeam1Score = -1;
+    let prevTeam2Score = -1;
+    let lastUpdateTime = Date.now();
 
     async function fetchState() {
         try {
@@ -1922,6 +2029,7 @@
 
             // Reset failure count on success
             consecutiveFailures = 0;
+            lastUpdateTime = Date.now();
 
             updateScoreboard(data);
             renderPitch(data);
@@ -1995,6 +2103,20 @@
         // Set up polling interval
         pollIntervalId = setInterval(fetchState, POLL_INTERVAL);
     }
+
+    // Live update ticker
+    setInterval(() => {
+        const liveChip = document.getElementById("status-live");
+        if (!liveChip) return;
+        const secs = Math.floor((Date.now() - lastUpdateTime) / 1000);
+        if (secs < 4) {
+            liveChip.textContent = "● LIVE";
+            liveChip.style.color = "";
+        } else {
+            liveChip.textContent = `↻ ${secs}s ago`;
+            liveChip.style.color = secs > 15 ? "#e07856" : "";
+        }
+    }, 1000);
 
     // Initialize
     initPitchGrid();
