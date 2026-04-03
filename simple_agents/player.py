@@ -150,7 +150,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     opp_end_zone = 0 if team_id == "team1" else 25
 
     sys_prompt = (system_prompt or DEFAULT_SYSTEM_PROMPTS.get(team_id, DEFAULT_SYSTEM_PROMPTS["team1"]))
-    sys_prompt = sys_prompt.format(my_end_zone=my_end_zone, opp_end_zone=opp_end_zone)
+    sys_prompt = sys_prompt.replace("{my_end_zone}", str(my_end_zone)).replace("{opp_end_zone}", str(opp_end_zone))
 
     summary = summarize_for_player(state, team_id)
 
