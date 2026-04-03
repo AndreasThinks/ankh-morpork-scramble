@@ -81,13 +81,13 @@ def setup_team(game_id: str, team_id: str, team_name: str,
     positions_data = requests.get(f"{base_url}/game/{game_id}/team/{team_id}/available-positions").json()
 
     budget = budget_data.get("budget_remaining", 1_000_000)
-    available = positions_data.get("positions") or {}
+    available = positions_data.get("positions") or []
 
     roster_prompt = (
         f"You are building a roster for {team_name} in Ankh-Morpork Scramble.\n"
         f"Budget: {budget} gold.\n"
         f"Available positions (key: cost, limit):\n"
-        + "\n".join(f"  {k}: {v.get('cost',0)}g, max {v.get('limit','?')}" for k, v in available.items())
+        + "\n".join(f"  {p['position_key']}: {p.get('cost',0)}g, max {p.get('quantity_limit','?')}" for p in available)
         + "\n\nChoose 7-11 players and 1-3 rerolls that fit within budget. Aim for a balanced mix."
         + '\n\nReturn ONLY a JSON object: {"players": ["key","key",...], "rerolls": N}'
     )
