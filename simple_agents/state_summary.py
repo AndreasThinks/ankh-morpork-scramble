@@ -56,8 +56,8 @@ def summarize_for_player(state: dict, my_team_id: str) -> str:
         skill_str = f" [{','.join(skills[:3])}]" if skills else ""
         flag_str = f" | {', '.join(flags)}" if flags else ""
         lines.append(
-            f"  [{pid}] {p.get('position','?'):<22} ({x:>2},{y:>2})"
-            f"  MA{p.get('ma','?')} ST{p.get('st','?')} AG{p.get('ag','?')}"
+            f"  [{pid}] {str(p.get('position',{}).get('role','?')):<22} ({x:>2},{y:>2})"
+            f"  MA{p.get('ma', p.get('position',{}).get('ma','?'))} ST{p.get('st', p.get('position',{}).get('st','?'))} AG{p.get('ag', p.get('position',{}).get('ag','?'))}"
             f"{skill_str}{flag_str}"
         )
 
@@ -76,8 +76,8 @@ def summarize_for_player(state: dict, my_team_id: str) -> str:
             flags.append("BALL")
         flag_str = f" | {', '.join(flags)}" if flags else ""
         lines.append(
-            f"  [{pid}] {p.get('position','?'):<22} ({x:>2},{y:>2})"
-            f"  ST{p.get('st','?')}{flag_str}"
+            f"  [{pid}] {str(p.get('position',{}).get('role','?')):<22} ({x:>2},{y:>2})"
+            f"  ST{p.get('st', p.get('position',{}).get('st','?'))}{flag_str}"
         )
 
     # Recent events
