@@ -663,6 +663,16 @@ def get_valid_actions(game_id: str):
                 if targets:
                     blockable_targets[player_id] = targets
     
+    # Pre-compute reachable squares for each movable player
+    from app.game.movement import MovementHandler
+    from app.game.dice import DiceRoller
+    movement_handler = MovementHandler(DiceRoller())
+    reachable_squares: dict[str, list[dict]] = {}
+    for player_id in movable_players:
+        reachable_squares[player_id] = movement_handler.get_reachable_squares(
+            game_state, player_id
+        )
+
     return ValidActionsResponse(
         current_team=active_team.id,
         phase=game_state.phase.value,
@@ -674,7 +684,8 @@ def get_valid_actions(game_id: str):
         blockable_targets=blockable_targets,
         ball_carrier=game_state.pitch.ball_carrier,
         ball_on_ground=game_state.pitch.ball_position is not None and game_state.pitch.ball_carrier is None,
-        ball_position=game_state.pitch.ball_position
+        ball_position=game_state.pitch.ball_position,
+        reachable_squares=reachable_squares,
     )
 
 

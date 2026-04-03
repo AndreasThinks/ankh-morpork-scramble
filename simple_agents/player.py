@@ -28,6 +28,8 @@ Each turn you will be called once per action. Return ONE action at a time as a J
 
 Action formats for the "action" field:
   Move:     {"action_type":"move","player_id":"...","path":[{"x":N,"y":N},...]}
+            The LAST element of path must be one of the "Safe destinations" listed
+            in VALID ACTIONS. Each step must be adjacent (1 square) to the previous.
   Block:    {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
   Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
    Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
@@ -196,6 +198,7 @@ def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> s
      if movable:
          lines.append("")
          lines.append("Players who can still MOVE (have MA remaining, not yet acted):")
+         reachable_map = valid_actions.get("reachable_squares") or {}
          for pid in movable:
              p = players.get(pid) or {}
              pos = player_positions.get(pid) or {}
@@ -203,13 +206,29 @@ def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> s
              role = position_data.get("role", pid)
              ma_total = position_data.get("ma", "?")
              movement_used = p.get("movement_used", 0)
-             if isinstance(ma_total, int):
-                 ma_remaining = max(0, ma_total - movement_used)
-                 ma_note = f"{ma_remaining} squares remaining (used {movement_used}/{ma_total})"
-             else:
-                 ma_note = f"MA{ma_total}"
+             ma_remaining = max(0, ma_total - movement_used) if isinstance(ma_total, int) else "?"
              x, y = pos.get("x", "?"), pos.get("y", "?")
-             lines.append(f"  - [{pid}] {role} at ({x},{y}): {ma_note}")
+
+             squares = reachable_map.get(pid) or []
+             safe = [(s["x"], s["y"]) for s in squares if not s.get("rush")]
+             rush_sq = [(s["x"], s["y"]) for s in squares if s.get("rush")]
+
+             if safe:
+                 sample = safe[:12]
+                 safe_str = ", ".join(f"({sx},{sy})" for sx, sy in sample)
+                 more = f" (+{len(safe)-12} more)" if len(safe) > 12 else ""
+                 lines.append(
+                     f"  - [{pid}] {role} at ({x},{y}) — {ma_remaining} free squares. "
+                     f"Safe destinations: {safe_str}{more}"
+                 )
+             else:
+                 lines.append(
+                     f"  - [{pid}] {role} at ({x},{y}) — {ma_remaining} squares free "
+                     f"(no safe destinations)"
+                 )
+             if rush_sq:
+                 rush_str = ", ".join(f"({rx},{ry})" for rx, ry in rush_sq[:6])
+                 lines.append(f"    Rush (dice, risky — do last): {rush_str}")
      else:
          lines.append("  No players can move (all have acted or exhausted MA).")
 

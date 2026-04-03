@@ -154,6 +154,13 @@ class ValidActionsResponse(BaseModel):
     ball_on_ground: bool = False
     ball_position: Optional[Position] = None
 
+    # Pre-computed reachable squares per movable player
+    # {"player_id": [{"x": int, "y": int, "rush": bool}, ...]}
+    reachable_squares: dict[str, list[dict]] = Field(
+        default_factory=dict,
+        description="Per-player reachable destination squares this turn"
+    )
+
     @model_validator(mode="after")
     def populate_legacy_flags(self) -> "ValidActionsResponse":
         """Ensure legacy flag names mirror the new Discworld terminology."""

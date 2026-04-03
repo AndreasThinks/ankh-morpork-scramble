@@ -97,7 +97,70 @@ class MovementHandler:
             return False, "Position is occupied"
         
         return True, None
-    
+
+    def get_reachable_squares(
+        self,
+        game_state: "GameState",
+        player_id: str,
+    ) -> list[dict]:
+        """BFS flood-fill to find all squares reachable by this player this turn.
+
+        Returns list of {"x": int, "y": int, "rush": bool}.
+        rush=True means reaching that square requires 1-2 rush rolls.
+        Occupied squares and out-of-bounds squares are excluded.
+        """
+        from collections import deque
+
+        player = game_state.get_player(player_id)
+        if not player or not player.is_standing:
+            return []
+
+        start = game_state.pitch.player_positions.get(player_id)
+        if not start:
+            return []
+
+        ma_remaining = player.movement_remaining
+        max_steps = ma_remaining + 2  # up to 2 rush squares
+
+        visited: dict[tuple[int, int], int] = {(start.x, start.y): 0}
+        queue: deque[tuple[int, int, int]] = deque([(start.x, start.y, 0)])
+        reachable: list[dict] = []
+
+        while queue:
+            x, y, steps = queue.popleft()
+
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    nx, ny = x + dx, y + dy
+
+                    if not (0 <= nx < 26 and 0 <= ny < 15):
+                        continue
+
+                    new_steps = steps + 1
+                    if new_steps > max_steps:
+                        continue
+
+                    key = (nx, ny)
+                    if key in visited and visited[key] <= new_steps:
+                        continue
+
+                    next_pos = Position(x=nx, y=ny)
+                    if game_state.pitch.is_occupied(next_pos):
+                        continue
+
+                    visited[key] = new_steps
+                    reachable.append({
+                        "x": nx,
+                        "y": ny,
+                        "rush": new_steps > ma_remaining,
+                    })
+                    if new_steps < max_steps:
+                        queue.append((nx, ny, new_steps))
+
+        return reachable
+
     def move_player(
         self,
         game_state: GameState,
