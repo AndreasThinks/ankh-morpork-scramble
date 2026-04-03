@@ -160,16 +160,17 @@ A lightweight dashboard is available at [`/ui`](http://localhost:8000/ui). It re
 every few seconds to display the live score, current turn information, recent
 events, and the in-game chat log for the default demo match.
 
-## AI vs AI Gameplay with Cline Agents
+## AI vs AI Gameplay
 
-### Quick Start (Single Python File) - Recommended
+Two runners are available depending on your setup.
 
-The easiest way to watch two AI agents play against each other is using the `run_game.py` script. This approach runs everything in a single Python process - no Docker required!
+### Simple Agent Runner — Recommended
+
+No external dependencies beyond an OpenRouter API key. Uses direct API calls to drive two LLM player agents and a commentator through a full match.
 
 **Prerequisites:**
-- Python 3.12+
-- UV package manager installed
-- Cline CLI installed globally: `npm install -g cline`
+- Python 3.11+
+- UV package manager
 - OpenRouter API key
 
 **Setup:**
@@ -181,56 +182,57 @@ The easiest way to watch two AI agents play against each other is using the `run
 
 2. Set your OpenRouter API key:
    ```bash
-   export OPENROUTER_API_KEY=your-api-key-here
+   export OPENROUTER_API_KEY=your_key_here
    ```
 
 3. Run the game:
    ```bash
-   python run_game.py
+   uv run run_simple_game.py
    ```
 
-That's it! The script will:
-- ✅ Start the FastAPI game server automatically
-- ✅ Launch two Cline agents (City Watch vs Unseen University)
-- ✅ Start a referee agent that provides live commentary
-- ✅ Each agent builds their roster and plays autonomously
-- ✅ Agents send in-character messages explaining their strategy
-- ✅ Auto-restart agents when tasks complete
-- ✅ Log all agent activity to `logs/team1.log`, `logs/team2.log`, and `logs/referee.log`
-
-**Monitoring the game:**
-- Web UI: Open http://localhost:8000/ui to watch live with referee commentary
-- Agent logs: `tail -f logs/team1.log` and `tail -f logs/team2.log`
-- Referee log: `tail -f logs/referee.log`
-- Server log: `tail -f logs/server.log`
-- Game API: http://localhost:8000/docs
+The script starts the FastAPI server and drives both teams and a commentator autonomously.
 
 **Configuration options:**
 ```bash
-# Use demo mode (pre-configured rosters, instant play)
-DEMO_MODE=true python run_game.py
-
-# Use different model for team agents
-OPENROUTER_MODEL=anthropic/claude-3.5-sonnet python run_game.py
-
-# Use different model for referee (default: claude-3.5-haiku for fast, cheap commentary)
-REFEREE_MODEL=anthropic/claude-3.5-sonnet python run_game.py
-
-# Disable referee commentary
-ENABLE_REFEREE=false python run_game.py
-
-# Adjust referee commentary interval (seconds between updates)
-REFEREE_COMMENTARY_INTERVAL=45 python run_game.py
-
-# Custom referee prompt (for different commentary styles)
-REFEREE_PROMPT="You are a dramatic sports announcer..." python run_game.py
+# Custom models (default: qwen/qwen3.6-plus:free)
+TEAM1_MODEL=google/gemini-2.5-flash uv run run_simple_game.py
+TEAM2_MODEL=google/gemini-2.5-flash uv run run_simple_game.py
+COMMENTATOR_MODEL=anthropic/claude-3.5-haiku uv run run_simple_game.py
 
 # Custom game ID
-INTERACTIVE_GAME_ID=my-epic-match python run_game.py
+GAME_ID=my-epic-match uv run run_simple_game.py
 
-# Adjust logging
+# Custom port
+SERVER_PORT=8080 uv run run_simple_game.py
+```
+
+**Monitoring:**
+- Web UI: http://localhost:8000/ui
+- Game API docs: http://localhost:8000/docs
+
+### Cline Agent Runner (Full MCP Version)
+
+Uses Cline CLI agents communicating via the MCP protocol. Richer agent behaviour but requires Node.js and Cline installed.
+
+**Prerequisites:**
+- Python 3.11+, UV
+- Node.js + Cline: `npm install -g cline`
+- OpenRouter API key
+
+```bash
+export OPENROUTER_API_KEY=your_key_here
+python run_game.py
+```
+
+**Configuration options:**
+```bash
+DEMO_MODE=true python run_game.py
+OPENROUTER_MODEL=anthropic/claude-3.5-sonnet python run_game.py
+REFEREE_MODEL=anthropic/claude-3.5-sonnet python run_game.py
+ENABLE_REFEREE=false python run_game.py
+REFEREE_COMMENTARY_INTERVAL=45 python run_game.py
+INTERACTIVE_GAME_ID=my-epic-match python run_game.py
 AGENT_LOG_LEVEL=DEBUG python run_game.py
-REFEREE_LOG_LEVEL=DEBUG python run_game.py
 ```
 
 **How it works:**
@@ -630,11 +632,7 @@ This project is configured for easy deployment on Railway. See [RAILWAY_DEPLOYME
 - Health check configuration
 - Monitoring the game in production
 
-The Railway deployment runs the full game simulation (`run_game.py`) with:
-- FastAPI server with game API and MCP endpoints
-- Two AI agent teams playing autonomously
-- Referee agent providing live commentary
-- All logs accessible via admin endpoints
+The Railway deployment uses `run_simple_game.py`: a lightweight runner that drives two LLM agents and a commentator via direct OpenRouter API calls. No Cline or Node.js required in the build.
 
 ## License
 

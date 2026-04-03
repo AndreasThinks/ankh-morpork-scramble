@@ -1,1 +1,1 @@
-web: python run_game.py
+web: uv run run_simple_game.py

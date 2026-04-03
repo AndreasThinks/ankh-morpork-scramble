@@ -110,27 +110,6 @@ class DiceRoller:
     
     def scatter(self) -> tuple[int, int]:
         """Roll scatter direction (returns x, y offset)"""
-        roll = self.roll_d6()
-        
-        # Scatter directions (clockwise from top)
-        directions = [
-            (0, -1),   # 1: North
-            (1, -1),   # 2: NE
-            (1, 0),    # 3: East
-            (1, 1),    # 4: SE
-            (0, 1),    # 5: South
-            (-1, 1),   # 6: SW
-        ]
-        
-        # Handle wrap (6 options, but d6 gives 1-6)
-        if roll == 6:
-            # Continue with next roll for SW, West, NW
-            roll2 = self.roll_d6()
-            if roll2 <= 2:
-                return (-1, 1)   # SW
-            elif roll2 <= 4:
-                return (-1, 0)   # West
-            else:
-                return (-1, -1)  # NW
-        
-        return directions[roll - 1]
+        # 8 directions: N, NE, E, SE, S, SW, W, NW
+        directions = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+        return directions[self.rng.randint(0, 7)]

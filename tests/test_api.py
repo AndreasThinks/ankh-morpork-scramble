@@ -228,7 +228,7 @@ def test_start_game_invalid_game():
 def test_end_turn_invalid_game():
     """Test ending turn for non-existent game"""
     response = client.post("/game/nonexistent-game/end-turn")
-    assert response.status_code == 400
+    assert response.status_code == 404
 
 
 def test_action_on_nonexistent_game():

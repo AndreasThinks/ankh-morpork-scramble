@@ -4,11 +4,11 @@ This document describes how to deploy Ankh-Morpork Scramble on Railway.
 
 ## Overview
 
-The application runs the full game simulation via `run_game.py`, which:
-1. Starts the FastAPI server with game API and MCP endpoints
-2. Launches two AI agent teams (City Watch Constables vs Unseen University Adepts)
-3. Runs a referee agent that provides live commentary
-4. Logs all activity to separate log files for monitoring
+The application runs via `run_simple_game.py`, which:
+1. Starts the FastAPI server (game API + web UI)
+2. Drives two LLM player agents via direct OpenRouter API calls
+3. Runs a commentator agent providing live match commentary
+4. No Cline CLI or Node.js required — lightweight and Railway-friendly
 
 ## Required Environment Variables
 

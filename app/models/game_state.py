@@ -184,6 +184,9 @@ class GameState(BaseModel):
         # Check if half is over
         if self.turn.team_turn > 8:
             self.end_half()
+            # After half 1 ends, transition from INTERMISSION back to PLAYING for half 2
+            if self.turn.half == 2 and self.phase == GamePhase.INTERMISSION:
+                self.phase = GamePhase.PLAYING
     
     def end_half(self) -> None:
         """End the current half"""

@@ -14,6 +14,45 @@ class CombatHandler:
     def __init__(self, dice_roller: DiceRoller):
         self.dice = dice_roller
     
+    def _count_assists(
+        self,
+        game_state: GameState,
+        blocker: Player,
+        target: Player
+    ) -> int:
+        """
+        Count standing friendly players adjacent to the target who are not the blocker.
+        
+        Args:
+            game_state: Current game state
+            blocker: The player performing the block
+            target: The player being blocked
+        
+        Returns:
+            Number of assists (standing friendly players adjacent to target)
+        """
+        assists = 0
+        target_pos = game_state.pitch.player_positions.get(target.id)
+        
+        if not target_pos:
+            return 0
+        
+        # Get all players adjacent to the target
+        adjacent_player_ids = game_state.pitch.get_adjacent_players(target_pos)
+        
+        for player_id in adjacent_player_ids:
+            # Skip the blocker themselves
+            if player_id == blocker.id:
+                continue
+            
+            player = game_state.get_player(player_id)
+            
+            # Only count standing friendly players
+            if player.team_id == blocker.team_id and player.is_standing:
+                assists += 1
+        
+        return assists
+    
     def can_block(
         self,
         game_state: GameState,
@@ -148,8 +187,16 @@ class CombatHandler:
         """
         dice_rolls = []
         
+        # Calculate assists
+        attacker_assists = self._count_assists(game_state, attacker, defender)
+        defender_assists = self._count_assists(game_state, defender, attacker)
+        
         # Get block dice
-        dice_count, attacker_chooses = self.get_block_dice_count(attacker, defender)
+        dice_count, attacker_chooses = self.get_block_dice_count(
+            attacker, defender,
+            assist_count_attacker=attacker_assists,
+            assist_count_defender=defender_assists
+        )
         
         # Roll block dice
         block_results = self.roll_block_dice(dice_count)

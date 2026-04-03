@@ -19,8 +19,8 @@ def bootstrap_interactive_game(
     game_id: Optional[str] = None,
     team1_type: TeamType = TeamType.CITY_WATCH,
     team2_type: TeamType = TeamType.UNSEEN_UNIVERSITY,
-    team1_name: str = "Team 1",
-    team2_name: str = "Team 2",
+    team1_name: Optional[str] = None,
+    team2_name: Optional[str] = None,
     logger: Optional[logging.Logger] = None,
 ) -> GameState:
     """Create an interactive game where agents must buy and place their own players.

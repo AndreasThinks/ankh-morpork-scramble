@@ -2,7 +2,7 @@
 from typing import Optional
 from app.models.game_state import GameState
 from app.models.actions import ActionRequest, ActionResult, ActionType
-from app.models.enums import PassResult
+from app.models.enums import PassResult, BlockResult
 from app.models.events import PassOutcome, TurnoverReason
 from app.game.dice import DiceRoller
 from app.game.movement import MovementHandler
@@ -57,6 +57,40 @@ class ActionExecutor:
     def _get_pitch_position(self, game_state: GameState, player_id: str):
         """Fetch a player's current position on the pitch if available."""
         return game_state.pitch.player_positions.get(player_id)
+
+    def _apply_push(self, game_state: GameState, defender_id: str, defender_pos, attacker_pos) -> None:
+        """Apply push mechanic: move defender one square away from attacker.
+        
+        If destination is out of bounds or occupied, defender stays in place (crowd push).
+        """
+        from app.models.pitch import Position
+        
+        # Calculate push direction (one square directly away from attacker)
+        dx = 0 if defender_pos.x == attacker_pos.x else (1 if defender_pos.x > attacker_pos.x else -1)
+        dy = 0 if defender_pos.y == attacker_pos.y else (1 if defender_pos.y > attacker_pos.y else -1)
+        
+        # Calculate new position
+        new_x = defender_pos.x + dx
+        new_y = defender_pos.y + dy
+        
+        # Check bounds (pitch is 26x15, x=0-25, y=0-14)
+        if not (0 <= new_x < 26 and 0 <= new_y < 15):
+            # Out of bounds - defender stays (crowd push)
+            return
+        
+        new_pos = Position(x=new_x, y=new_y)
+        
+        # Check if destination is occupied
+        if game_state.pitch.is_occupied(new_pos):
+            # Occupied - defender stays (crowd push)
+            return
+        
+        # Move defender to new position
+        game_state.pitch.player_positions[defender_id] = new_pos
+        
+        # If defender is carrying ball, update ball position
+        if game_state.pitch.ball_carrier == defender_id:
+            game_state.pitch.ball_position = new_pos
 
     def _execute_move(self, game_state: GameState, action: ActionRequest) -> ActionResult:
         """Execute a move action
@@ -248,6 +282,11 @@ class ActionExecutor:
         defender_pos = self._get_pitch_position(game_state, defender.id)
         attacker_pos = self._get_pitch_position(game_state, attacker.id)
 
+        # Handle push mechanic for PUSH and DEFENDER_STUMBLES
+        if block_result in (BlockResult.PUSH, BlockResult.DEFENDER_STUMBLES):
+            if defender_pos and attacker_pos:
+                self._apply_push(game_state, defender.id, defender_pos, attacker_pos)
+
         # Log knockdowns
         if defender_down:
             if defender_pos:
@@ -388,6 +427,11 @@ class ActionExecutor:
         # Log knockdowns
         defender_pos = self._get_pitch_position(game_state, defender.id)
         attacker_pos = self._get_pitch_position(game_state, player.id)
+
+        # Handle push mechanic for PUSH and DEFENDER_STUMBLES
+        if block_result in (BlockResult.PUSH, BlockResult.DEFENDER_STUMBLES):
+            if defender_pos and attacker_pos:
+                self._apply_push(game_state, defender.id, defender_pos, attacker_pos)
 
         if defender_down and defender_pos:
             logger.log_knockdown(defender.id, defender_pos, player.id)

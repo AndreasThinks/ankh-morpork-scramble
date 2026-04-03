@@ -1,9 +1,11 @@
+import os
 import re
 
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, demo_mode, default_demo_game_id
 from app.setup.default_game import DEFAULT_GAME_ID
+from app.setup.interactive_game import INTERACTIVE_GAME_ID
 
 
 def test_ui_dashboard_renders_default_game_id():
@@ -13,7 +15,14 @@ def test_ui_dashboard_renders_default_game_id():
 
     assert response.status_code == 200
     assert "text/html" in response.headers.get("content-type", "")
-    assert re.search(rf"data-game-id=\"{DEFAULT_GAME_ID}\"", response.text)
+    
+    # In demo mode, expect demo-game; in interactive mode, expect interactive-game
+    if demo_mode and default_demo_game_id:
+        expected_game_id = default_demo_game_id
+    else:
+        expected_game_id = INTERACTIVE_GAME_ID
+    
+    assert re.search(rf"data-game-id=\"{expected_game_id}\"", response.text)
     assert "Recent Events" in response.text
 
 

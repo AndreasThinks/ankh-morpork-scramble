@@ -197,9 +197,10 @@ class GameManager:
         if game_state.phase == GamePhase.CONCLUDED:
             raise ValueError("Cannot end turn on a concluded game")
         
-        # Guard against double end_turn calls
-        if game_state.turn.turnover_ended_turn:
-            return game_state
+        # Don't guard on turnover_ended_turn — the action handler sets this flag
+        # before calling end_turn, and switch_turn resets it after switching. The
+        # real protection against double end_turn is the player reset guard in
+        # main.py (HTTP endpoint checks active team matches).
 
         # Log turn end for current team
         event_logger = EventLogger(game_state)

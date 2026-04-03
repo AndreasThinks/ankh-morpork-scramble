@@ -64,9 +64,13 @@ else:
     # Interactive mode: Create empty game requiring setup
     default_demo_game_id = None
     interactive_game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
+    team1_name = os.getenv("TEAM1_NAME", "City Watch Constables")
+    team2_name = os.getenv("TEAM2_NAME", "Unseen University Adepts")
     demo_game_state = bootstrap_interactive_game(
         game_manager,
         game_id=interactive_game_id,
+        team1_name=team1_name,
+        team2_name=team2_name,
         logger=logger
     )
     logger.info(
@@ -573,14 +577,33 @@ def execute_action(game_id: str, action: ActionRequest):
 
 
 @app.post("/game/{game_id}/end-turn", response_model=GameState)
-def end_turn(game_id: str):
+def end_turn(game_id: str, team_id: Optional[str] = None):
     """Manually end the current turn.
 
-    Raises HTTP 400 if the game has already concluded or if no turn is active.
+    If team_id is provided, validates that it matches the currently active team
+    before ending the turn. This prevents agents from accidentally skipping the
+    opponent's turn.
+
+    Raises HTTP 400 if the game has already concluded, if no turn is active,
+    or if team_id doesn't match the active team.
     """
     try:
+        game_state = game_manager.get_game(game_id)
+        if not game_state:
+            raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+
+        if team_id is not None and game_state.turn:
+            active_team = game_state.get_active_team()
+            if team_id != active_team.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"It is not {team_id}'s turn (active team: {active_team.id})"
+                )
+
         game_state = game_manager.end_turn(game_id)
         return game_state
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -752,9 +775,11 @@ def join_game(game_id: str, team_id: str):
     try:
         if team_id == game_state.team1.id:
             game_state.team1_joined = True
+            game_state.team1_ready = True
             game_state.add_event(f"Team {team_id} joined")
         elif team_id == game_state.team2.id:
             game_state.team2_joined = True
+            game_state.team2_ready = True
             game_state.add_event(f"Team {team_id} joined")
         else:
             raise HTTPException(status_code=400, detail=f"Invalid team_id: {team_id}")
