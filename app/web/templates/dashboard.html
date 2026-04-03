@@ -1295,7 +1295,7 @@
                 const messages = messagesByTeam[team.id] || [];
 
                 if (messages.length === 0) {
-                    container.innerHTML = '<li><span class="speaker">Coaching Staff</span>Awaiting team communication...</li>';
+                    container.innerHTML = '<li style="color: var(--muted); font-style: italic; padding: 0.5rem 0;">No messages yet this match.</li>';
                     return;
                 }
 
@@ -1376,8 +1376,8 @@
             const refereeMessages = data.messages.filter(m => m.sender_id === 'referee');
 
             if (refereeMessages.length === 0) {
-                commentaryText.textContent = 'Awaiting the referee\'s first remarks...';
-                commentaryText.classList.add('loading');
+                commentaryText.textContent = 'Havelock Bluntt has yet to pass judgement.';
+                commentaryText.classList.remove('loading');
                 commentaryTimestamp.textContent = '';
                 return;
             }
@@ -1812,6 +1812,9 @@
             const response = await fetch(`/game/${gameId}/team/${teamId}/budget`);
             if (!response.ok) {
                 console.error(`Failed to fetch budget for ${teamId}:`, response.status);
+                const container = document.getElementById(containerId);
+                const detailsDiv = container.querySelector('.budget-details');
+                detailsDiv.innerHTML = '<div style="color: var(--muted); font-style: italic; padding: 0.5rem 0;">Treasury data unavailable.</div>';
                 return;
             }
             const budgetData = await response.json();
@@ -1839,6 +1842,9 @@
             `;
         } catch (error) {
             console.error(`Failed to fetch budget for ${teamId}:`, error);
+            const container = document.getElementById(containerId);
+            const detailsDiv = container.querySelector('.budget-details');
+            detailsDiv.innerHTML = '<div style="color: var(--muted); font-style: italic; padding: 0.5rem 0;">Treasury data unavailable.</div>';
         }
     }
 
@@ -1847,6 +1853,9 @@
             const response = await fetch(`/game/${gameId}/team/${teamId}/available-positions`);
             if (!response.ok) {
                 console.error(`Failed to fetch positions for ${teamId}:`, response.status);
+                const container = document.getElementById(containerId);
+                const listDiv = container.querySelector('.positions-list');
+                listDiv.innerHTML = '<div style="color: var(--muted); font-style: italic; padding: 0.5rem 0;">Treasury data unavailable.</div>';
                 return;
             }
             const data = await response.json();
@@ -1860,9 +1869,9 @@
             }
             
             const positionItems = data.positions.map(pos => {
-                const quantityText = pos.current_quantity >= pos.max_quantity 
-                    ? `<span style="color: rgba(224, 86, 86, 0.8);">Max reached (${pos.current_quantity}/${pos.max_quantity})</span>`
-                    : `${pos.current_quantity}/${pos.max_quantity} owned`;
+                const quantityText = pos.quantity_owned >= pos.quantity_limit 
+                    ? `<span style="color: rgba(224, 86, 86, 0.8);">Max reached (${pos.quantity_owned}/${pos.quantity_limit})</span>`
+                    : `${pos.quantity_owned}/${pos.quantity_limit} owned`;
                     
                 return `
                     <div class="position-item">
@@ -1871,11 +1880,11 @@
                             <span class="position-cost">${formatGold(pos.cost)}</span>
                         </div>
                         <div class="position-stats">
-                            <span class="position-stat">MA ${pos.ma}</span>
-                            <span class="position-stat">ST ${pos.st}</span>
-                            <span class="position-stat">AG ${pos.ag}</span>
-                            <span class="position-stat">PA ${pos.pa}</span>
-                            <span class="position-stat">AV ${pos.av}</span>
+                            <span class="position-stat">MA ${pos.stats?.ma ?? '?'}</span>
+                            <span class="position-stat">ST ${pos.stats?.st ?? '?'}</span>
+                            <span class="position-stat">AG ${pos.stats?.ag ?? '?'}</span>
+                            <span class="position-stat">PA ${pos.stats?.pa ?? '?'}</span>
+                            <span class="position-stat">AV ${pos.stats?.av ?? '?'}</span>
                         </div>
                         <div class="position-quantity">${quantityText}</div>
                     </div>
@@ -1885,6 +1894,9 @@
             listDiv.innerHTML = positionItems;
         } catch (error) {
             console.error(`Failed to fetch positions for ${teamId}:`, error);
+            const container = document.getElementById(containerId);
+            const listDiv = container.querySelector('.positions-list');
+            listDiv.innerHTML = '<div style="color: var(--muted); font-style: italic; padding: 0.5rem 0;">Treasury data unavailable.</div>';
         }
     }
 
