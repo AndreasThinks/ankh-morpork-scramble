@@ -118,15 +118,11 @@ app.middleware("http")(rate_limiter)
 app.include_router(ui_router)
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
-    """Root endpoint"""
-    return {
-        "name": "Ankh-Morpork Scramble API",
-        "version": "0.1.0",
-        "status": "running",
-        "disclaimer": "This is an unofficial, non-commercial fan project inspired by Blood Bowl and Discworld. Not affiliated with Games Workshop or Terry Pratchett's estate."
-    }
+    """Redirect root to the live dashboard."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui", status_code=302)
 
 
 @app.get("/health")
