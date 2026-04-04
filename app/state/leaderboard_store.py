@@ -117,9 +117,28 @@ class LeaderboardStore:
                 t1_outcome = t2_outcome = "draw"
 
             # ---- model aggregation ----
-            for model_id, score_for, score_against, casualties, turnovers, outcome in [
-                (r.team1_model, r.team1_score, r.team2_score, r.team1_casualties, r.team1_turnovers, t1_outcome),
-                (r.team2_model, r.team2_score, r.team1_score, r.team2_casualties, r.team2_turnovers, t2_outcome),
+            for (model_id, score_for, score_against, outcome,
+                 casualties, blocks,
+                 passes_att, passes_comp,
+                 pickups_att, pickups_succ,
+                 turnovers, failed_dodges,
+                 messages_sent, total_message_chars) in [
+                (
+                    r.team1_model, r.team1_score, r.team2_score, t1_outcome,
+                    r.team1_casualties, r.team1_blocks,
+                    r.team1_passes_attempted, r.team1_passes_completed,
+                    r.team1_pickups_attempted, r.team1_pickups_succeeded,
+                    r.team1_turnovers, r.team1_failed_dodges,
+                    r.team1_messages_sent, r.team1_total_message_chars,
+                ),
+                (
+                    r.team2_model, r.team2_score, r.team1_score, t2_outcome,
+                    r.team2_casualties, r.team2_blocks,
+                    r.team2_passes_attempted, r.team2_passes_completed,
+                    r.team2_pickups_attempted, r.team2_pickups_succeeded,
+                    r.team2_turnovers, r.team2_failed_dodges,
+                    r.team2_messages_sent, r.team2_total_message_chars,
+                ),
             ]:
                 if model_id not in model_map:
                     model_map[model_id] = ModelLeaderboardEntry(model_id=model_id)
@@ -129,7 +148,15 @@ class LeaderboardStore:
                 entry.goals_against += score_against
                 entry.score_diff += score_for - score_against
                 entry.casualties_caused += casualties
+                entry.blocks_thrown += blocks
+                entry.passes_attempted += passes_att
+                entry.passes_completed += passes_comp
+                entry.pickups_attempted += pickups_att
+                entry.pickups_succeeded += pickups_succ
                 entry.turnovers += turnovers
+                entry.failed_dodges += failed_dodges
+                entry.messages_sent += messages_sent
+                entry.total_message_chars += total_message_chars
                 if outcome == "win":
                     entry.wins += 1
                 elif outcome == "loss":
