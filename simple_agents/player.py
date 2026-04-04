@@ -74,6 +74,125 @@ def _build_formation(player_ids: list, team_id: str) -> dict:
         if i < len(slots)
     }
 
+# ── skill translation ───────────────────────────────────────────────────────
+# Maps Discworld-flavoured skill keys → Blood Bowl mechanic names so the LLM
+# understands what each skill actually does during roster selection.
+_SKILL_MECHANICS: dict[str, str] = {
+    # City Watch
+    "drill_hardened":       "Block",
+    "pigeon_post":          "Pass",
+    "chain_of_custody":     "Sure Hands",
+    "quick_grab":           "Catch",
+    "sidestep_shuffle":     "Dodge",
+    # Wizard base
+    "blink":                "Dodge",
+    "small_and_sneaky":     "Stunty",
+    "portable":             "Right Stuff",
+    "pointy_hat_padding":   "Thick Skull",
+    "reroll_the_thesis":    "Brawler",
+    "grappling_cantrip":    "Grab",
+    # Gargoyle
+    "bound_spirit":         "Loner (3+)",
+    "stone_thick":          "Mighty Blow (+1)",
+    "pigeon_proof":         "Projectile Vomit",
+    "mindless_masonry":     "Really Stupid",
+    "weathered":            "Regeneration",
+    "lob_the_lackey":       "Throw Team-Mate",
+    "occasional_bite_mark": "Always Hungry",
+    # Troll
+    "thick_as_a_brick":     "Thick Skull",
+    "rock_solid":           "Stand Firm",
+    "really_thick":         "Bone Head",
+    "cooling_helmet":       "Bone Head (2+)",
+    "crossbow_training":    "Mighty Blow (+1)",
+    "break_heads":          "Break Tackle",
+    # Street Veteran
+    "street_fighting":      "Dirty Player (+1)",
+    "slippery":             "Dodge",
+    # Watchdog
+    "lupine_speed":         "Sure Feet",
+    "keen_senses":          "Catch",
+    "regenerative":         "Regeneration",
+    # Captain Carrot
+    "true_king":            "Leader",
+    "kingly_presence":      "Guard",
+    "honest_fighter":       "Block",
+    "will_not_back_down":   "Dauntless",
+    "diplomatic_immunity":  "Fend",
+    "trusted_by_all":       "Inspiring Presence",
+    # UU — combat
+    "combat_evocation":     "Block",
+    "arcane_strike":        "Mighty Blow (+1)",
+    "battle_hardened":      "Thick Skull",
+    "aggressive_casting":   "Juggernaut",
+    # UU — speed
+    "haste_spell":          "Sprint",
+    "blink_dodge":          "Dodge",
+    "fleet_footed":         "Sure Feet",
+    # UU — tech / ball-handling
+    "hex_assisted":         "Sure Hands",
+    "calculated_trajectory": "Pass",
+    "safe_pair_of_hands":   "Safe Pass",
+    "dump_off_spell":       "Dump-Off",
+    # The Librarian
+    "prehensile_everything": "Extra Arms",
+    "library_swinging":     "Leap",
+    "protective_instinct":  "Guard",
+    "bibliophile_rage":     "Frenzy",
+    "terrifying_glare":     "Disturbing Presence",
+    # Ridcully
+    "archchancellor":       "Leader",
+    "robust_physique":      "Block",
+    "booming_voice":        "Guard",
+    "arcane_mastery":       "Pass",
+    "headology_expert":     "Hypnotic Gaze",
+    "stubborn":             "Stand Firm",
+    # Transformed Wizard
+    "simian_agility":       "Leap",
+    "four_limbs":           "Extra Arms",
+    "independent":          "Loner (4+)",
+}
+
+_SKILL_GUIDE = (
+    "Skill guide — "
+    "Block: block without falling; "
+    "Sure Hands: reroll failed pickups; "
+    "Dodge: reroll failed dodges; "
+    "Catch: reroll failed catches; "
+    "Pass: reroll failed throws; "
+    "Safe Pass: ball never scatters on fumble; "
+    "Sprint: +1 rush square (3 total); "
+    "Sure Feet: reroll failed rush; "
+    "Guard: assists even when outnumbered; "
+    "Mighty Blow (+1): +1 on armour/injury rolls; "
+    "Leader: grants one free team reroll per half; "
+    "Frenzy: must follow up and block again; "
+    "Leap: jump over adjacent players; "
+    "Extra Arms: reroll failed catches and pickups; "
+    "Loner: only benefits from team rerolls on a 4+; "
+    "Stunty: smaller target but easier to injure; "
+    "Really Stupid/Bone Head: may refuse to act."
+)
+
+
+def _format_position_for_llm(p: dict) -> str:
+    """Format one position entry for the roster selection prompt."""
+    stats = p.get("stats", {})
+    skills_raw = stats.get("skills", [])
+    skills_str = (
+        ", ".join(_SKILL_MECHANICS.get(s, s) for s in skills_raw)
+        if skills_raw else "—"
+    )
+    star = " ★" if p.get("quantity_limit", 99) == 1 else ""
+    return (
+        f"  {p['position_key']} ({p.get('role', p['position_key'])}){star}  "
+        f"{p.get('cost', 0):,}g  max {p.get('quantity_limit', '?')}  "
+        f"MA{stats.get('ma','?')} ST{stats.get('st','?')} "
+        f"AG{stats.get('ag','?')} PA{stats.get('pa','?')} AV{stats.get('av','?')}  "
+        f"[{skills_str}]"
+    )
+
+
 # ── setup ──────────────────────────────────────────────────────────────────
 
 def setup_team(game_id: str, team_id: str, team_name: str,
@@ -89,12 +208,16 @@ def setup_team(game_id: str, team_id: str, team_name: str,
     available = positions_data.get("positions") or []
 
     roster_prompt = (
-        f"You are building a roster for {team_name} in Ankh-Morpork Scramble.\n"
-        f"Budget: {budget} gold.\n"
-        f"Available positions (key: cost, limit):\n"
-        + "\n".join(f"  {p['position_key']}: {p.get('cost',0)}g, max {p.get('quantity_limit','?')}" for p in available)
-        + "\n\nChoose 7-11 players and 1-3 rerolls that fit within budget. Aim for a balanced mix."
-        + '\n\nReturn ONLY a JSON object: {"players": ["key","key",...], "rerolls": N}'
+        f"You are building a roster for {team_name} in Ankh-Morpork Scramble (Blood Bowl rules).\n"
+        f"Budget: {budget:,}g.  Rerolls cost {positions_data.get('reroll_cost', 60000):,}g each (max {positions_data.get('rerolls_max', 8)}).\n\n"
+        f"Available positions (key | name | cost | max | MA ST AG PA AV | [skills]):\n"
+        + "\n".join(_format_position_for_llm(p) for p in available)
+        + f"\n\n{_SKILL_GUIDE}\n\n"
+        + "Build a balanced squad of 7-11 players plus 1-3 rerolls within budget.\n"
+        + "Aim for: a core of cheap linemen, 1-2 fast runners (high MA) for ball carrying, "
+        + "1 dedicated passer/ball-handler (good PA or Sure Hands), and 1-2 strong blockers (high ST).\n"
+        + "★ = star player (unique, max 1, expensive — only buy if budget allows after filling the core).\n\n"
+        + 'Return ONLY a JSON object: {"players": ["key","key",...], "rerolls": N}'
     )
 
     try:
