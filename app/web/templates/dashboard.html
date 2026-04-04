@@ -2245,17 +2245,19 @@
         const t2model = shortModel(data.team2_model);
         const t1rerolls = (team1.rerolls_total || 0) - (team1.rerolls_used || 0);
         const t2rerolls = (team2.rerolls_total || 0) - (team2.rerolls_used || 0);
+        const t1rerollHtml = team1.rerolls_total > 0 ? `<span class="reroll-counter" title="Rerolls remaining: ${t1rerolls}/${team1.rerolls_total}">↺ ${t1rerolls}</span>` : '';
+        const t2rerollHtml = team2.rerolls_total > 0 ? `<span class="reroll-counter" title="Rerolls remaining: ${t2rerolls}/${team2.rerolls_total}">↺ ${t2rerolls}</span>` : '';
         scoreLine.innerHTML = `
             <span class="score-team score-team--home">
                 <span class="team-name">${escapeHtml(team1.name)}</span>
                 ${t1model ? `<span class="team-model" title="${escapeHtml(data.team1_model || '')}">${escapeHtml(t1model)}</span>` : ''}
-                <span class="reroll-counter" title="Rerolls remaining">↺ ${t1rerolls}</span>
+                ${t1rerollHtml}
             </span>
             <span class="score-value" id="team1-score-value">${team1.score}<small> Scratches</small></span>
             <span class="score-divider">VS</span>
             <span class="score-value" id="team2-score-value">${team2.score}<small> Scratches</small></span>
             <span class="score-team score-team--away">
-                <span class="reroll-counter" title="Rerolls remaining">↺ ${t2rerolls}</span>
+                ${t2rerollHtml}
                 <span class="team-name">${escapeHtml(team2.name)}</span>
                 ${t2model ? `<span class="team-model" title="${escapeHtml(data.team2_model || '')}">${escapeHtml(t2model)}</span>` : ''}
             </span>
@@ -2618,16 +2620,21 @@
                     rect.setAttribute('y', y);
                     rect.setAttribute('width', 1);
                     rect.setAttribute('height', 1);
-                    // Overlapping zones → purple tint; single team → their colour
-                    let fill;
+                    // Overlapping zones → purple; single team → their colour
+                    let fill, stroke;
                     if (counts.t1 > 0 && counts.t2 > 0) {
-                        fill = 'rgba(160, 100, 200, 0.2)';   // both — purple
+                        fill = 'rgba(160, 100, 200, 0.08)';
+                        stroke = 'rgba(160, 100, 200, 0.3)';
                     } else if (counts.t1 > 0) {
-                        fill = 'rgba(100, 185, 230, 0.18)';  // team1 — blue
+                        fill = 'rgba(100, 185, 230, 0.07)';
+                        stroke = 'rgba(100, 185, 230, 0.28)';
                     } else {
-                        fill = 'rgba(196, 109, 40, 0.18)';   // team2 — orange
+                        fill = 'rgba(196, 109, 40, 0.07)';
+                        stroke = 'rgba(196, 109, 40, 0.28)';
                     }
                     rect.setAttribute('fill', fill);
+                    rect.setAttribute('stroke', stroke);
+                    rect.setAttribute('stroke-width', '0.04');
                     rect.setAttribute('pointer-events', 'none');
                     zonesGroup.appendChild(rect);
                 }
