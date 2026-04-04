@@ -109,7 +109,15 @@ def setup_team(game_id: str, team_id: str, team_name: str,
         if team_id == "team1":
             roster = {"players": ["constable"]*5 + ["fleet_recruit"]*2 + ["watch_sergeant"], "rerolls": 2}
         else:
-            roster = {"players": ["apprentice_wizard"]*6 + ["haste_mage"]*2, "rerolls": 2}
+            roster = {
+                "players": (
+                    ["apprentice_wizard"] * 4
+                    + ["haste_mage"] * 2
+                    + ["divination_wizard"] * 2
+                    + ["senior_wizard"] * 1
+                ),
+                "rerolls": 2,
+            }
 
     # Buy players
     for position_key in roster.get("players", []):
