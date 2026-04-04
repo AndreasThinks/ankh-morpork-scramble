@@ -228,6 +228,16 @@
             100% { r: 0.25; }
         }
 
+        @keyframes eventFlash {
+            0%   { opacity: 1; r: 0.6; }
+            60%  { opacity: 0.6; }
+            100% { opacity: 0; r: 1.1; }
+        }
+        .event-flash {
+            animation: eventFlash 0.7s ease-out forwards;
+            pointer-events: none;
+        }
+
         .score-changed {
             animation: scoreFlash 0.6s ease;
         }
@@ -697,6 +707,34 @@
         .tab-btn.active {
             color: var(--accent-gold);
             border-bottom-color: var(--accent-gold);
+        }
+
+        .tab-collapse-btn {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 0.65rem;
+            padding: 0 0.75rem;
+            min-height: 44px;
+            cursor: pointer;
+            opacity: 0.55;
+            transition: opacity 0.15s, transform 0.25s;
+            flex-shrink: 0;
+        }
+        .tab-collapse-btn:hover { opacity: 1; }
+
+        /* Collapsed state: hide all tab panels */
+        .pitch-panel.panels-collapsed .tab-panel {
+            display: none !important;
+        }
+        /* Rotate chevron when collapsed */
+        .pitch-panel.panels-collapsed .tab-collapse-btn {
+            transform: rotate(180deg);
+        }
+        /* Remove bottom border gap when panels hidden */
+        .pitch-panel.panels-collapsed .tab-bar {
+            border-bottom: 1px solid rgba(217, 180, 91, 0.12);
         }
 
         .tab-panel {
@@ -1678,6 +1716,25 @@
             100% { transform: translateX(-100%); }
         }
 
+        /* Mixed-feed ticker item styles */
+        .ticker-item { display: inline; }
+        .ticker-item--commentary {
+            font-style: italic;
+            color: rgba(217, 180, 91, 0.72);
+        }
+        .ticker-item--event {
+            font-style: normal;
+            color: rgba(242, 227, 198, 0.88);
+        }
+        .ticker-item--combat  { color: rgba(220, 110, 90, 0.9); }
+        .ticker-item--ball    { color: rgba(100, 185, 230, 0.9); }
+        .ticker-item--turnover { color: rgba(220, 175, 60, 0.95); font-weight: 600; }
+        .ticker-sep {
+            color: rgba(217, 180, 91, 0.25);
+            font-style: normal;
+            user-select: none;
+        }
+
         /* ── Mobile layout (≤768px) ──────────────────────────────────────── */
         @media (max-width: 768px) {
 
@@ -1760,7 +1817,7 @@
 
             /* Pitch-panel tab area: let it grow naturally */
             .pitch-panel .tab-panel {
-                max-height: 280px;
+                max-height: 40vh;
             }
 
             /* Hide split button on mobile — not enough vertical room */
@@ -1848,7 +1905,7 @@
     </div>
     <div class="meta" id="game-meta" style="display:none;"></div>
     <div class="global-ticker" id="commentary-ticker" role="status" aria-live="polite">
-        <span class="ticker-badge">⚖ Dibbler</span>
+        <span class="ticker-badge">📡 Live</span>
         <div class="ticker-track">
             <span class="ticker-inner" id="ticker-text">Dibbler is working his way round the crowd. Remarks forthcoming.</span>
         </div>
@@ -1888,7 +1945,8 @@
             <button class="tab-btn" data-tab="events">📋 Events</button>
             <button class="tab-btn" data-tab="roster">👥 Roster</button>
             <button class="tab-btn" data-tab="strategy">💭 Strategy</button>
-
+            <button class="tab-collapse-btn" id="tab-collapse-btn"
+                    title="Hide info panel" aria-expanded="true">▼</button>
         </div>
 
         <!-- Commentary tab -->
@@ -2284,6 +2342,38 @@
         ring.addEventListener("animationend", () => ring.remove(), { once: true });
     }
 
+    function fireEventFlash(playerId, result, role) {
+        const token = tokenElements.get(playerId);
+        if (!token) return;
+        const body = token.querySelector('[data-role=body]');
+        if (!body) return;
+        const cx = parseFloat(body.getAttribute('cx'));
+        const cy = parseFloat(body.getAttribute('cy'));
+        const tokensGroup = document.getElementById('pitch-tokens');
+        if (!tokensGroup) return;
+
+        // Color: attacker = warm gold, defender knocked = red, defender pushed = blue
+        let color;
+        if (role === 'attacker') {
+            color = 'rgba(255,220,80,0.9)';
+        } else if (result === 'failure' || result === 'turnover') {
+            color = 'rgba(255,80,60,0.85)';
+        } else {
+            color = 'rgba(80,160,255,0.75)';
+        }
+
+        const flash = document.createElementNS(SVG_NS, 'circle');
+        flash.setAttribute('cx', cx);
+        flash.setAttribute('cy', cy);
+        flash.setAttribute('r', 0.6);
+        flash.setAttribute('fill', 'none');
+        flash.setAttribute('stroke', color);
+        flash.setAttribute('stroke-width', '0.12');
+        flash.classList.add('event-flash');
+        tokensGroup.appendChild(flash);
+        flash.addEventListener('animationend', () => flash.remove(), { once: true });
+    }
+
     function buildPlayerToken(playerId, player, pos, team, isCarrier) {
         const token = document.createElementNS(SVG_NS, "g");
         token.setAttribute("class", "player-token");
@@ -2302,25 +2392,48 @@
             token.appendChild(aura);
         }
 
+        const playerState = player.state || 'standing';
+
         const circle = document.createElementNS(SVG_NS, "circle");
         circle.setAttribute("cx", pos.x + 0.5);
         circle.setAttribute("cy", pos.y + 0.5);
         circle.setAttribute("r", 0.45);
-        circle.setAttribute("fill", `var(${team.color})`);
-        circle.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
-        circle.setAttribute("stroke-width", "0.08");
         circle.dataset.role = "body";
+
+        if (playerState === 'knocked_out') {
+            circle.setAttribute("fill", "#555");
+            circle.setAttribute("fill-opacity", "0.75");
+            circle.setAttribute("stroke", "rgba(200,70,50,0.8)");
+            circle.setAttribute("stroke-width", "0.1");
+            circle.setAttribute("stroke-dasharray", "0.25 0.15");
+        } else if (playerState === 'stunned') {
+            circle.setAttribute("fill", `var(${team.color})`);
+            circle.setAttribute("fill-opacity", "0.4");
+            circle.setAttribute("stroke", "rgba(255,210,60,0.8)");
+            circle.setAttribute("stroke-width", "0.1");
+        } else {
+            circle.setAttribute("fill", `var(${team.color})`);
+            circle.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+            circle.setAttribute("stroke-width", "0.08");
+        }
         token.appendChild(circle);
 
         const label = document.createElementNS(SVG_NS, "text");
         label.setAttribute("x", pos.x + 0.5);
-        label.setAttribute("y", pos.y + 0.55);
+        label.setAttribute("y", pos.y + 0.58);
         label.setAttribute("text-anchor", "middle");
-        label.setAttribute("font-size", "0.4");
-        label.setAttribute("fill", "rgba(18, 12, 7, 0.95)");
-        label.setAttribute("font-weight", "600");
-        label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+        label.setAttribute("font-size", "0.38");
+        label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : 'rgba(18,12,7,0.92)');
+        label.setAttribute("font-weight", "700");
         label.dataset.role = "label";
+
+        if (playerState === 'knocked_out') {
+            label.textContent = '✕';
+        } else if (playerState === 'stunned') {
+            label.textContent = '~';
+        } else {
+            label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+        }
         token.appendChild(label);
 
         token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
@@ -2329,18 +2442,50 @@
     }
 
     function updatePlayerToken(token, playerId, player, pos, team, isCarrier) {
-        // Update body circle position
+        const playerState = player.state || 'standing';
+
+        // Update body circle position and state styling
         const circle = token.querySelector("[data-role=body]");
         if (circle) {
             circle.setAttribute("cx", pos.x + 0.5);
             circle.setAttribute("cy", pos.y + 0.5);
+
+            // Re-apply state-dependent styling
+            if (playerState === 'knocked_out') {
+                circle.setAttribute("fill", "#555");
+                circle.setAttribute("fill-opacity", "0.75");
+                circle.setAttribute("stroke", "rgba(200,70,50,0.8)");
+                circle.setAttribute("stroke-width", "0.1");
+                circle.setAttribute("stroke-dasharray", "0.25 0.15");
+            } else if (playerState === 'stunned') {
+                circle.setAttribute("fill", `var(${team.color})`);
+                circle.setAttribute("fill-opacity", "0.4");
+                circle.setAttribute("stroke", "rgba(255,210,60,0.8)");
+                circle.setAttribute("stroke-width", "0.1");
+                circle.removeAttribute("stroke-dasharray");
+            } else {
+                circle.setAttribute("fill", `var(${team.color})`);
+                circle.removeAttribute("fill-opacity");
+                circle.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+                circle.setAttribute("stroke-width", "0.08");
+                circle.removeAttribute("stroke-dasharray");
+            }
         }
 
-        // Update label position
+        // Update label position and state-dependent text
         const label = token.querySelector("[data-role=label]");
         if (label) {
             label.setAttribute("x", pos.x + 0.5);
-            label.setAttribute("y", pos.y + 0.55);
+            label.setAttribute("y", pos.y + 0.58);
+            label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : 'rgba(18,12,7,0.92)');
+
+            if (playerState === 'knocked_out') {
+                label.textContent = '✕';
+            } else if (playerState === 'stunned') {
+                label.textContent = '~';
+            } else {
+                label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+            }
         }
 
         // Update or add/remove aura
@@ -2454,6 +2599,36 @@
         } else if (ballElement) {
             ballElement.style.opacity = "0";
         }
+
+        // Active team border
+        const svg = document.getElementById('pitch-canvas');
+        const activeTeamId = state.turn?.active_team_id;
+        const activeColor = activeTeamId === state.team1?.id
+            ? 'var(--accent-blue)'
+            : activeTeamId === state.team2?.id
+            ? 'var(--accent-orange)'
+            : 'rgba(217,180,91,0.3)';
+
+        let borderRect = svg.querySelector('[data-role="active-border"]');
+        if (!borderRect) {
+            borderRect = document.createElementNS(SVG_NS, 'rect');
+            borderRect.dataset.role = 'active-border';
+            borderRect.setAttribute('fill', 'none');
+            borderRect.setAttribute('stroke-width', '0.18');
+            borderRect.setAttribute('rx', '0.15');
+            borderRect.setAttribute('pointer-events', 'none');
+            svg.appendChild(borderRect);
+        }
+        // Match the viewBox bounds — read them from the SVG
+        const vb = svg.viewBox?.baseVal;
+        if (vb) {
+            borderRect.setAttribute('x', String(vb.x + 0.1));
+            borderRect.setAttribute('y', String(vb.y + 0.1));
+            borderRect.setAttribute('width',  String(vb.width  - 0.2));
+            borderRect.setAttribute('height', String(vb.height - 0.2));
+        }
+        borderRect.setAttribute('stroke', activeColor);
+        borderRect.setAttribute('opacity', '0.55');
     }
 
     async function renderThoughts(state) {
@@ -2991,6 +3166,17 @@
         // Update count badge
         const badge = document.getElementById('log-count-badge');
         if (badge) badge.textContent = String(events.length);
+
+        // Fire event flash for the latest new event
+        if (newEvents.length > 0) {
+            const latest = newEvents[newEvents.length - 1];
+            if (latest.player_id) {
+                fireEventFlash(latest.player_id, latest.result, 'attacker');
+            }
+            if (latest.target_player_id) {
+                fireEventFlash(latest.target_player_id, latest.result, 'defender');
+            }
+        }
     }
 
     function stopPolling() {
@@ -3370,6 +3556,41 @@
     let lastInjectedCommentaryText = '';  // prevents duplicate injection
     let tokenElements = new Map();   // playerId -> SVG <g> element
     let ballElement = null;          // the loose ball <circle>
+    let tickerQueue = [];            // mixed-feed ticker items
+    const TICKER_MAX = 10;
+
+    // ── Mixed-feed ticker ──────────────────────────────────────────────
+    function pushToTicker(type, icon, text, category) {
+        tickerQueue.push({ type, icon, text, category: category || '' });
+        if (tickerQueue.length > TICKER_MAX) tickerQueue.shift();
+        refreshTicker();
+    }
+
+    function refreshTicker() {
+        const inner = document.getElementById('ticker-text');
+        if (!inner || tickerQueue.length === 0) return;
+        const frag = document.createDocumentFragment();
+        tickerQueue.forEach((item, i) => {
+            if (i > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'ticker-sep';
+                sep.textContent = '  ·  ';
+                frag.appendChild(sep);
+            }
+            const span = document.createElement('span');
+            const catClass = item.category ? ` ticker-item--${item.category}` : '';
+            span.className = `ticker-item ticker-item--${item.type}${catClass}`;
+            span.textContent = `${item.icon} ${item.text}`;
+            frag.appendChild(span);
+        });
+        inner.innerHTML = '';
+        inner.appendChild(frag);
+        const totalChars = tickerQueue.reduce((n, item) => n + item.text.length + 5, 0);
+        const duration = Math.min(50, Math.max(15, Math.round(totalChars * 0.22)));
+        inner.style.animation = 'none';
+        void inner.offsetWidth; // force reflow
+        inner.style.animation = `tickerScroll ${duration}s linear infinite`;
+    }
 
     async function fetchState() {
         try {
