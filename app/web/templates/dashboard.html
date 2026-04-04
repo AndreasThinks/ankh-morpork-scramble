@@ -3761,6 +3761,29 @@
         if (commentaryBtn) commentaryBtn.classList.add('active');
     });
 
+    // Info panel collapse toggle
+    (function () {
+        const collapseBtn = document.getElementById('tab-collapse-btn');
+        const pitchPanel  = document.querySelector('.pitch-panel');
+        if (!collapseBtn || !pitchPanel) return;
+        const KEY = 'ams-panels-collapsed';
+
+        function applyCollapsed(collapsed) {
+            pitchPanel.classList.toggle('panels-collapsed', collapsed);
+            collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+            collapseBtn.title = collapsed ? 'Show info panel' : 'Hide info panel';
+        }
+
+        // Restore persisted state
+        applyCollapsed(localStorage.getItem(KEY) === '1');
+
+        collapseBtn.addEventListener('click', () => {
+            const nowCollapsed = !pitchPanel.classList.contains('panels-collapsed');
+            applyCollapsed(nowCollapsed);
+            localStorage.setItem(KEY, nowCollapsed ? '1' : '0');
+        });
+    })();
+
     // Initialize
     initPitchGrid();
     startPolling();
