@@ -202,6 +202,114 @@ UNSEEN_UNIVERSITY_POSITIONS = {
         primary=["S"],
         secondary=["A", "G", "P"]
     ),
+    # --- NEW positions ---
+
+    # Fast runner. UU answer to the Fleet Recruit (MA8, AV7+ - fast but fragile).
+    # Skills: Sprint + Dodge. Max 2 - magical acceleration is rare.
+    "haste_mage": PlayerPosition(
+        role="Haste Mage",
+        cost=75000,
+        max_quantity=2,
+        ma=8,
+        st=2,
+        ag="3+",
+        pa="5+",
+        av="7+",
+        skills=[
+            SkillType.HASTE_SPELL,    # Sprint
+            SkillType.BLINK_DODGE,    # Dodge
+        ],
+        primary=["A", "G"],
+        secondary=["P"]
+    ),
+
+    # Dedicated passer. UU answer to the Clerk-Runner (PA2+, Sure Hands, Safe Pass).
+    # Slower and frailer than the Clerk-Runner (MA5, ST2) but equally gifted with the ball.
+    "divination_wizard": PlayerPosition(
+        role="Divination Wizard",
+        cost=85000,
+        max_quantity=2,
+        ma=5,
+        st=2,
+        ag="3+",
+        pa="2+",
+        av="8+",
+        skills=[
+            SkillType.CALCULATED_TRAJECTORY,  # Pass
+            SkillType.HEX_ASSISTED,           # Sure Hands
+            SkillType.SAFE_PAIR_OF_HANDS,     # Safe Pass
+        ],
+        primary=["P", "A"],
+        secondary=["G"]
+    ),
+
+    # Cheap agile oddity. A wizard who accidentally transformed themselves into an orangutan
+    # and has not quite worked out how to change back. Surprisingly strong and very agile
+    # (AG2+), but distracted and hard to direct (Loner 4+). Max 2.
+    "transformed_wizard": PlayerPosition(
+        role="Transformed Wizard",
+        cost=60000,
+        max_quantity=2,
+        ma=5,
+        st=3,
+        ag="2+",
+        pa="6+",
+        av="8+",
+        skills=[
+            SkillType.SIMIAN_AGILITY,  # Leap
+            SkillType.FOUR_LIMBS,      # Extra Arms
+            SkillType.INDEPENDENT,     # Loner (4+)
+        ],
+        primary=["A"],
+        secondary=["G", "S"]
+    ),
+
+    # Star player 1 - The Librarian. ST4, AG2+ (exceptional), Frenzy + Guard + Leap.
+    # UU answer to Sergeant Detritus. Ook.
+    "the_librarian": PlayerPosition(
+        role="The Librarian",
+        cost=150000,
+        max_quantity=1,
+        ma=5,
+        st=4,
+        ag="2+",
+        pa="6+",
+        av="9+",
+        skills=[
+            SkillType.PREHENSILE_EVERYTHING,  # Extra Arms
+            SkillType.LIBRARY_SWINGING,       # Leap
+            SkillType.PROTECTIVE_INSTINCT,    # Guard
+            SkillType.BIBLIOPHILE_RAGE,       # Frenzy
+            SkillType.TERRIFYING_GLARE,       # Disturbing Presence
+        ],
+        primary=["S", "A"],
+        secondary=["G"],
+        is_star_player=True
+    ),
+
+    # Star player 2 - Archchancellor Mustrum Ridcully. Leader + Block + Guard + Pass.
+    # UU answer to Captain Carrot. Loud, stubborn, surprisingly effective.
+    "archchancellor_ridcully": PlayerPosition(
+        role="Archchancellor Ridcully",
+        cost=140000,
+        max_quantity=1,
+        ma=6,
+        st=4,
+        ag="3+",
+        pa="3+",
+        av="10+",
+        skills=[
+            SkillType.ARCHCHANCELLOR,         # Leader
+            SkillType.ROBUST_PHYSIQUE,        # Block
+            SkillType.BOOMING_VOICE,          # Guard
+            SkillType.ARCANE_MASTERY,         # Pass
+            SkillType.HEADOLOGY_EXPERT,       # Hypnotic Gaze
+            SkillType.STUBBORN,               # Stand Firm
+        ],
+        primary=["G", "S", "P"],
+        secondary=["A"],
+        is_star_player=True
+    ),
 }
 
 
