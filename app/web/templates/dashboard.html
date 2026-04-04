@@ -2782,18 +2782,7 @@
             commentaryText.textContent = latestComment.content;
             commentaryText.classList.remove('loading');
 
-            // Update scrolling ticker in header
-            const tickerInner = document.getElementById('ticker-text');
-            if (tickerInner && tickerInner.textContent !== latestComment.content) {
-                tickerInner.textContent = latestComment.content;
-                // Speed: ~40px/s, typical char ~8px wide. Min 12s, max 40s.
-                const duration = Math.min(40, Math.max(12, Math.round(latestComment.content.length * 0.22)));
-                tickerInner.style.animation = 'none';
-                void tickerInner.offsetWidth; // force reflow to restart
-                tickerInner.style.animation = `tickerScroll ${duration}s linear infinite`;
-            }
-
-            // Inject into event log
+            // Inject into event log (also pushes to ticker via pushToTicker)
             injectCommentaryIntoLog(latestComment.content);
 
             // Update the mobile ref strip
@@ -3572,6 +3561,7 @@
     let ballElement = null;          // the loose ball <circle>
     let tickerQueue = [];            // mixed-feed ticker items
     const TICKER_MAX = 10;
+    let tickerRunning = false;       // true once the scroll animation has started
 
     // ── Mixed-feed ticker ──────────────────────────────────────────────
     function pushToTicker(type, icon, text, category) {
@@ -3580,9 +3570,16 @@
         refreshTicker();
     }
 
+    function tickerDuration() {
+        const totalChars = tickerQueue.reduce((n, item) => n + item.text.length + 5, 0);
+        return Math.min(60, Math.max(15, Math.round(totalChars * 0.25)));
+    }
+
     function refreshTicker() {
         const inner = document.getElementById('ticker-text');
         if (!inner || tickerQueue.length === 0) return;
+
+        // Rebuild content in place — animation keeps running from its current position
         const frag = document.createDocumentFragment();
         tickerQueue.forEach((item, i) => {
             if (i > 0) {
@@ -3599,11 +3596,21 @@
         });
         inner.innerHTML = '';
         inner.appendChild(frag);
-        const totalChars = tickerQueue.reduce((n, item) => n + item.text.length + 5, 0);
-        const duration = Math.min(50, Math.max(15, Math.round(totalChars * 0.22)));
-        inner.style.animation = 'none';
-        void inner.offsetWidth; // force reflow
-        inner.style.animation = `tickerScroll ${duration}s linear infinite`;
+
+        if (!tickerRunning) {
+            // First item — start the animation fresh
+            const dur = tickerDuration();
+            inner.style.animation = 'none';
+            void inner.offsetWidth; // force reflow
+            inner.style.animation = `tickerScroll ${dur}s linear infinite`;
+            tickerRunning = true;
+
+            // After each full scroll cycle, update duration for whatever's in the queue
+            inner.addEventListener('animationiteration', () => {
+                inner.style.animationDuration = `${tickerDuration()}s`;
+            });
+        }
+        // If already running: content updated in-place, scroll continues uninterrupted
     }
 
     async function fetchState() {
