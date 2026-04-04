@@ -1658,6 +1658,42 @@
             [data-tab="split"] {
                 display: none;
             }
+
+            /* Larger, thumb-friendly tab bar on mobile */
+            .tab-bar {
+                position: sticky;
+                bottom: 0;
+                z-index: 10;
+                background: rgba(24, 15, 7, 0.97);
+                border-top: 1px solid rgba(217, 180, 91, 0.25);
+                border-bottom: none;
+                padding: 0 0.25rem;
+                backdrop-filter: blur(8px);
+            }
+
+            .tab-btn {
+                min-height: 44px;
+                font-size: 0.75rem;
+                padding: 0 0.6rem;
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-bottom: none;
+                border-top: 2px solid transparent;
+                margin-bottom: 0;
+                margin-top: -1px;
+            }
+
+            .tab-btn.active {
+                border-bottom-color: transparent;
+                border-top-color: var(--accent-gold);
+            }
+
+            /* Hide split button on mobile — not enough vertical room for two panels */
+            .tab-btn--split {
+                display: none;
+            }
         }
 
         /* ── Very small screens (≤480px) ─────────────────────────────────── */
@@ -1676,10 +1712,9 @@
                 max-height: 160px;
             }
 
-            /* Tighter tab buttons */
             .tab-btn {
-                padding: 0.3rem 0.5rem;
-                font-size: 0.68rem;
+                font-size: 0.7rem;
+                padding: 0 0.5rem;
             }
 
             /* Smaller log events */
