@@ -2,13 +2,20 @@
 from typing import Optional
 from app.models.game_state import GameState
 from app.models.actions import ActionRequest, ActionResult, ActionType
-from app.models.enums import PassResult, BlockResult
+from app.models.enums import PassResult, BlockResult, PlayerState
 from app.models.events import PassOutcome, TurnoverReason
 from app.game.dice import DiceRoller
 from app.game.movement import MovementHandler
 from app.game.ball_handling import BallHandler
 from app.game.combat import CombatHandler
 from app.game.event_logger import EventLogger
+
+# States that mean a player is no longer physically on the pitch
+_EJECTED_STATES = frozenset({
+    PlayerState.KNOCKED_OUT,
+    PlayerState.CASUALTY,
+    PlayerState.SENT_OFF,
+})
 
 
 class ActionExecutor:
@@ -57,6 +64,17 @@ class ActionExecutor:
     def _get_pitch_position(self, game_state: GameState, player_id: str):
         """Fetch a player's current position on the pitch if available."""
         return game_state.pitch.player_positions.get(player_id)
+
+    def _eject_players_if_needed(self, game_state: GameState, *player_ids: str) -> None:
+        """Remove KO'd, injured, or sent-off players from pitch.player_positions.
+
+        Must be called AFTER any drop_ball() calls so the ball lands correctly
+        before the carrier's position entry is deleted.
+        """
+        for pid in player_ids:
+            player = game_state.get_player(pid)
+            if player and player.state in _EJECTED_STATES:
+                game_state.pitch.player_positions.pop(pid, None)
 
     def _apply_push(self, game_state: GameState, defender_id: str, defender_pos, attacker_pos) -> None:
         """Apply push mechanic: move defender one square away from attacker.
@@ -316,6 +334,9 @@ class ActionExecutor:
                 logger.log_drop(attacker.id, drop_pos, "knocked down")
             logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, attacker.id)
 
+        # Remove ejected players from pitch AFTER ball drop so ball position is set correctly
+        self._eject_players_if_needed(game_state, defender.id, attacker.id)
+
         attacker.has_acted = True
         game_state.add_event(result.message)  # Keep for backward compatibility
 
@@ -454,6 +475,9 @@ class ActionExecutor:
             if drop_pos:
                 logger.log_drop(player.id, drop_pos, "knocked down")
             logger.log_turnover(TurnoverReason.BALL_CARRIER_DOWN, player.id)
+
+        # Remove ejected players from pitch AFTER ball drop so ball position is set correctly
+        self._eject_players_if_needed(game_state, defender.id, player.id)
 
         game_state.turn.charge_used = True
         player.has_acted = True
@@ -646,6 +670,9 @@ class ActionExecutor:
                 injury_roll = dice_rolls[-1] if dice_rolls else None
                 if injury_roll:
                     logger.log_injury(target.id, injury_roll, injury_result)
+
+        # Remove ejected players (KO/casualty target, or sent-off fouler)
+        self._eject_players_if_needed(game_state, target.id, attacker.id)
 
         game_state.turn.boot_used = True
         attacker.has_acted = True

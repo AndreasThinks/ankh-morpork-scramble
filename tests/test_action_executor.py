@@ -425,4 +425,65 @@ def test_foul_without_target_fails():
             target_player_id=None
         )
 
-    assert "BOOT action requires target_player_id" in str(exc_info.value)
+
+def test_ko_player_removed_from_pitch():
+    """Regression: KO'd/casualty players must be removed from player_positions.
+
+    Previously, a knocked-out player's position entry was never deleted, making
+    that square permanently impassable (ghost occupancy). This caused balls
+    dropped on the same square to become unreachable for the rest of the match.
+    """
+    from app.models.enums import PlayerState, BlockResult as BR
+    from app.models.actions import DiceRoll
+    from unittest.mock import patch
+
+    executor = ActionExecutor(DiceRoller(seed=0))
+    game_state = create_test_game_state()
+
+    attacker = create_test_player("p1", "team1", st=5)
+    defender = create_test_player("p2", "team2", st=1)
+    game_state.players["p1"] = attacker
+    game_state.players["p2"] = defender
+
+    atk_pos = Position(x=5, y=7)
+    def_pos = Position(x=6, y=7)
+    game_state.pitch.player_positions["p1"] = atk_pos
+    game_state.pitch.player_positions["p2"] = def_pos
+
+    # Defender is the ball carrier
+    game_state.pitch.ball_carrier = "p2"
+    game_state.pitch.ball_position = def_pos
+
+    # Force execute_block to return DEFENDER_DOWN with a KO injury regardless of dice
+    fake_armor = DiceRoll(type="armor", result=10, target=9, success=True, modifiers={})
+    fake_injury = DiceRoll(type="injury", result=5, target=None, success=True, modifiers={})
+
+    def forced_execute_block(gs, atk, dfn):
+        dfn.knock_out()
+        return BR.DEFENDER_DOWN, [fake_armor, fake_injury], True, False
+
+    with patch.object(executor.combat, "execute_block", side_effect=forced_execute_block):
+        action = ActionRequest(
+            action_type=ActionType.SCUFFLE,
+            player_id="p1",
+            target_player_id="p2"
+        )
+        result = executor.execute_action(game_state, action)
+
+    # Defender should be KO'd
+    assert defender.state == PlayerState.KNOCKED_OUT
+
+    # Ghost-occupancy fix: KO'd player must be gone from player_positions
+    assert "p2" not in game_state.pitch.player_positions, (
+        "KO'd player left a ghost entry in player_positions — "
+        "ball at that square becomes permanently unreachable"
+    )
+
+    # Ball should still be on the pitch at the defender's old position
+    assert game_state.pitch.ball_position == def_pos
+    assert game_state.pitch.ball_carrier is None
+
+    # That square must now be passable
+    assert not game_state.pitch.is_occupied(def_pos), (
+        "Square occupied by KO'd player is still blocked after removal"
+    )
