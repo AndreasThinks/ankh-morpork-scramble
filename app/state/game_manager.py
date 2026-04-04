@@ -499,7 +499,6 @@ class GameManager:
             return
         if game_state.game_id in self._recorded_games:
             return
-        self._recorded_games.add(game_state.game_id)
 
         # Pull casualties + turnovers from StatisticsAggregator
         from app.game.statistics import StatisticsAggregator
@@ -541,8 +540,14 @@ class GameManager:
             winner_model=winner_model,
             winner_team=winner_team,
         )
-        self.leaderboard.record(result)
-        logger.info("Leaderboard updated for game %s", game_state.game_id)
+        
+        try:
+            self.leaderboard.record(result)
+            self._recorded_games.add(game_state.game_id)
+            logger.info("Leaderboard updated for game %s", game_state.game_id)
+        except Exception as e:
+            self._recorded_games.discard(game_state.game_id)
+            logger.error("Failed to record leaderboard for %s: %s", game_state.game_id, e)
 
     def _save_game_logs(self, game_state: GameState) -> None:
         """Save game logs to disk (internal helper)."""
@@ -553,7 +558,10 @@ class GameManager:
             logger.error("Failed to save logs for game %s: %s", game_state.game_id, e)
         
         # Record result if game is concluded
-        self._record_result_if_concluded(game_state)
+        try:
+            self._record_result_if_concluded(game_state)
+        except Exception as e:
+            logger.error("Leaderboard recording failed in _save_game_logs for %s: %s", game_state.game_id, e)
 
     def export_game_log(self, game_id: str, format: str = "markdown") -> Optional[str]:
         """

@@ -871,6 +871,7 @@ def reset_game(game_id: str):
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
 
     try:
+        game_manager._record_result_if_concluded(game_state)
         game_state.reset_to_setup()
         return game_state
     except Exception as e:

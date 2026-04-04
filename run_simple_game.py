@@ -184,16 +184,24 @@ def run_game() -> None:
 def wait_for_rematch() -> None:
     """Poll until the game returns to setup phase after rematch."""
     logger.info("Waiting for rematch to reset to setup phase...")
-    for _ in range(60):
+    timeout_minutes = int(os.getenv("REMATCH_TIMEOUT_MINUTES", "0"))
+    max_iterations = (timeout_minutes * 60 // 5) if timeout_minutes > 0 else None
+    iterations = 0
+    
+    while True:
         try:
             state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
-            if state.get("phase") == "setup":
+            if state.get("phase") in ("setup", "SETUP"):
                 logger.info("Game reset to setup — ready for next match.")
                 return
         except Exception as e:
             logger.warning(f"Error polling for rematch: {e}")
+        
+        if max_iterations and iterations >= max_iterations:
+            raise RuntimeError(f"Timed out waiting for Play Again after {timeout_minutes} minutes")
+        
+        iterations += 1
         time.sleep(5)
-    raise RuntimeError("Game never returned to setup phase after rematch.")
 
 # ── entrypoint ──────────────────────────────────────────────────────────────
 

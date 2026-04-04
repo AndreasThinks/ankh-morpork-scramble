@@ -2408,7 +2408,7 @@
             const stats = await fetchScoreboardStatistics();
             renderKeyStats(stats.team_stats, stats, state);
             renderPlayerHighlights(stats, state);
-            renderLeaderboardInScoreboard();
+            renderLeaderboardInScoreboard().catch(e => console.warn("Leaderboard render failed:", e));
         } catch (error) {
             console.error('Failed to load statistics:', error);
             scoreboardKeyStats.innerHTML = '';

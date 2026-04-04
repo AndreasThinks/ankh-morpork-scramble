@@ -269,6 +269,10 @@ class GameState(BaseModel):
         # Clear model identity so stale model names don't bleed into next game
         self.team1_model = None
         self.team2_model = None
+        
+        # Reset ready flags
+        self.team1_ready = False
+        self.team2_ready = False
 
         # Keep join status and messages (preserve history)
         self.add_event("Game reset to setup phase")
