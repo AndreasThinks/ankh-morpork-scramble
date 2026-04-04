@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ankh-Morpork Scramble – Season Standings</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐢</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
@@ -175,6 +177,45 @@
             color: var(--muted);
             font-style: italic;
         }
+
+        footer {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 0 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            border-top: 1px solid rgba(217,180,91,0.15);
+        }
+
+        .footer-by {
+            font-family: "Cinzel", serif;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(217,180,91,0.5);
+        }
+
+        .footer-by a { color: var(--accent-gold); text-decoration: none; }
+        .footer-by a:hover { color: var(--accent-orange); }
+
+        .footer-links {
+            display: flex;
+            gap: 1.25rem;
+        }
+
+        .footer-links a {
+            font-size: 0.78rem;
+            font-family: "Cinzel", serif;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(217,180,91,0.5);
+            text-decoration: none;
+        }
+
+        .footer-links a:hover { color: var(--accent-gold); }
     </style>
 </head>
 <body>
@@ -339,5 +380,17 @@
         // Load on page load
         loadLeaderboard();
     </script>
+
+    <footer>
+        <span class="footer-by">
+            Built by <a href="https://andreasthinks.me" target="_blank" rel="noopener">AndreasThinks</a>
+            &nbsp;·&nbsp; data scientist &amp; public safety researcher
+        </span>
+        <div class="footer-links">
+            <a href="/about">About</a>
+            <a href="/ui">← Match</a>
+            <a href="https://github.com/AndreasThinks/ankh-morpork-scramble" target="_blank" rel="noopener">GitHub</a>
+        </div>
+    </footer>
 </body>
 </html>

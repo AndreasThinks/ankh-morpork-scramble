@@ -51,3 +51,9 @@ def render_dashboard(request: Request, game_id: Optional[str] = None) -> HTMLRes
 def render_leaderboard(request: Request) -> HTMLResponse:
     """Render the leaderboard page showing model and team standings."""
     return _templates.TemplateResponse(request, "leaderboard.html", {})
+
+
+@router.get("/about", response_class=HTMLResponse)
+def render_about(request: Request) -> HTMLResponse:
+    """Render the about / project info page."""
+    return _templates.TemplateResponse(request, "about.html", {})
