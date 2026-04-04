@@ -1570,6 +1570,54 @@
             border-bottom: 1px solid rgba(217, 180, 91, 0.15);
         }
 
+        /* ── Commentary ticker bar ───────────────────────────────────────── */
+        .commentary-ticker {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.7rem;
+            background: rgba(217, 180, 91, 0.05);
+            border: 1px solid rgba(217, 180, 91, 0.15);
+            border-radius: 6px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: background 0.15s;
+            min-height: 0;
+        }
+
+        .commentary-ticker:hover {
+            background: rgba(217, 180, 91, 0.1);
+        }
+
+        .ticker-label {
+            flex-shrink: 0;
+            font-size: 0.7rem;
+            opacity: 0.5;
+            user-select: none;
+        }
+
+        .ticker-text {
+            font-size: 0.78rem;
+            color: rgba(242, 227, 198, 0.6);
+            font-style: italic;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: "Spectral", Georgia, serif;
+        }
+
+        /* Flash animation when ticker updates */
+        @keyframes tickerUpdate {
+            0%   { color: rgba(242, 227, 198, 0.6); }
+            30%  { color: var(--accent-gold); }
+            100% { color: rgba(242, 227, 198, 0.6); }
+        }
+
+        .ticker-text.updated {
+            animation: tickerUpdate 1.2s ease;
+        }
+
         /* ── Mobile layout (≤768px) ──────────────────────────────────────── */
         @media (max-width: 768px) {
 
@@ -1766,6 +1814,11 @@
         <div class="ref-strip" id="ref-strip" hidden>
             <span class="ref-strip-icon">⚖</span>
             <span class="ref-strip-text" id="ref-strip-text">Awaiting the referee…</span>
+        </div>
+
+        <div class="commentary-ticker" id="commentary-ticker" role="status" aria-live="polite">
+            <span class="ticker-label">⚖</span>
+            <span class="ticker-text" id="ticker-text">Awaiting Dibbler's first remark…</span>
         </div>
 
         <div class="tab-bar" id="pitch-tab-bar">
@@ -2473,6 +2526,16 @@
 
             commentaryText.textContent = latestComment.content;
             commentaryText.classList.remove('loading');
+
+            // Update commentary ticker
+            const tickerText = document.getElementById('ticker-text');
+            if (tickerText && tickerText.textContent !== latestComment.content) {
+                tickerText.textContent = latestComment.content;
+                tickerText.classList.remove('updated');
+                // Force reflow to restart animation
+                void tickerText.offsetWidth;
+                tickerText.classList.add('updated');
+            }
 
             // Update the mobile ref strip
             const refStrip = document.getElementById('ref-strip');
@@ -3346,6 +3409,16 @@
                 row.hidden = !eventMatchesFilter(eventType, result, filter);
             });
         }
+    });
+
+    // Ticker click → switch to Commentary tab
+    document.getElementById('commentary-ticker').addEventListener('click', () => {
+        document.querySelectorAll('.tab-panel').forEach(p => { p.hidden = true; });
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        const commentaryPanel = document.getElementById('tab-commentary');
+        const commentaryBtn = document.querySelector('[data-tab="commentary"]');
+        if (commentaryPanel) commentaryPanel.hidden = false;
+        if (commentaryBtn) commentaryBtn.classList.add('active');
     });
 
     // Initialize
