@@ -9,12 +9,10 @@ client = TestClient(app)
 
 
 def test_root_endpoint():
-    """Test root endpoint"""
-    response = client.get("/")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "Ankh-Morpork Scramble API"
-    assert data["status"] == "running"
+    """Root should redirect to /ui"""
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/ui"
 
 
 def test_create_game():
