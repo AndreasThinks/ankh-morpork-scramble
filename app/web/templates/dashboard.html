@@ -1551,59 +1551,6 @@
                 transform: translateX(-50%) translateY(0);
             }
         }
-        /* ── Split view: commentary + events simultaneously ─────────────── */
-        .tab-btn--split {
-            margin-left: auto;
-            opacity: 0.7;
-            border-left: 1px solid rgba(217, 180, 91, 0.2);
-            padding-left: 0.65rem;
-        }
-
-        .tab-btn--split.active {
-            opacity: 1;
-        }
-
-        /* When split is active, pitch-panel shows both panels as flex column */
-        .pitch-panel.split-active {
-            overflow: hidden;
-        }
-
-        /* Commentary in split mode: compact, fixed portion at top */
-        .pitch-panel.split-active #tab-commentary {
-            display: flex !important;
-            flex-direction: column;
-            flex: 0 0 auto;
-            max-height: 130px;
-            overflow-y: auto;
-            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
-            padding-bottom: 0.4rem;
-            margin-bottom: 0;
-        }
-
-        /* Compact the referee box in split mode */
-        .pitch-panel.split-active .referee-commentary {
-            padding: 0.55rem 0.85rem;
-            border-radius: 10px;
-        }
-
-        .pitch-panel.split-active .referee-commentary::before {
-            height: 2px;
-        }
-
-        .pitch-panel.split-active .commentary-text {
-            font-size: 0.88rem;
-            line-height: 1.5;
-        }
-
-        /* Events in split mode: fills remaining space */
-        .pitch-panel.split-active #tab-events {
-            display: flex !important;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
-        }
-
         .ref-strip {
             display: none;  /* hidden on desktop */
         }
@@ -1744,8 +1691,7 @@
                 border-top-color: var(--accent-gold);
             }
 
-            /* Hide split button on mobile — not enough vertical room for two panels */
-            .tab-btn--split {
+            .commentary-ticker {
                 display: none;
             }
         }
@@ -1827,7 +1773,7 @@
             <button class="tab-btn" data-tab="events">📋 Events</button>
             <button class="tab-btn" data-tab="roster">👥 Roster</button>
             <button class="tab-btn" data-tab="strategy">💭 Strategy</button>
-            <button class="tab-btn tab-btn--split" data-tab="split" title="Show commentary and events side by side">⊞ Split</button>
+
         </div>
 
         <!-- Commentary tab -->
@@ -3373,27 +3319,12 @@
         const name = btn.dataset.tab;
         if (!name) return;
 
-        const pitchPanel = document.querySelector('.pitch-panel');
-        const allPanels = document.querySelectorAll('.tab-panel');
-        const allBtns = document.querySelectorAll('.tab-btn');
-
-        // Clear active states
-        allBtns.forEach(b => b.classList.remove('active'));
-        allPanels.forEach(p => { p.hidden = true; });
-        pitchPanel.classList.remove('split-active');
+        document.querySelectorAll('.tab-panel').forEach(p => { p.hidden = true; });
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
         btn.classList.add('active');
-
-        if (name === 'split') {
-            // Split mode: show both commentary and events, apply layout class
-            pitchPanel.classList.add('split-active');
-            document.getElementById('tab-commentary').hidden = false;
-            document.getElementById('tab-events').hidden = false;
-        } else {
-            // Single tab mode
-            const panel = document.getElementById(`tab-${name}`);
-            if (panel) panel.hidden = false;
-        }
+        const panel = document.getElementById(`tab-${name}`);
+        if (panel) panel.hidden = false;
     });
 
     // Filter bar click handler
