@@ -500,18 +500,55 @@ class GameManager:
         if game_state.game_id in self._recorded_games:
             return
 
-        # Pull casualties + turnovers from StatisticsAggregator
+        # Pull stats from StatisticsAggregator
         from app.game.statistics import StatisticsAggregator
+        t1_casualties = t2_casualties = 0
+        t1_blocks = t2_blocks = 0
+        t1_passes_attempted = t2_passes_attempted = 0
+        t1_passes_completed = t2_passes_completed = 0
+        t1_pickups_attempted = t2_pickups_attempted = 0
+        t1_pickups_succeeded = t2_pickups_succeeded = 0
+        t1_turnovers = t2_turnovers = 0
+        t1_failed_dodges = t2_failed_dodges = 0
         try:
             stats = StatisticsAggregator(game_state).aggregate()
             t1_stats = stats.team_stats.get(game_state.team1.id)
             t2_stats = stats.team_stats.get(game_state.team2.id)
-            t1_casualties = t1_stats.casualties_caused if t1_stats else 0
-            t2_casualties = t2_stats.casualties_caused if t2_stats else 0
-            t1_turnovers = t1_stats.turnovers if t1_stats else 0
-            t2_turnovers = t2_stats.turnovers if t2_stats else 0
-        except Exception:
-            t1_casualties = t2_casualties = t1_turnovers = t2_turnovers = 0
+            if t1_stats:
+                t1_casualties        = t1_stats.casualties_caused
+                t1_blocks            = t1_stats.blocks_thrown
+                t1_passes_attempted  = t1_stats.passes_attempted
+                t1_passes_completed  = t1_stats.passes_completed
+                t1_pickups_attempted = t1_stats.pickups_attempted
+                t1_pickups_succeeded = t1_stats.pickups_succeeded
+                t1_turnovers         = t1_stats.turnovers
+                t1_failed_dodges     = t1_stats.failed_dodges
+            if t2_stats:
+                t2_casualties        = t2_stats.casualties_caused
+                t2_blocks            = t2_stats.blocks_thrown
+                t2_passes_attempted  = t2_stats.passes_attempted
+                t2_passes_completed  = t2_stats.passes_completed
+                t2_pickups_attempted = t2_stats.pickups_attempted
+                t2_pickups_succeeded = t2_stats.pickups_succeeded
+                t2_turnovers         = t2_stats.turnovers
+                t2_failed_dodges     = t2_stats.failed_dodges
+        except Exception as exc:
+            logger.warning("Failed to extract stats for leaderboard: %s", exc)
+
+        # Pull message verbosity stats
+        t1_messages_sent = t2_messages_sent = 0
+        t1_total_message_chars = t2_total_message_chars = 0
+        try:
+            for msg in game_state.messages:
+                # Only count team strategy messages, not referee commentary
+                if msg.sender_id == game_state.team1.id:
+                    t1_messages_sent += 1
+                    t1_total_message_chars += len(msg.content)
+                elif msg.sender_id == game_state.team2.id:
+                    t2_messages_sent += 1
+                    t2_total_message_chars += len(msg.content)
+        except Exception as exc:
+            logger.warning("Failed to extract message stats for leaderboard: %s", exc)
 
         t1_score = game_state.team1.score
         t2_score = game_state.team2.score
@@ -533,12 +570,28 @@ class GameManager:
             team2_name=game_state.team2.name,
             team2_model=game_state.team2_model or "unknown",
             team2_score=t2_score,
-            team1_casualties=t1_casualties,
-            team2_casualties=t2_casualties,
-            team1_turnovers=t1_turnovers,
-            team2_turnovers=t2_turnovers,
             winner_model=winner_model,
             winner_team=winner_team,
+            team1_casualties=t1_casualties,
+            team2_casualties=t2_casualties,
+            team1_blocks=t1_blocks,
+            team2_blocks=t2_blocks,
+            team1_passes_attempted=t1_passes_attempted,
+            team2_passes_attempted=t2_passes_attempted,
+            team1_passes_completed=t1_passes_completed,
+            team2_passes_completed=t2_passes_completed,
+            team1_pickups_attempted=t1_pickups_attempted,
+            team2_pickups_attempted=t2_pickups_attempted,
+            team1_pickups_succeeded=t1_pickups_succeeded,
+            team2_pickups_succeeded=t2_pickups_succeeded,
+            team1_turnovers=t1_turnovers,
+            team2_turnovers=t2_turnovers,
+            team1_failed_dodges=t1_failed_dodges,
+            team2_failed_dodges=t2_failed_dodges,
+            team1_messages_sent=t1_messages_sent,
+            team2_messages_sent=t2_messages_sent,
+            team1_total_message_chars=t1_total_message_chars,
+            team2_total_message_chars=t2_total_message_chars,
         )
         
         try:
