@@ -11,57 +11,27 @@
     <style>
         :root {
             --bg: #1f160c;
-            --bg-highlight: #2a1d11;
             --panel: #24170c;
             --panel-border: rgba(187, 142, 76, 0.45);
             --panel-shadow: rgba(8, 4, 0, 0.6);
-            --accent-blue: #3f7cac;
-            --accent-orange: #c46d28;
             --accent-gold: #d9b45b;
             --accent-gold-soft: rgba(217, 180, 91, 0.65);
-            --grid: rgba(108, 78, 43, 0.45);
-            --grid-alt: rgba(66, 46, 26, 0.55);
+            --accent-orange: #c46d28;
             --text: #f2e3c6;
             --muted: rgba(242, 227, 198, 0.7);
-            --paper: #362312;
-            --paper-highlight: rgba(242, 227, 198, 0.08);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            font-family: "Spectral", Georgia, "Times New Roman", serif;
-            background: radial-gradient(circle at 22% 16%, rgba(217, 180, 91, 0.12), transparent 55%),
-                        radial-gradient(circle at 78% 12%, rgba(106, 76, 38, 0.18), transparent 50%),
-                        radial-gradient(circle at 50% 80%, rgba(115, 76, 38, 0.15), transparent 55%),
+            font-family: "Spectral", Georgia, serif;
+            background: radial-gradient(circle at 22% 16%, rgba(217,180,91,0.12), transparent 55%),
+                        radial-gradient(circle at 78% 12%, rgba(106,76,38,0.18), transparent 50%),
                         var(--bg);
             color: var(--text);
             min-height: 100vh;
-            padding: 2rem;
-        }
-
-        header {
-            max-width: 1200px;
-            margin: 0 auto 2rem;
-            text-align: center;
-        }
-
-        header h1 {
-            margin: 0 0 0.5rem;
-            font-family: "Cinzel", "Times New Roman", serif;
-            font-size: 2rem;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            color: var(--accent-gold);
-        }
-
-        header p {
-            margin: 0;
-            color: var(--muted);
-            font-size: 0.95rem;
+            padding: 1.5rem clamp(1rem, 4vw, 3rem);
         }
 
         nav {
@@ -73,111 +43,255 @@
             color: var(--accent-gold);
             text-decoration: none;
             font-family: "Cinzel", serif;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
 
-        nav a:hover {
-            color: var(--accent-orange);
-        }
+        nav a:hover { color: var(--accent-orange); }
 
-        .container {
+        header {
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 0 auto 2rem;
+            text-align: center;
         }
 
+        header h1 {
+            margin: 0 0 0.4rem;
+            font-family: "Cinzel", serif;
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* Section */
         .section {
             background: var(--panel);
             border: 1px solid var(--panel-border);
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 2rem;
-            box-shadow: 0 4px 12px var(--panel-shadow);
+            box-shadow: 0 4px 24px var(--panel-shadow);
         }
 
-        .section h2 {
-            margin: 0 0 1rem;
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h2 {
+            margin: 0;
             font-family: "Cinzel", serif;
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: var(--accent-gold);
         }
 
+        /* View toggle */
+        .view-toggle {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .view-btn {
+            background: rgba(217,180,91,0.06);
+            border: 1px solid rgba(217,180,91,0.2);
+            color: rgba(242,227,198,0.5);
+            font-family: "Cinzel", serif;
+            font-size: 0.68rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.3em 0.8em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .view-btn:hover { color: rgba(242,227,198,0.85); background: rgba(217,180,91,0.12); }
+
+        .view-btn.active {
+            background: rgba(217,180,91,0.2);
+            border-color: rgba(217,180,91,0.45);
+            color: var(--accent-gold);
+        }
+
+        /* ── Model cards ─────────────────────────────────────────────────── */
+        .model-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+
+        .model-card {
+            background: rgba(30,19,10,0.85);
+            border: 1px solid rgba(217,180,91,0.22);
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            transition: border-color 0.15s;
+        }
+
+        .model-card:hover { border-color: rgba(217,180,91,0.45); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid rgba(217,180,91,0.15);
+        }
+
+        .card-model-name {
+            font-family: "Cinzel", serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent-gold);
+            letter-spacing: 0.04em;
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .card-record {
+            font-size: 0.75rem;
+            color: var(--muted);
+            white-space: nowrap;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .card-record .win { color: #7fb069; font-weight: 600; }
+        .card-record .loss { color: #e07856; }
+        .card-record .draw { color: var(--muted); }
+
+        .card-meta {
+            font-size: 0.72rem;
+            color: rgba(242,227,198,0.4);
+            margin-bottom: 0.9rem;
+        }
+
+        /* Stat bars */
+        .stat-row {
+            display: grid;
+            grid-template-columns: 1.4rem 7rem 1fr 3.5rem;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .stat-icon {
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.68rem;
+            color: rgba(242,227,198,0.55);
+            font-family: "Cinzel", serif;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .stat-bar-track {
+            height: 5px;
+            background: rgba(217,180,91,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, rgba(217,180,91,0.6), rgba(217,180,91,0.9));
+            transition: width 0.4s ease;
+        }
+
+        .stat-value {
+            font-size: 0.7rem;
+            color: rgba(242,227,198,0.6);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Table view ──────────────────────────────────────────────────── */
+        .table-scroll { overflow-x: auto; }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
+            white-space: nowrap;
         }
 
         th {
             color: var(--accent-gold);
             font-family: "Cinzel", serif;
-            font-size: 0.85rem;
-            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
-            padding: 0.75rem 0.5rem;
-            border-bottom: 2px solid rgba(217, 180, 91, 0.3);
-            text-align: left;
-        }
-
-        th:not(:first-child) {
+            padding: 0.6rem 0.5rem;
+            border-bottom: 2px solid rgba(217,180,91,0.3);
             text-align: center;
         }
+
+        th:first-child { text-align: left; }
 
         td {
-            padding: 0.75rem 0.5rem;
-            border-top: 1px solid rgba(217, 180, 91, 0.1);
+            padding: 0.55rem 0.5rem;
+            border-top: 1px solid rgba(217,180,91,0.08);
             color: var(--text);
-        }
-
-        td:not(:first-child) {
             text-align: center;
         }
 
-        tr:hover {
-            background: rgba(217, 180, 91, 0.05);
-        }
+        td:first-child { text-align: left; }
 
-        .model-name {
-            font-weight: 500;
+        tr:hover { background: rgba(217,180,91,0.04); }
+
+        .model-name-cell {
+            font-family: "Cinzel", serif;
+            font-size: 0.75rem;
             color: var(--accent-gold-soft);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .team-name {
-            font-weight: 500;
-            color: var(--accent-gold-soft);
-        }
+        .positive { color: #7fb069; }
+        .negative { color: #e07856; }
 
-        .positive {
-            color: #7fb069;
-        }
+        th[data-sort] { cursor: pointer; user-select: none; }
+        th[data-sort]:hover { color: var(--text); }
+        th[data-sort].sorted-asc::after { content: " ▲"; font-size: 0.6em; }
+        th[data-sort].sorted-desc::after { content: " ▼"; font-size: 0.6em; }
 
-        .negative {
-            color: #e07856;
-        }
+        /* Team table (always table view) */
+        .team-section table { font-size: 0.88rem; }
 
-        .loading {
+        /* Shared states */
+        .loading, .empty, .error {
             text-align: center;
-            padding: 2rem;
+            padding: 2.5rem;
             color: var(--muted);
             font-style: italic;
         }
 
-        .error {
-            text-align: center;
-            padding: 2rem;
-            color: var(--accent-orange);
-        }
+        .error { color: var(--accent-orange); }
 
-        .empty {
-            text-align: center;
-            padding: 2rem;
-            color: var(--muted);
-            font-style: italic;
-        }
-
+        /* Footer */
         footer {
             max-width: 1200px;
             margin: 0 auto;
@@ -219,165 +333,271 @@
     </style>
 </head>
 <body>
-    <nav>
-        <a href="/ui">← Back to Match</a>
-    </nav>
+    <nav><a href="/ui">← Back to Match</a></nav>
 
     <header>
         <h1>Season Standings</h1>
-        <p id="summary">Loading leaderboard data...</p>
+        <p id="summary">Loading…</p>
     </header>
 
     <div class="container">
+        <!-- Model benchmark section -->
         <div class="section">
-            <h2>Model Performance</h2>
-            <div id="model-table-container">
-                <div class="loading">Loading model standings...</div>
+            <div class="section-header">
+                <h2>Model Benchmark</h2>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="btn-cards" onclick="setView('cards')">📊 Cards</button>
+                    <button class="view-btn" id="btn-table" onclick="setView('table')">📋 Table</button>
+                </div>
+            </div>
+            <div id="model-cards-view">
+                <div class="loading">Loading model data…</div>
+            </div>
+            <div id="model-table-view" style="display:none;">
+                <div class="table-scroll">
+                    <div class="loading">Loading model data…</div>
+                </div>
             </div>
         </div>
 
-        <div class="section">
-            <h2>Team Performance</h2>
-            <div id="team-table-container">
-                <div class="loading">Loading team standings...</div>
+        <!-- Team table section -->
+        <div class="section team-section">
+            <div class="section-header">
+                <h2>Team Standings</h2>
+            </div>
+            <div class="table-scroll" id="team-table-container">
+                <div class="loading">Loading team data…</div>
             </div>
         </div>
     </div>
 
     <script>
-        async function loadLeaderboard() {
-            try {
-                const response = await fetch('/leaderboard');
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                const data = await response.json();
+        const STAT_DEFS = [
+            { key: 'aggression',   icon: '💥', label: 'Aggression',   unit: '/game',    tip: 'Blocks thrown per game' },
+            { key: 'recklessness', icon: '🎲', label: 'Recklessness', unit: '/game',    tip: 'Turnovers per game' },
+            { key: 'ball_craft',   icon: '🎯', label: 'Ball Craft',   unit: '/game',    tip: 'Pass completions + pickups per game' },
+            { key: 'lethality',    icon: '⚔️', label: 'Lethality',    unit: '/game',    tip: 'Casualties caused per game' },
+            { key: 'verbosity',    icon: '💬', label: 'Verbosity',    unit: 'chars/msg',tip: 'Avg strategy message length' },
+            { key: 'efficiency',   icon: '⚡', label: 'Efficiency',   unit: 'ratio',    tip: 'Goals per game ÷ turnover rate' },
+        ];
 
-                // Update summary
-                const summary = document.getElementById('summary');
-                if (data.total_games === 0) {
-                    summary.textContent = 'No completed games yet.';
-                } else {
-                    summary.textContent = `${data.total_games} game${data.total_games === 1 ? '' : 's'} on record`;
-                }
+        let currentView = 'cards';
+        let allModels = [];
 
-                // Render model table
-                renderModelTable(data.by_model);
-
-                // Render team table
-                renderTeamTable(data.by_team);
-
-            } catch (error) {
-                console.error('Failed to load leaderboard:', error);
-                document.getElementById('summary').textContent = 'Failed to load leaderboard data.';
-                document.getElementById('model-table-container').innerHTML = 
-                    `<div class="error">Error: ${error.message}</div>`;
-                document.getElementById('team-table-container').innerHTML = 
-                    `<div class="error">Error: ${error.message}</div>`;
-            }
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str || '';
+            return d.innerHTML;
         }
 
-        function renderModelTable(models) {
-            const container = document.getElementById('model-table-container');
-            
-            if (models.length === 0) {
-                container.innerHTML = '<div class="empty">No model data available.</div>';
+        function shortModelName(id) {
+            // strip vendor prefix and :free/:nitro suffix
+            return id.split('/').pop().replace(/:(free|nitro|extended|beta)$/, '');
+        }
+
+        function setView(v) {
+            currentView = v;
+            document.getElementById('model-cards-view').style.display = v === 'cards' ? '' : 'none';
+            document.getElementById('model-table-view').style.display  = v === 'table' ? '' : 'none';
+            document.getElementById('btn-cards').classList.toggle('active', v === 'cards');
+            document.getElementById('btn-table').classList.toggle('active', v === 'table');
+        }
+
+        function computeMaxes(models) {
+            const maxes = {};
+            STAT_DEFS.forEach(s => {
+                maxes[s.key] = Math.max(1, ...models.map(m => m[s.key] || 0));
+            });
+            return maxes;
+        }
+
+        function renderCards(models) {
+            const container = document.getElementById('model-cards-view');
+            if (!models.length) {
+                container.innerHTML = '<div class="empty">No model data yet — complete a game to populate the benchmark.</div>';
+                return;
+            }
+            const maxes = computeMaxes(models);
+            const cards = models.map(m => {
+                const short = escapeHtml(shortModelName(m.model_id));
+                const full  = escapeHtml(m.model_id);
+                const diffSign = m.score_diff > 0 ? '+' : '';
+                const diffClass = m.score_diff > 0 ? 'positive' : (m.score_diff < 0 ? 'negative' : '');
+
+                const bars = STAT_DEFS.map(s => {
+                    const val = m[s.key] || 0;
+                    const pct = maxes[s.key] > 0 ? Math.round(100 * val / maxes[s.key]) : 0;
+                    const display = s.key === 'verbosity'
+                        ? val.toFixed(0)
+                        : val.toFixed(2).replace(/\.00$/, '');
+                    return `
+                        <div class="stat-row" title="${escapeHtml(s.tip)}">
+                            <span class="stat-icon">${s.icon}</span>
+                            <span class="stat-label">${s.label}</span>
+                            <div class="stat-bar-track">
+                                <div class="stat-bar-fill" style="width:${pct}%"></div>
+                            </div>
+                            <span class="stat-value">${display} <span style="opacity:0.5">${s.unit}</span></span>
+                        </div>`;
+                }).join('');
+
+                return `
+                    <div class="model-card">
+                        <div class="card-header">
+                            <span class="card-model-name" title="${full}">${short}</span>
+                            <div class="card-record">
+                                <span class="win">${m.wins}W</span> ·
+                                <span class="loss">${m.losses}L</span> ·
+                                <span class="draw">${m.draws}D</span>
+                            </div>
+                        </div>
+                        <div class="card-meta">
+                            GD <span class="${diffClass}">${diffSign}${m.score_diff}</span>
+                            &nbsp;·&nbsp; ${m.goals_for} scored
+                            &nbsp;·&nbsp; ${m.games} game${m.games === 1 ? '' : 's'}
+                        </div>
+                        ${bars}
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `<div class="model-cards">${cards}</div>`;
+        }
+
+        let sortKey = 'wins';
+        let sortAsc = false;
+
+        function renderTable(models) {
+            const wrap = document.getElementById('model-table-view').querySelector('.table-scroll') ||
+                         document.getElementById('model-table-view');
+
+            if (!models.length) {
+                wrap.innerHTML = '<div class="empty">No model data yet.</div>';
                 return;
             }
 
-            const rows = models.map(m => {
-                const diffClass = m.score_diff > 0 ? 'positive' : (m.score_diff < 0 ? 'negative' : '');
-                const diffSign = m.score_diff > 0 ? '+' : '';
-                return `
-                    <tr>
-                        <td class="model-name" title="${escapeHtml(m.model_id)}">${escapeHtml(m.model_id)}</td>
-                        <td>${m.games}</td>
-                        <td>${m.wins}</td>
-                        <td>${m.losses}</td>
-                        <td>${m.draws}</td>
-                        <td>${m.goals_for}</td>
-                        <td>${m.goals_against}</td>
-                        <td class="${diffClass}">${diffSign}${m.score_diff}</td>
-                        <td>${m.casualties_caused}</td>
-                    </tr>
-                `;
+            const sorted = [...models].sort((a, b) => {
+                const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0;
+                return sortAsc ? av - bv : bv - av;
+            });
+
+            const headers = [
+                { key: 'model_id',     label: 'Model' },
+                { key: 'games',        label: 'GP' },
+                { key: 'wins',         label: 'W' },
+                { key: 'losses',       label: 'L' },
+                { key: 'draws',        label: 'D' },
+                { key: 'goals_for',    label: 'GF' },
+                { key: 'goals_against',label: 'GA' },
+                { key: 'score_diff',   label: '+/-' },
+                { key: 'aggression',   label: '💥/G' },
+                { key: 'recklessness', label: '🎲/G' },
+                { key: 'ball_craft',   label: '🎯/G' },
+                { key: 'lethality',    label: '⚔️/G' },
+                { key: 'verbosity',    label: '💬 Chars' },
+                { key: 'efficiency',   label: '⚡ Eff' },
+            ];
+
+            const ths = headers.map(h => {
+                const sortClass = h.key === sortKey ? (sortAsc ? 'sorted-asc' : 'sorted-desc') : '';
+                const sortAttr  = h.key !== 'model_id' ? `data-sort="${h.key}"` : '';
+                return `<th ${sortAttr} class="${sortClass}" onclick="${h.key !== 'model_id' ? `tableSort('${h.key}')` : ''}">${escapeHtml(h.label)}</th>`;
             }).join('');
 
-            container.innerHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Model</th>
-                            <th>GP</th>
-                            <th>W</th>
-                            <th>L</th>
-                            <th>D</th>
-                            <th>GF</th>
-                            <th>GA</th>
-                            <th>+/-</th>
-                            <th>Cas</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-            `;
+            const rows = sorted.map(m => {
+                const diffSign  = m.score_diff > 0 ? '+' : '';
+                const diffClass = m.score_diff > 0 ? 'positive' : (m.score_diff < 0 ? 'negative' : '');
+                const fmt = v => typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(2)) : (v || '—');
+                return `<tr>
+                    <td class="model-name-cell" title="${escapeHtml(m.model_id)}">${escapeHtml(shortModelName(m.model_id))}</td>
+                    <td>${m.games}</td>
+                    <td class="positive">${m.wins}</td>
+                    <td class="negative">${m.losses}</td>
+                    <td>${m.draws}</td>
+                    <td>${m.goals_for}</td>
+                    <td>${m.goals_against}</td>
+                    <td class="${diffClass}">${diffSign}${m.score_diff}</td>
+                    <td>${fmt(m.aggression)}</td>
+                    <td>${fmt(m.recklessness)}</td>
+                    <td>${fmt(m.ball_craft)}</td>
+                    <td>${fmt(m.lethality)}</td>
+                    <td>${fmt(m.verbosity)}</td>
+                    <td>${fmt(m.efficiency)}</td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('model-table-view').innerHTML = `
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr>${ths}</tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function tableSort(key) {
+            if (sortKey === key) {
+                sortAsc = !sortAsc;
+            } else {
+                sortKey = key;
+                sortAsc = false;
+            }
+            renderTable(allModels);
         }
 
         function renderTeamTable(teams) {
             const container = document.getElementById('team-table-container');
-            
-            if (teams.length === 0) {
-                container.innerHTML = '<div class="empty">No team data available.</div>';
+            if (!teams.length) {
+                container.innerHTML = '<div class="empty">No team data yet.</div>';
                 return;
             }
-
             const rows = teams.map(t => {
+                const diffSign  = t.score_diff > 0 ? '+' : '';
                 const diffClass = t.score_diff > 0 ? 'positive' : (t.score_diff < 0 ? 'negative' : '');
-                const diffSign = t.score_diff > 0 ? '+' : '';
-                return `
-                    <tr>
-                        <td class="team-name">${escapeHtml(t.team_name)}</td>
-                        <td>${t.games}</td>
-                        <td>${t.wins}</td>
-                        <td>${t.losses}</td>
-                        <td>${t.draws}</td>
-                        <td>${t.goals_for}</td>
-                        <td>${t.goals_against}</td>
-                        <td class="${diffClass}">${diffSign}${t.score_diff}</td>
-                    </tr>
-                `;
+                return `<tr>
+                    <td class="model-name-cell">${escapeHtml(t.team_name)}</td>
+                    <td>${t.games}</td>
+                    <td class="positive">${t.wins}</td>
+                    <td class="negative">${t.losses}</td>
+                    <td>${t.draws}</td>
+                    <td>${t.goals_for}</td>
+                    <td>${t.goals_against}</td>
+                    <td class="${diffClass}">${diffSign}${t.score_diff}</td>
+                </tr>`;
             }).join('');
-
             container.innerHTML = `
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Team</th>
-                            <th>GP</th>
-                            <th>W</th>
-                            <th>L</th>
-                            <th>D</th>
-                            <th>GF</th>
-                            <th>GA</th>
-                            <th>+/-</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-            `;
+                    <thead><tr>
+                        <th>Team</th><th>GP</th><th>W</th><th>L</th><th>D</th>
+                        <th>GF</th><th>GA</th><th>+/-</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        async function loadLeaderboard() {
+            try {
+                const res  = await fetch('/leaderboard');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                document.getElementById('summary').textContent =
+                    data.total_games === 0
+                        ? 'No completed games yet — check back after the first match concludes.'
+                        : `${data.total_games} game${data.total_games === 1 ? '' : 's'} on record`;
+
+                allModels = data.by_model || [];
+                renderCards(allModels);
+                renderTable(allModels);
+                renderTeamTable(data.by_team || []);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('summary').textContent = 'Failed to load data.';
+                document.getElementById('model-cards-view').innerHTML =
+                    `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
+            }
         }
 
-        // Load on page load
         loadLeaderboard();
     </script>
 
