@@ -111,8 +111,33 @@
             100% { color: var(--accent-gold); }
         }
 
+        @keyframes moveFlash {
+            0% { opacity: 0.9; }
+            60% { opacity: 0.3; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes ballLand {
+            0% { r: 0.25; }
+            50% { r: 0.42; }
+            100% { r: 0.25; }
+        }
+
         .score-changed {
             animation: scoreFlash 0.6s ease;
+        }
+
+        .move-flash {
+            animation: moveFlash 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .ball-landing {
+            animation: ballLand 0.4s ease-out;
+        }
+
+        .player-token {
+            transition: opacity 0.3s ease-out;
         }
 
         header .score-line .score-value small {
@@ -1650,92 +1675,193 @@
         });
     }
 
-    function renderPitch(state) {
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    function fireMoveFlash(pos) {
         const tokensGroup = document.getElementById('pitch-tokens');
-        tokensGroup.innerHTML = '';
+        if (!tokensGroup) return;
+        const ring = document.createElementNS(SVG_NS, "circle");
+        ring.setAttribute("cx", pos.x + 0.5);
+        ring.setAttribute("cy", pos.y + 0.5);
+        ring.setAttribute("r", 0.55);
+        ring.setAttribute("fill", "none");
+        ring.setAttribute("stroke", "rgba(255,240,120,0.85)");
+        ring.setAttribute("stroke-width", "0.1");
+        ring.classList.add("move-flash");
+        tokensGroup.appendChild(ring);
+        ring.addEventListener("animationend", () => ring.remove(), { once: true });
+    }
 
-        const teamMap = new Map([
-            [state.team1.id, { ...state.team1, color: '--accent-blue' }],
-            [state.team2.id, { ...state.team2, color: '--accent-orange' }]
-        ]);
+    function buildPlayerToken(playerId, player, pos, team, isCarrier) {
+        const token = document.createElementNS(SVG_NS, "g");
+        token.setAttribute("class", "player-token");
+        token.dataset.playerId = playerId;
 
-        const playerEntries = Object.entries(state.pitch.player_positions || {});
-        playerEntries.forEach(([playerId, pos]) => {
-            const player = state.players[playerId];
-            if (!player) return;
-            const team = teamMap.get(player.team_id);
-            const token = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            token.setAttribute('class', 'player-token');
-
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', pos.x + 0.5);
-            circle.setAttribute('cy', pos.y + 0.5);
-            circle.setAttribute('r', 0.45);
-            circle.setAttribute('fill', `var(${team.color})`);
-            circle.setAttribute('stroke', 'rgba(18, 12, 7, 0.9)');
-            circle.setAttribute('stroke-width', '0.08');
-            token.appendChild(circle);
-
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', pos.x + 0.5);
-            label.setAttribute('y', pos.y + 0.55);
-            label.setAttribute('text-anchor', 'middle');
-            label.setAttribute('font-size', '0.4');
-            label.setAttribute('fill', 'rgba(18, 12, 7, 0.95)');
-            label.setAttribute('font-weight', '600');
-            label.textContent = player.position.role.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
-            token.appendChild(label);
-
-            const isCarrier = state.pitch.ball_carrier === playerId;
-            token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
-            bindTooltip(token);
-
-            if (isCarrier) {
-                const aura = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                aura.setAttribute('cx', pos.x + 0.5);
-                aura.setAttribute('cy', pos.y + 0.5);
-                aura.setAttribute('r', 0.7);
-                aura.setAttribute('fill', 'none');
-                aura.setAttribute('stroke', 'var(--accent-gold)');
-                aura.setAttribute('stroke-width', '0.12');
-                aura.setAttribute('stroke-dasharray', '0.3 0.2');
-                token.insertBefore(aura, circle);
-            }
-
-            tokensGroup.appendChild(token);
-        });
-
-        if (state.pitch.ball_position && !state.pitch.ball_carrier) {
-            const ball = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            ball.setAttribute('cx', state.pitch.ball_position.x + 0.5);
-            ball.setAttribute('cy', state.pitch.ball_position.y + 0.5);
-            ball.setAttribute('r', 0.25);
-            ball.setAttribute('fill', 'var(--accent-gold)');
-            ball.setAttribute('stroke', 'rgba(18, 12, 7, 0.9)');
-            ball.setAttribute('stroke-width', '0.08');
-            tokensGroup.appendChild(ball);
+        if (isCarrier) {
+            const aura = document.createElementNS(SVG_NS, "circle");
+            aura.setAttribute("cx", pos.x + 0.5);
+            aura.setAttribute("cy", pos.y + 0.5);
+            aura.setAttribute("r", 0.7);
+            aura.setAttribute("fill", "none");
+            aura.setAttribute("stroke", "var(--accent-gold)");
+            aura.setAttribute("stroke-width", "0.12");
+            aura.setAttribute("stroke-dasharray", "0.3 0.2");
+            aura.dataset.role = "aura";
+            token.appendChild(aura);
         }
 
-        // Highlight players whose position changed
-        playerEntries.forEach(([playerId, pos]) => {
-            const prevPos = prevPlayerPositions[playerId];
-            if (prevPos && (prevPos.x !== pos.x || prevPos.y !== pos.y)) {
-                const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                highlight.setAttribute('cx', pos.x + 0.5);
-                highlight.setAttribute('cy', pos.y + 0.5);
-                highlight.setAttribute('r', 0.42);
-                highlight.setAttribute('fill', 'none');
-                highlight.setAttribute('stroke', 'rgba(255,240,120,0.85)');
-                highlight.setAttribute('stroke-width', '2.5');
-                tokensGroup.appendChild(highlight);
-            }
-        });
+        const circle = document.createElementNS(SVG_NS, "circle");
+        circle.setAttribute("cx", pos.x + 0.5);
+        circle.setAttribute("cy", pos.y + 0.5);
+        circle.setAttribute("r", 0.45);
+        circle.setAttribute("fill", `var(${team.color})`);
+        circle.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+        circle.setAttribute("stroke-width", "0.08");
+        circle.dataset.role = "body";
+        token.appendChild(circle);
 
-        // Update previous positions
-        prevPlayerPositions = {};
-        playerEntries.forEach(([playerId, pos]) => {
-            prevPlayerPositions[playerId] = { x: pos.x, y: pos.y };
-        });
+        const label = document.createElementNS(SVG_NS, "text");
+        label.setAttribute("x", pos.x + 0.5);
+        label.setAttribute("y", pos.y + 0.55);
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("font-size", "0.4");
+        label.setAttribute("fill", "rgba(18, 12, 7, 0.95)");
+        label.setAttribute("font-weight", "600");
+        label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+        label.dataset.role = "label";
+        token.appendChild(label);
+
+        token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
+        bindTooltip(token);
+        return token;
+    }
+
+    function updatePlayerToken(token, playerId, player, pos, team, isCarrier) {
+        // Update body circle position
+        const circle = token.querySelector("[data-role=body]");
+        if (circle) {
+            circle.setAttribute("cx", pos.x + 0.5);
+            circle.setAttribute("cy", pos.y + 0.5);
+        }
+
+        // Update label position
+        const label = token.querySelector("[data-role=label]");
+        if (label) {
+            label.setAttribute("x", pos.x + 0.5);
+            label.setAttribute("y", pos.y + 0.55);
+        }
+
+        // Update or add/remove aura
+        const existingAura = token.querySelector("[data-role=aura]");
+        if (isCarrier && !existingAura) {
+            const aura = document.createElementNS(SVG_NS, "circle");
+            aura.setAttribute("cx", pos.x + 0.5);
+            aura.setAttribute("cy", pos.y + 0.5);
+            aura.setAttribute("r", 0.7);
+            aura.setAttribute("fill", "none");
+            aura.setAttribute("stroke", "var(--accent-gold)");
+            aura.setAttribute("stroke-width", "0.12");
+            aura.setAttribute("stroke-dasharray", "0.3 0.2");
+            aura.dataset.role = "aura";
+            token.insertBefore(aura, circle);
+        } else if (!isCarrier && existingAura) {
+            existingAura.remove();
+        } else if (isCarrier && existingAura) {
+            existingAura.setAttribute("cx", pos.x + 0.5);
+            existingAura.setAttribute("cy", pos.y + 0.5);
+        }
+
+        // Update tooltip
+        token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
+    }
+
+    function renderPitch(state) {
+        const tokensGroup = document.getElementById("pitch-tokens");
+        if (!tokensGroup) return;
+
+        const teamMap = new Map([
+            [state.team1.id, { ...state.team1, color: "--accent-blue" }],
+            [state.team2.id, { ...state.team2, color: "--accent-orange" }]
+        ]);
+
+        const currentPositions = state.pitch.player_positions || {};
+        const currentPlayerIds = new Set(Object.keys(currentPositions));
+
+        // Remove tokens for players no longer on pitch
+        for (const [playerId, token] of tokenElements) {
+            if (!currentPlayerIds.has(playerId)) {
+                token.style.opacity = "0";
+                setTimeout(() => {
+                    token.remove();
+                    tokenElements.delete(playerId);
+                }, 300);
+            }
+        }
+
+        // Update or create tokens for current players
+        for (const [playerId, pos] of Object.entries(currentPositions)) {
+            const player = state.players[playerId];
+            if (!player) continue;
+            const team = teamMap.get(player.team_id);
+            if (!team) continue;
+            const isCarrier = state.pitch.ball_carrier === playerId;
+            const prevPos = prevPlayerPositions[playerId];
+            const moved = prevPos && (prevPos.x !== pos.x || prevPos.y !== pos.y);
+
+            if (tokenElements.has(playerId)) {
+                // Update existing token
+                const token = tokenElements.get(playerId);
+                updatePlayerToken(token, playerId, player, pos, team, isCarrier);
+                if (moved) {
+                    fireMoveFlash(pos);
+                }
+            } else {
+                // Create new token
+                const token = buildPlayerToken(playerId, player, pos, team, isCarrier);
+                token.style.opacity = "0";
+                tokensGroup.appendChild(token);
+                tokenElements.set(playerId, token);
+                // Fade in
+                requestAnimationFrame(() => {
+                    token.style.transition = "opacity 0.3s ease-out";
+                    token.style.opacity = "1";
+                });
+            }
+        }
+
+        // Update prevPlayerPositions
+        prevPlayerPositions = { ...currentPositions };
+
+        // Handle loose ball
+        if (state.pitch.ball_position && !state.pitch.ball_carrier) {
+            const bx = state.pitch.ball_position.x + 0.5;
+            const by = state.pitch.ball_position.y + 0.5;
+            if (!ballElement) {
+                ballElement = document.createElementNS(SVG_NS, "circle");
+                ballElement.setAttribute("r", 0.25);
+                ballElement.setAttribute("fill", "var(--accent-gold)");
+                ballElement.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+                ballElement.setAttribute("stroke-width", "0.08");
+                ballElement.setAttribute("class", "ball-token");
+                tokensGroup.appendChild(ballElement);
+            }
+            const prevBx = ballElement.getAttribute("cx");
+            const prevBy = ballElement.getAttribute("cy");
+            const ballMoved = prevBx && (Math.abs(parseFloat(prevBx) - bx) > 0.01 || Math.abs(parseFloat(prevBy) - by) > 0.01);
+            ballElement.setAttribute("cx", bx);
+            ballElement.setAttribute("cy", by);
+            ballElement.style.opacity = "1";
+            if (ballMoved) {
+                ballElement.classList.remove("ball-landing");
+                void ballElement.offsetWidth; // force reflow to restart animation
+                ballElement.classList.add("ball-landing");
+                ballElement.addEventListener("animationend", () => {
+                    ballElement.classList.remove("ball-landing");
+                }, { once: true });
+            }
+        } else if (ballElement) {
+            ballElement.style.opacity = "0";
+        }
     }
 
     async function renderThoughts(state) {
@@ -2435,6 +2561,10 @@
 
             hideScoreboard();
 
+            tokenElements.clear();
+            ballElement = null;
+            prevPlayerPositions = {};
+
             updateScoreboard(nextState);
             renderPitch(nextState);
             renderThoughts(nextState);
@@ -2566,6 +2696,8 @@
     let prevPlayerPositions = {};
     let lastRenderedEventCount = 0;  // incremental log rendering
     let activeLogFilter = 'all';     // current filter tab
+    let tokenElements = new Map();   // playerId -> SVG <g> element
+    let ballElement = null;          // the loose ball <circle>
 
     async function fetchState() {
         try {
