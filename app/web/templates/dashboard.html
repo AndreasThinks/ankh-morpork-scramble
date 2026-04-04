@@ -2306,12 +2306,21 @@
         const stats = `MA ${player.position.ma}  ST ${player.position.st}  AG ${player.position.ag}  PA ${player.position.pa}  AV ${player.position.av}`;
         const location = `Square (${position.x}, ${position.y})`;
 
+        const allSkills = [...new Set([
+            ...(player.position.skills || []),
+            ...(player.skills || [])
+        ])];
+        const skillsLine = allSkills.length > 0
+            ? allSkills.map(s => s.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ')
+            : null;
+
         return `
             <span class="name">${heading}</span>
             <span>${team.name}</span>
             <div class="stat-line">${status}</div>
             <div class="stat-line">${location}</div>
             <div class="stat-line">${stats}</div>
+            ${skillsLine ? `<div class="stat-line">Skills: ${skillsLine}</div>` : ''}
         `;
     }
 
@@ -2407,7 +2416,7 @@
         const circle = document.createElementNS(SVG_NS, "circle");
         circle.setAttribute("cx", pos.x + 0.5);
         circle.setAttribute("cy", pos.y + 0.5);
-        circle.setAttribute("r", 0.45);
+        circle.setAttribute("r", playerState === 'prone' ? 0.3 : 0.45);
         circle.dataset.role = "body";
 
         if (playerState === 'knocked_out') {
@@ -2421,6 +2430,13 @@
             circle.setAttribute("fill-opacity", "0.4");
             circle.setAttribute("stroke", "rgba(255,210,60,0.8)");
             circle.setAttribute("stroke-width", "0.1");
+            circle.removeAttribute("stroke-dasharray");
+        } else if (playerState === 'prone') {
+            circle.setAttribute("fill", `var(${team.color})`);
+            circle.setAttribute("fill-opacity", "0.7");
+            circle.setAttribute("stroke", "rgba(255,255,255,0.9)");
+            circle.setAttribute("stroke-width", "0.1");
+            circle.setAttribute("stroke-dasharray", "0.2 0.12");
         } else {
             circle.setAttribute("fill", `var(${team.color})`);
             circle.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
@@ -2433,7 +2449,7 @@
         label.setAttribute("y", pos.y + 0.58);
         label.setAttribute("text-anchor", "middle");
         label.setAttribute("font-size", "0.38");
-        label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : 'rgba(18,12,7,0.92)');
+        label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : playerState === 'prone' ? 'rgba(255,255,255,0.92)' : 'rgba(18,12,7,0.92)');
         label.setAttribute("font-weight", "700");
         label.dataset.role = "label";
 
@@ -2441,10 +2457,17 @@
             label.textContent = '✕';
         } else if (playerState === 'stunned') {
             label.textContent = '~';
+        } else if (playerState === 'prone') {
+            label.textContent = '↓';
         } else {
-            label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+            label.textContent = player.number != null
+                ? String(player.number)
+                : player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
         }
         token.appendChild(label);
+
+        // Dim token if player has already acted this turn
+        token.setAttribute("opacity", player.has_acted ? "0.45" : "1");
 
         token.dataset.tooltip = createPlayerTooltip(player, team, pos, isCarrier);
         bindTooltip(token);
@@ -2459,6 +2482,7 @@
         if (circle) {
             circle.setAttribute("cx", pos.x + 0.5);
             circle.setAttribute("cy", pos.y + 0.5);
+            circle.setAttribute("r", playerState === 'prone' ? 0.3 : 0.45);
 
             // Re-apply state-dependent styling
             if (playerState === 'knocked_out') {
@@ -2473,6 +2497,12 @@
                 circle.setAttribute("stroke", "rgba(255,210,60,0.8)");
                 circle.setAttribute("stroke-width", "0.1");
                 circle.removeAttribute("stroke-dasharray");
+            } else if (playerState === 'prone') {
+                circle.setAttribute("fill", `var(${team.color})`);
+                circle.setAttribute("fill-opacity", "0.7");
+                circle.setAttribute("stroke", "rgba(255,255,255,0.9)");
+                circle.setAttribute("stroke-width", "0.1");
+                circle.setAttribute("stroke-dasharray", "0.2 0.12");
             } else {
                 circle.setAttribute("fill", `var(${team.color})`);
                 circle.removeAttribute("fill-opacity");
@@ -2487,16 +2517,23 @@
         if (label) {
             label.setAttribute("x", pos.x + 0.5);
             label.setAttribute("y", pos.y + 0.58);
-            label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : 'rgba(18,12,7,0.92)');
+            label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : playerState === 'prone' ? 'rgba(255,255,255,0.92)' : 'rgba(18,12,7,0.92)');
 
             if (playerState === 'knocked_out') {
                 label.textContent = '✕';
             } else if (playerState === 'stunned') {
                 label.textContent = '~';
+            } else if (playerState === 'prone') {
+                label.textContent = '↓';
             } else {
-                label.textContent = player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                label.textContent = player.number != null
+                    ? String(player.number)
+                    : player.position.role.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
             }
         }
+
+        // Dim token if player has already acted this turn
+        token.setAttribute("opacity", player.has_acted ? "0.45" : "1");
 
         // Update or add/remove aura
         const existingAura = token.querySelector("[data-role=aura]");
