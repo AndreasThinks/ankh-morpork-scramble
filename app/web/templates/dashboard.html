@@ -1359,7 +1359,6 @@
     const team2Title = document.getElementById('team2-thoughts-title');
     const commentaryText = document.getElementById('commentary-text');
     const commentaryTimestamp = document.getElementById('commentary-timestamp');
-    const gameLogEntries = document.getElementById('game-log-entries');
     const scoreboardOverlay = document.getElementById('scoreboard-overlay');
     const scoreboardSubtitle = document.getElementById('scoreboard-subtitle');
     const scoreboardTeam1Name = document.getElementById('scoreboard-team1-name');
@@ -1909,10 +1908,10 @@
     function escapeHtml(str) {
         if (!str) return '';
         return String(str)
-            .replace(/&/g, '&')
-            .replace(/</g, '<')
-            .replace(/>/g, '>')
-            .replace(/"/g, '"');
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;');
     }
 
     /** Unicode die faces for d6 results 1-6. */
@@ -1948,33 +1947,37 @@
         turn_end:    '⏸',
     };
 
+    /** Module-scope Sets for getEventTier — created once, not on every call. */
+    const _TIER_LANDMARK = new Set([
+        'touchdown', 'half_start', 'half_end', 'game_start', 'game_end'
+    ]);
+    const _TIER_DRAMATIC = new Set([
+        'turnover', 'casualty', 'injury'
+    ]);
+    const _TIER_QUIET = new Set([
+        'move', 'stand_up', 'turn_start', 'turn_end', 'armor_break', 'scatter', 'reroll'
+    ]);
+
+    /** Module-scope Sets for getEventCategory — created once, not on every call. */
+    const _CAT_COMBAT = new Set([
+        'block', 'knockdown', 'armor_break', 'injury', 'casualty', 'foul'
+    ]);
+    const _CAT_BALL = new Set([
+        'pickup', 'drop', 'pass', 'catch', 'scatter', 'handoff', 'kickoff', 'touchdown'
+    ]);
+
     /** Visual tier for each event type — controls size and background. */
     function getEventTier(eventType) {
-        const LANDMARK = new Set([
-            'touchdown', 'half_start', 'half_end', 'game_start', 'game_end'
-        ]);
-        const DRAMATIC = new Set([
-            'turnover', 'casualty', 'injury'
-        ]);
-        const QUIET = new Set([
-            'move', 'stand_up', 'turn_start', 'turn_end', 'armor_break', 'scatter', 'reroll'
-        ]);
-        if (LANDMARK.has(eventType)) return 'landmark';
-        if (DRAMATIC.has(eventType)) return 'dramatic';
-        if (QUIET.has(eventType)) return 'quiet';
+        if (_TIER_LANDMARK.has(eventType)) return 'landmark';
+        if (_TIER_DRAMATIC.has(eventType)) return 'dramatic';
+        if (_TIER_QUIET.has(eventType)) return 'quiet';
         return 'action';
     }
 
     /** Filter category for each event type. */
     function getEventCategory(eventType) {
-        const COMBAT = new Set([
-            'block', 'knockdown', 'armor_break', 'injury', 'casualty', 'foul'
-        ]);
-        const BALL = new Set([
-            'pickup', 'drop', 'pass', 'catch', 'scatter', 'handoff', 'kickoff', 'touchdown'
-        ]);
-        if (COMBAT.has(eventType)) return 'combat';
-        if (BALL.has(eventType)) return 'ball';
+        if (_CAT_COMBAT.has(eventType)) return 'combat';
+        if (_CAT_BALL.has(eventType)) return 'ball';
         return 'other';
     }
 
@@ -2097,7 +2100,18 @@
         }
 
         const newEvents = events.slice(lastRenderedEventCount);
-        if (newEvents.length === 0) return;
+        if (newEvents.length === 0) {
+            // If container is empty after a reset, restore the placeholder row
+            if (container.children.length === 0) {
+                container.innerHTML =
+                    '<div class="log-event log-event--tier-quiet log-event--placeholder">' +
+                    '<span class="log-event-icon" aria-hidden="true">•</span>' +
+                    '<div class="log-event-body">' +
+                    '<span class="log-event-desc">The crowd waits for the opening whistle\u2026</span>' +
+                    '</div></div>';
+            }
+            return;
+        }
 
         // Remove placeholder row on first real event
         if (lastRenderedEventCount === 0) {
