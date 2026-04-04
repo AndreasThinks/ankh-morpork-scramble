@@ -1057,6 +1057,19 @@
             background: rgba(180, 40, 40, 0.1) !important;
         }
 
+        /* Commentary rows in the event log */
+        .log-event--commentary {
+            border-left-color: rgba(217, 180, 91, 0.35) !important;
+            background: rgba(217, 180, 91, 0.04) !important;
+            font-style: italic;
+        }
+
+        .log-event-desc--commentary {
+            color: rgba(242, 227, 198, 0.6) !important;
+            font-family: "Spectral", Georgia, serif;
+            font-size: 0.82em;
+        }
+
         /* HALF_START divider */
         .log-event--half-start {
             border-left: none !important;
@@ -2537,6 +2550,9 @@
                 tickerText.classList.add('updated');
             }
 
+            // Inject into event log
+            injectCommentaryIntoLog(latestComment.content);
+
             // Update the mobile ref strip
             const refStrip = document.getElementById('ref-strip');
             const refStripText = document.getElementById('ref-strip-text');
@@ -2748,6 +2764,50 @@
      * description text; innerHTML is only used for the dice sub-element where we
      * control the content entirely.
      */
+
+    /**
+     * Inject a commentary line into the event log as a special styled row.
+     * Called after renderRefereeCommentary updates with new content.
+     * Uses the content string to deduplicate — only injects if content changed.
+     */
+    function injectCommentaryIntoLog(text) {
+        if (!text || text === lastInjectedCommentaryText) return;
+        lastInjectedCommentaryText = text;
+
+        const container = document.getElementById('game-log-entries');
+        if (!container) return;
+
+        // Remove placeholder if present
+        const placeholder = container.querySelector('.log-event--placeholder');
+        if (placeholder) placeholder.remove();
+
+        const el = document.createElement('div');
+        el.className = 'log-event log-event--commentary log-event--tier-action';
+        el.dataset.eventType = 'commentary';
+        el.dataset.category = 'commentary';
+        el.dataset.result = 'neutral';
+        el.innerHTML = `
+            <span class="log-event-icon" aria-hidden="true">⚖</span>
+            <div class="log-event-body">
+                <span class="log-event-desc log-event-desc--commentary">${escapeHtml(text)}</span>
+            </div>
+        `;
+
+        // Apply current filter — commentary rows always visible except on combat/ball filters
+        const filter = activeLogFilter;
+        el.hidden = (filter === 'combat' || filter === 'ball' || filter === 'turnovers');
+
+        // Determine scroll position before touching DOM
+        const wasNearBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+
+        container.appendChild(el);
+
+        if (wasNearBottom) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
     function buildEventRow(event) {
         const el = document.createElement('div');
         const tier = getEventTier(event.event_type);
@@ -3249,6 +3309,7 @@
     let prevPlayerPositions = {};
     let lastRenderedEventCount = 0;  // incremental log rendering
     let activeLogFilter = 'all';     // current filter tab
+    let lastInjectedCommentaryText = '';  // prevents duplicate injection
     let tokenElements = new Map();   // playerId -> SVG <g> element
     let ballElement = null;          // the loose ball <circle>
 
