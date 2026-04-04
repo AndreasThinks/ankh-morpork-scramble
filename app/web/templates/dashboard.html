@@ -1584,51 +1584,64 @@
         }
 
         /* ── Commentary ticker bar ───────────────────────────────────────── */
-        .commentary-ticker {
+        /* ── Global scrolling ticker bar (lives inside the header) ─────── */
+        .global-ticker {
+            width: 100%;
+            order: 10;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.3rem 0.7rem;
-            background: rgba(217, 180, 91, 0.05);
-            border: 1px solid rgba(217, 180, 91, 0.15);
-            border-radius: 6px;
-            flex-shrink: 0;
+            height: 24px;
+            overflow: hidden;
+            border-top: 1px solid rgba(217, 180, 91, 0.15);
+            margin-top: 0.25rem;
             cursor: pointer;
-            transition: background 0.15s;
-            min-height: 0;
         }
 
-        .commentary-ticker:hover {
-            background: rgba(217, 180, 91, 0.1);
+        .global-ticker:hover .ticker-inner {
+            color: rgba(242, 227, 198, 0.9);
         }
 
-        .ticker-label {
+        .ticker-badge {
+            background: rgba(217, 180, 91, 0.18);
+            border-right: 1px solid rgba(217, 180, 91, 0.25);
+            color: var(--accent-gold);
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 0 0.65rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
             flex-shrink: 0;
-            font-size: 0.7rem;
-            opacity: 0.5;
             user-select: none;
         }
 
-        .ticker-text {
-            font-size: 0.78rem;
-            color: rgba(242, 227, 198, 0.6);
-            font-style: italic;
-            line-height: 1.3;
-            white-space: nowrap;
+        .ticker-track {
+            flex: 1;
             overflow: hidden;
-            text-overflow: ellipsis;
+            height: 100%;
+            position: relative;
+        }
+
+        .ticker-inner {
+            display: inline-block;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            font-style: italic;
+            color: rgba(242, 227, 198, 0.65);
             font-family: "Spectral", Georgia, serif;
+            line-height: 24px;
+            padding-left: 100%;
+            animation: tickerScroll 22s linear infinite;
+            transition: color 0.3s;
         }
 
-        /* Flash animation when ticker updates */
-        @keyframes tickerUpdate {
-            0%   { color: rgba(242, 227, 198, 0.6); }
-            30%  { color: var(--accent-gold); }
-            100% { color: rgba(242, 227, 198, 0.6); }
-        }
-
-        .ticker-text.updated {
-            animation: tickerUpdate 1.2s ease;
+        @keyframes tickerScroll {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
         }
 
         /* ── Mobile layout (≤768px) ──────────────────────────────────────── */
@@ -1752,7 +1765,8 @@
                 border-top-color: var(--accent-gold);
             }
 
-            .commentary-ticker {
+            /* On mobile the ref-strip below the pitch handles commentary — hide header ticker */
+            .global-ticker {
                 display: none;
             }
         }
@@ -1799,6 +1813,12 @@
         <span id="status-live" class="status-chip status-live">● LIVE</span>
     </div>
     <div class="meta" id="game-meta" style="display:none;"></div>
+    <div class="global-ticker" id="commentary-ticker" role="status" aria-live="polite">
+        <span class="ticker-badge">⚖ Dibbler</span>
+        <div class="ticker-track">
+            <span class="ticker-inner" id="ticker-text">Dibbler is working his way round the crowd. Remarks forthcoming.</span>
+        </div>
+    </div>
 </header>
 <main>
     <!-- Left sidebar: Team 1 -->
@@ -1827,11 +1847,6 @@
         <div class="ref-strip" id="ref-strip" hidden>
             <span class="ref-strip-icon">⚖</span>
             <span class="ref-strip-text" id="ref-strip-text">Awaiting the referee…</span>
-        </div>
-
-        <div class="commentary-ticker" id="commentary-ticker" role="status" aria-live="polite">
-            <span class="ticker-label">⚖</span>
-            <span class="ticker-text" id="ticker-text">Awaiting Dibbler's first remark…</span>
         </div>
 
         <div class="tab-bar" id="pitch-tab-bar">
@@ -2540,14 +2555,15 @@
             commentaryText.textContent = latestComment.content;
             commentaryText.classList.remove('loading');
 
-            // Update commentary ticker
-            const tickerText = document.getElementById('ticker-text');
-            if (tickerText && tickerText.textContent !== latestComment.content) {
-                tickerText.textContent = latestComment.content;
-                tickerText.classList.remove('updated');
-                // Force reflow to restart animation
-                void tickerText.offsetWidth;
-                tickerText.classList.add('updated');
+            // Update scrolling ticker in header
+            const tickerInner = document.getElementById('ticker-text');
+            if (tickerInner && tickerInner.textContent !== latestComment.content) {
+                tickerInner.textContent = latestComment.content;
+                // Speed: ~40px/s, typical char ~8px wide. Min 12s, max 40s.
+                const duration = Math.min(40, Math.max(12, Math.round(latestComment.content.length * 0.22)));
+                tickerInner.style.animation = 'none';
+                void tickerInner.offsetWidth; // force reflow to restart
+                tickerInner.style.animation = `tickerScroll ${duration}s linear infinite`;
             }
 
             // Inject into event log
