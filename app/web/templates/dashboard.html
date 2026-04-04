@@ -203,6 +203,14 @@
             }
         }
 
+        .reroll-counter {
+            font-size: 0.65rem;
+            color: rgba(217, 180, 91, 0.6);
+            font-family: "Cinzel", serif;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+
         header .score-line .score-value {
             color: var(--accent-gold);
             position: relative;
@@ -2203,7 +2211,12 @@
         halfway.setAttribute('stroke-width', '0.12');
         pitchSvg.appendChild(halfway);
 
-        const tokensGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        // Tackle zones layer — sits between grid and tokens
+        const zonesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        zonesGroup.setAttribute('id', 'pitch-zones');
+        pitchSvg.appendChild(zonesGroup);
+
+        const tokensGroup=docume...vg', 'g');
         tokensGroup.setAttribute('id', 'pitch-tokens');
         pitchSvg.appendChild(tokensGroup);
     }
@@ -2230,15 +2243,19 @@
         const team2 = data.team2;
         const t1model = shortModel(data.team1_model);
         const t2model = shortModel(data.team2_model);
+        const t1rerolls = (team1.rerolls_total || 0) - (team1.rerolls_used || 0);
+        const t2rerolls = (team2.rerolls_total || 0) - (team2.rerolls_used || 0);
         scoreLine.innerHTML = `
             <span class="score-team score-team--home">
                 <span class="team-name">${escapeHtml(team1.name)}</span>
                 ${t1model ? `<span class="team-model" title="${escapeHtml(data.team1_model || '')}">${escapeHtml(t1model)}</span>` : ''}
+                <span class="reroll-counter" title="Rerolls remaining">↺ ${t1rerolls}</span>
             </span>
             <span class="score-value" id="team1-score-value">${team1.score}<small> Scratches</small></span>
             <span class="score-divider">VS</span>
             <span class="score-value" id="team2-score-value">${team2.score}<small> Scratches</small></span>
             <span class="score-team score-team--away">
+                <span class="reroll-counter" title="Rerolls remaining">↺ ${t2rerolls}</span>
                 <span class="team-name">${escapeHtml(team2.name)}</span>
                 ${t2model ? `<span class="team-model" title="${escapeHtml(data.team2_model || '')}">${escapeHtml(t2model)}</span>` : ''}
             </span>
@@ -2570,6 +2587,53 @@
 
         const currentPositions = state.pitch.player_positions || {};
         const currentPlayerIds = new Set(Object.keys(currentPositions));
+
+        // ── Tackle zones ─────────────────────────────────────────────────
+        const zonesGroup = document.getElementById('pitch-zones');
+        if (zonesGroup) {
+            zonesGroup.innerHTML = '';
+            // Count how many team1 and team2 players threaten each square
+            const zoneCount = {}; // key: "x,y" → { t1: N, t2: N }
+            for (const [playerId, pos] of Object.entries(currentPositions)) {
+                const player = state.players[playerId];
+                if (!player) continue;
+                const isTeam1 = player.team_id === state.team1.id;
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = pos.x + dx, ny = pos.y + dy;
+                        if (nx < 0 || nx >= 26 || ny < 0 || ny >= 15) continue;
+                        const key = `${nx},${ny}`;
+                        if (!zoneCount[key]) zoneCount[key] = { t1: 0, t2: 0 };
+                        if (isTeam1) zoneCount[key].t1++; else zoneCount[key].t2++;
+                    }
+                }
+            }
+            for (const [key, counts] of Object.entries(zoneCount)) {
+                const [x, y] = key.split(',').map(Number);
+                // Skip squares occupied by a player token (zones still exist but don't draw over tokens)
+                if (counts.t1 > 0 || counts.t2 > 0) {
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', 1);
+                    rect.setAttribute('height', 1);
+                    // Overlapping zones → purple tint; single team → their colour
+                    let fill;
+                    if (counts.t1 > 0 && counts.t2 > 0) {
+                        fill = 'rgba(160, 100, 200, 0.2)';   // both — purple
+                    } else if (counts.t1 > 0) {
+                        fill = 'rgba(100, 185, 230, 0.18)';  // team1 — blue
+                    } else {
+                        fill = 'rgba(196, 109, 40, 0.18)';   // team2 — orange
+                    }
+                    rect.setAttribute('fill', fill);
+                    rect.setAttribute('pointer-events', 'none');
+                    zonesGroup.appendChild(rect);
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
 
         // Remove tokens for players no longer on pitch
         for (const [playerId, token] of tokenElements) {
