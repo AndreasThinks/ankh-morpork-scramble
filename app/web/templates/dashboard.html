@@ -29,6 +29,11 @@
             box-sizing: border-box;
         }
 
+        html {
+            height: 100vh;
+            overflow: hidden;
+        }
+
         body {
             margin: 0;
             font-family: "Spectral", Georgia, "Times New Roman", serif;
@@ -37,31 +42,43 @@
                         radial-gradient(circle at 50% 80%, rgba(115, 76, 38, 0.15), transparent 55%),
                         var(--bg);
             color: var(--text);
-            min-height: 100vh;
+            height: 100%;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
         header {
-            padding: 0.5rem clamp(1.2rem, 4vw, 4rem);
+            padding: 0.3rem clamp(0.75rem, 2vw, 2rem);
             border-bottom: 1px solid rgba(217, 180, 91, 0.25);
             background: linear-gradient(135deg, rgba(36, 23, 12, 0.85), rgba(15, 9, 4, 0.75));
             box-shadow: inset 0 -1px 0 rgba(217, 180, 91, 0.15);
             display: flex;
             align-items: center;
-            gap: clamp(0.75rem, 2vw, 2rem);
-            flex-wrap: wrap;
+            gap: clamp(0.4rem, 1vw, 1rem);
+            flex-wrap: nowrap;
+            flex-shrink: 0;
         }
 
         header h1 {
             margin: 0;
             font-family: "Cinzel", "Times New Roman", serif;
-            font-size: clamp(0.85rem, 1.3vw, 1.1rem);
-            letter-spacing: 0.16em;
+            font-size: clamp(0.65rem, 0.9vw, 0.85rem);
+            letter-spacing: 0.14em;
             text-transform: uppercase;
             color: var(--accent-gold);
             flex-shrink: 0;
-            opacity: 0.85;
+            opacity: 0.75;
+            white-space: nowrap;
+        }
+
+        .header-status {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+            margin-left: auto;
         }
 
         header .score-line {
@@ -101,7 +118,7 @@
         header .score-line .score-value {
             color: var(--accent-gold);
             position: relative;
-            font-size: clamp(1.3rem, 2.2vw, 2rem);
+            font-size: clamp(1rem, 1.6vw, 1.4rem);
             font-weight: 700;
         }
 
@@ -239,15 +256,16 @@
         }
 
         .status-chip {
-            padding: 0.25rem 0.75rem;
+            padding: 0.15rem 0.5rem;
             border-radius: 999px;
-            font-size: 0.75rem;
-            letter-spacing: 0.08em;
+            font-size: 0.65rem;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
             font-family: "Cinzel", serif;
             border: 1px solid rgba(217, 180, 91, 0.25);
             background: rgba(73, 50, 24, 0.5);
             color: var(--muted);
+            white-space: nowrap;
         }
 
         .status-chip.danger {
@@ -270,19 +288,19 @@
 
         main {
             flex: 1;
-            padding: clamp(1.5rem, 3vw, 3rem);
+            min-height: 0;
+            overflow: hidden;
+            padding: 0.6rem clamp(0.6rem, 1.2vw, 1.2rem);
             display: grid;
-            grid-template-columns: minmax(220px, 1fr) minmax(560px, 2fr) minmax(220px, 1fr);
-            gap: clamp(1rem, 2.5vw, 2rem);
+            grid-template-columns: 230px 1fr 230px;
+            gap: 0.75rem;
+            align-items: stretch;
         }
 
         @media (max-width: 1100px) {
             main {
                 grid-template-columns: 1fr;
-            }
-
-            .thoughts {
-                order: 3;
+                overflow-y: auto;
             }
         }
 
@@ -349,7 +367,9 @@
         .pitch-panel {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 0.4rem;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .referee-commentary {
@@ -420,17 +440,22 @@
                         radial-gradient(circle at 70% 72%, rgba(115, 76, 38, 0.18), transparent 60%),
                         rgba(30, 19, 10, 0.9);
             border-radius: 16px;
-            padding: clamp(1rem, 2vw, 1.75rem);
+            padding: clamp(0.5rem, 1vw, 0.9rem);
             border: 1px solid rgba(217, 180, 91, 0.25);
             position: relative;
             box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
         }
 
         .pitch-canvas {
             width: 100%;
-            height: auto;
+            height: 100%;
+            max-height: 100%;
             display: block;
-            aspect-ratio: 26 / 15;
             filter: saturate(85%);
         }
 
@@ -546,6 +571,170 @@
             font-size: 0.78rem;
             color: var(--muted);
             letter-spacing: 0.05em;
+        }
+
+        /* Tab bar — sits below pitch, above tab panels */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.25);
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: rgba(242, 227, 198, 0.45);
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.3rem 0.8rem;
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: rgba(242, 227, 198, 0.8);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-gold);
+            border-bottom-color: var(--accent-gold);
+        }
+
+        .tab-panel {
+            overflow-y: auto;
+            padding: 0.4rem 0.25rem;
+            font-size: 0.85rem;
+        }
+
+        .tab-panel[hidden] {
+            display: none;
+        }
+
+        /* Commentary tab content */
+        .tab-panel .commentary-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text);
+            font-style: italic;
+            letter-spacing: 0.02em;
+            min-height: 2em;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .tab-panel .commentary-text.loading {
+            color: var(--muted);
+            font-style: normal;
+        }
+
+        .tab-panel .commentary-timestamp {
+            display: block;
+            margin-top: 0.25rem;
+            font-size: 0.75rem;
+            color: rgba(217, 180, 91, 0.55);
+            letter-spacing: 0.04em;
+            padding-left: 0.5rem;
+        }
+
+        /* Team sidebar */
+        .team-sidebar {
+            background: linear-gradient(160deg, rgba(54, 35, 18, 0.85), rgba(30, 19, 10, 0.95));
+            border: 1px solid var(--panel-border);
+            border-radius: 18px;
+            padding: 0.85rem 0.9rem;
+            box-shadow: 0 24px 60px var(--panel-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .sidebar-team-name {
+            margin: 0 0 0.1rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.2);
+            padding-bottom: 0.3rem;
+        }
+
+        .sidebar-section-label {
+            font-family: "Cinzel", serif;
+            font-size: 0.6rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(217, 180, 91, 0.5);
+            margin-top: 0.25rem;
+        }
+
+        .sidebar-thoughts {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .sidebar-thoughts li {
+            background: rgba(46, 30, 16, 0.82);
+            border: 1px solid rgba(217, 180, 91, 0.18);
+            border-radius: 10px;
+            padding: 0.4rem 0.65rem;
+            font-size: 0.78rem;
+            line-height: 1.3;
+            box-shadow: inset 0 1px 0 rgba(217, 180, 91, 0.08);
+        }
+
+        .sidebar-thoughts .speaker {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+            color: var(--accent-gold);
+            letter-spacing: 0.04em;
+            font-family: "Cinzel", "Times New Roman", serif;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+        }
+
+        .sidebar-thoughts .timestamp {
+            display: inline-block;
+            font-size: 0.65rem;
+            color: rgba(217, 180, 91, 0.55);
+            margin-left: 0.4rem;
+            font-style: italic;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 0.4rem;
+            border-top: 1px solid rgba(217, 180, 91, 0.15);
+            flex-shrink: 0;
+        }
+
+        .leaderboard-link {
+            color: rgba(217, 180, 91, 0.6);
+            text-decoration: none;
+            font-size: 0.68rem;
+            font-family: "Cinzel", serif;
+            letter-spacing: 0.06em;
+            transition: color 0.15s;
+        }
+
+        .leaderboard-link:hover {
+            color: var(--accent-gold);
         }
 
         .game-log {
@@ -1278,38 +1467,27 @@
     <div class="score-line" id="score-line">
         <span>Loading match…</span>
     </div>
-    <div class="meta" id="game-meta"></div>
+    <div class="header-status" id="header-status">
+        <span id="status-phase" class="status-chip"></span>
+        <span id="status-turn" class="status-chip"></span>
+        <span id="status-ball" class="status-chip"></span>
+        <span id="status-live" class="status-chip status-live">● LIVE</span>
+    </div>
+    <div class="meta" id="game-meta" style="display:none;"></div>
 </header>
-<div id="status-bar" class="status-bar">
-    <span id="status-phase" class="status-chip"></span>
-    <span id="status-turn" class="status-chip"></span>
-    <span id="status-ball" class="status-chip"></span>
-    <span id="status-live" class="status-chip status-live">● LIVE</span>
-</div>
 <main>
-    <aside class="panel thoughts" id="team1-thoughts-panel">
-        <h2 id="team1-thoughts-title">Team 1 Strategy</h2>
-        <ul id="team1-thoughts"></ul>
-        <details class="panel-section" id="team1-roster-section">
-            <summary>Roster &amp; Treasury</summary>
-            <div class="budget-status" id="team1-budget">
-                <h3>Treasury</h3>
-                <div class="budget-details">Loading...</div>
-            </div>
-            <div class="positions-panel" id="team1-positions">
-                <h3>Available Positions</h3>
-                <div class="positions-list">Loading...</div>
-            </div>
-        </details>
+    <!-- Left sidebar: Team 1 -->
+    <aside class="team-sidebar" id="team1-thoughts-panel">
+        <h2 class="sidebar-team-name" id="team1-thoughts-title">Team 1</h2>
+        <div class="sidebar-section-label">Treasury</div>
+        <div id="team1-budget"><div class="budget-details">Loading...</div></div>
+        <div class="sidebar-section-label">Strategy</div>
+        <ul class="sidebar-thoughts" id="team1-thoughts"></ul>
+        <details id="team1-roster-section" hidden></details>
     </aside>
 
+    <!-- Centre: Pitch + tabs -->
     <section class="panel pitch-panel">
-        <h2>Pitch Overview</h2>
-        <div class="referee-commentary" id="referee-commentary">
-            <h3>Referee Commentary</h3>
-            <div class="commentary-text loading" id="commentary-text">Awaiting the referee's first remarks...</div>
-            <span class="commentary-timestamp" id="commentary-timestamp"></span>
-        </div>
         <div class="pitch-wrapper" id="pitch-container">
             <svg id="pitch-canvas" class="pitch-canvas" role="img" aria-labelledby="pitch-title"></svg>
             <div class="tooltip" id="pitch-tooltip" role="status" aria-live="polite"></div>
@@ -1319,7 +1497,21 @@
             <span><span class="swatch" style="background: var(--accent-orange);"></span> Team 2</span>
             <span><span class="swatch" style="background: var(--accent-gold);"></span> Ball</span>
         </div>
-        <div class="game-log" id="game-log">
+
+        <div class="tab-bar" id="pitch-tab-bar">
+            <button class="tab-btn active" data-tab="commentary">⚖ Commentary</button>
+            <button class="tab-btn" data-tab="events">📋 Events</button>
+            <button class="tab-btn" data-tab="roster">👥 Roster</button>
+        </div>
+
+        <!-- Commentary tab -->
+        <div class="tab-panel" id="tab-commentary">
+            <div class="commentary-text loading" id="commentary-text">Awaiting the referee's first remarks...</div>
+            <span class="commentary-timestamp" id="commentary-timestamp"></span>
+        </div>
+
+        <!-- Events tab -->
+        <div class="tab-panel" id="tab-events" hidden>
             <div class="log-header">
                 <h3>Match Events</h3>
                 <span class="log-count-badge" id="log-count-badge" title="Total events logged">0</span>
@@ -1339,43 +1531,45 @@
                 </div>
             </div>
         </div>
-        <details class="roster-toggle" id="roster-toggle">
-            <summary>Players on the Pitch</summary>
-            <div style="overflow-x: auto; margin-top: 0.5rem;">
+
+        <!-- Roster tab -->
+        <div class="tab-panel" id="tab-roster" hidden>
+            <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
-                            <th>Player</th>
-                            <th>Team</th>
-                            <th>State</th>
-                            <th>Position</th>
-                            <th>MA</th>
-                            <th>ST</th>
-                            <th>AG</th>
-                            <th>PA</th>
-                            <th>AV</th>
+                            <th>Player</th><th>Team</th><th>State</th><th>Pos</th>
+                            <th>MA</th><th>ST</th><th>AG</th><th>PA</th><th>AV</th>
                         </tr>
                     </thead>
                     <tbody id="roster-body"></tbody>
                 </table>
             </div>
-        </details>
-    </section>
-
-    <aside class="panel thoughts" id="team2-thoughts-panel">
-        <h2 id="team2-thoughts-title">Team 2 Strategy</h2>
-        <ul id="team2-thoughts"></ul>
-        <details class="panel-section" id="team2-roster-section">
-            <summary>Roster &amp; Treasury</summary>
-            <div class="budget-status" id="team2-budget">
-                <h3>Treasury</h3>
-                <div class="budget-details">Loading...</div>
-            </div>
-            <div class="positions-panel" id="team2-positions">
-                <h3>Available Positions</h3>
+            <div id="team1-positions" style="margin-top:0.75rem;">
+                <div style="font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:rgba(217,180,91,0.6);margin-bottom:0.4rem;">Team 1 Positions</div>
                 <div class="positions-list">Loading...</div>
             </div>
-        </details>
+            <div id="team2-positions" style="margin-top:0.75rem;">
+                <div style="font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:rgba(217,180,91,0.6);margin-bottom:0.4rem;">Team 2 Positions</div>
+                <div class="positions-list">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Kept for JS collapse logic -->
+        <details id="roster-toggle" hidden></details>
+    </section>
+
+    <!-- Right sidebar: Team 2 -->
+    <aside class="team-sidebar" id="team2-thoughts-panel">
+        <h2 class="sidebar-team-name" id="team2-thoughts-title">Team 2</h2>
+        <div class="sidebar-section-label">Treasury</div>
+        <div id="team2-budget"><div class="budget-details">Loading...</div></div>
+        <div class="sidebar-section-label">Strategy</div>
+        <ul class="sidebar-thoughts" id="team2-thoughts"></ul>
+        <details id="team2-roster-section" hidden></details>
+        <div class="sidebar-footer">
+            <a href="/leaderboard/ui" target="_blank" class="leaderboard-link">View Season Standings →</a>
+        </div>
     </aside>
 </main>
 <footer>
@@ -1587,31 +1781,7 @@
         prevTeam1Score = team1.score;
         prevTeam2Score = team2.score;
 
-        const chips = [];
-        chips.push(`<span>Phase: ${data.phase}</span>`);
-
-        if (data.turn) {
-            chips.push(`<span>Half: ${data.turn.half}</span>`);
-            chips.push(`<span>Turn: ${data.turn.team_turn}</span>`);
-            chips.push(`<span>Active team: ${data.turn.active_team_id}</span>`);
-        } else {
-            chips.push('<span>No active turn</span>');
-        }
-
-        const ballStatus = (() => {
-            const carrier = data.pitch.ball_carrier;
-            const ballPos = data.pitch.ball_position;
-            if (carrier) {
-                return `Carried by ${carrier}`;
-            }
-            if (ballPos) {
-                return `Loose at (${ballPos.x}, ${ballPos.y})`;
-            }
-            return 'Ball off pitch';
-        })();
-        chips.push(`<span data-role="ball">${ballStatus}</span>`);
-
-        meta.innerHTML = chips.join('');
+        // (status chips updated below — no redundant meta chips needed)
 
         // Update status bar chips
         const statusPhase = document.getElementById("status-phase");
@@ -2814,6 +2984,18 @@
             if (phase) updateCollapseState(phase);
         }
     }, 2000);
+
+    // Tab switching
+    document.getElementById('pitch-tab-bar').addEventListener('click', (e) => {
+        const btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        const tab = btn.dataset.tab;
+        if (!tab) return;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => { p.hidden = true; });
+        btn.classList.add('active');
+        document.getElementById('tab-' + tab).hidden = false;
+    });
 
     // Filter bar click handler
     document.getElementById('log-filter-bar').addEventListener('click', (e) => {

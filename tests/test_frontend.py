@@ -23,7 +23,7 @@ def test_ui_dashboard_renders_default_game_id():
         expected_game_id = INTERACTIVE_GAME_ID
     
     assert re.search(rf"data-game-id=\"{expected_game_id}\"", response.text)
-    assert "Recent Events" in response.text
+    assert "Match Events" in response.text
 
 
 def test_ui_dashboard_with_custom_game_id():
@@ -58,9 +58,8 @@ def test_ui_renders_core_components():
 
     # Check for essential UI elements
     assert "Ankh-Morpork Scramble" in html
-    assert "Pitch Overview" in html
-    assert "Recent Events" in html
-    assert "Players on the Pitch" in html
+    assert "Match Events" in html
+    assert "Commentary" in html
     assert "pitch-canvas" in html
     assert "roster-body" in html
     assert "team1-thoughts" in html

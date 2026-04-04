@@ -61,6 +61,9 @@ TEAM_CONFIGS = {
 }
 COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "qwen/qwen3.6-plus:free")
 
+# If TEAM1_MODEL / TEAM2_MODEL are set explicitly, respect them and skip auto-pick.
+_MANUAL_MODEL_OVERRIDE = bool(os.getenv("TEAM1_MODEL") or os.getenv("TEAM2_MODEL"))
+
 # ── server ─────────────────────────────────────────────────────────────────
 
 def start_server() -> subprocess.Popen:
@@ -227,6 +230,12 @@ def main() -> None:
     logger.info(f"API docs: http://192.168.4.57:{PORT}/docs")
 
     while True:
+        if not _MANUAL_MODEL_OVERRIDE:
+            from simple_agents.model_picker import pick_models
+            m1, m2 = pick_models(SERVER_URL)
+            TEAM_CONFIGS["team1"]["model"] = m1
+            TEAM_CONFIGS["team2"]["model"] = m2
+            logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
         run_setup()
         run_game()
         wait_for_rematch()
