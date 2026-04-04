@@ -1856,9 +1856,10 @@
                 border-top-color: var(--accent-gold);
             }
 
-            /* On mobile the ref-strip below the pitch handles commentary — hide header ticker */
+            /* On mobile show the ticker in a compact band */
             .global-ticker {
-                display: none;
+                display: flex;
+                max-height: 40vh;
             }
         }
 
@@ -3034,6 +3035,7 @@
         const wasNearBottom =
             container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
+        pushToTicker('commentary', '⚖', text, 'commentary');
         container.appendChild(el);
 
         if (wasNearBottom) {
@@ -3157,6 +3159,9 @@
                 activeLogFilter
             );
             fragment.appendChild(el);
+            if (event.description) {
+                pushToTicker('event', EVENT_ICONS[event.event_type] || '•', event.description, getEventCategory(event.event_type));
+            }
         }
         container.insertBefore(fragment, container.firstChild);
 
