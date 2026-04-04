@@ -1604,6 +1604,10 @@
             overflow: hidden;
         }
 
+        .ref-strip {
+            display: none;  /* hidden on desktop */
+        }
+
         .strategy-team-block {
             margin-bottom: 1rem;
         }
@@ -1667,6 +1671,36 @@
             /* Hide sidebars — their content surfaces in the Strategy tab */
             main > aside.team-sidebar {
                 display: none;
+            }
+
+            /* Persistent referee strip — shown on mobile above sticky tab bar */
+            .ref-strip {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.4rem 0.75rem;
+                background: rgba(36, 23, 12, 0.95);
+                border-top: 1px solid rgba(217, 180, 91, 0.2);
+                flex-shrink: 0;
+                min-height: 0;
+            }
+
+            .ref-strip-icon {
+                flex-shrink: 0;
+                font-size: 0.75rem;
+                opacity: 0.6;
+            }
+
+            .ref-strip-text {
+                font-size: 0.75rem;
+                color: var(--muted);
+                line-height: 1.35;
+                font-style: italic;
+                /* Truncate to 2 lines */
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
             }
 
             /* Pitch-panel tab area: let it grow naturally */
@@ -1780,6 +1814,12 @@
             <span><span class="swatch" style="background: var(--accent-blue);"></span> Team 1</span>
             <span><span class="swatch" style="background: var(--accent-orange);"></span> Team 2</span>
             <span><span class="swatch" style="background: var(--accent-gold);"></span> Ball</span>
+        </div>
+
+        <!-- Persistent referee strip: always visible on mobile above the tab bar -->
+        <div class="ref-strip" id="ref-strip" hidden>
+            <span class="ref-strip-icon">⚖</span>
+            <span class="ref-strip-text" id="ref-strip-text">Awaiting the referee…</span>
         </div>
 
         <div class="tab-bar" id="pitch-tab-bar">
@@ -2477,6 +2517,8 @@
                 commentaryText.textContent = 'Havelock Bluntt has yet to pass judgement.';
                 commentaryText.classList.remove('loading');
                 commentaryTimestamp.textContent = '';
+                const refStripText = document.getElementById('ref-strip-text');
+                if (refStripText) refStripText.textContent = 'Havelock Bluntt has yet to pass judgement.';
                 return;
             }
 
@@ -2485,6 +2527,14 @@
 
             commentaryText.textContent = latestComment.content;
             commentaryText.classList.remove('loading');
+
+            // Update the mobile ref strip
+            const refStrip = document.getElementById('ref-strip');
+            const refStripText = document.getElementById('ref-strip-text');
+            if (refStrip && refStripText) {
+                refStripText.textContent = latestComment.content;
+                refStrip.hidden = false;
+            }
 
             const turnInfo = latestComment.turn_number
                 ? `Turn ${latestComment.turn_number}`
