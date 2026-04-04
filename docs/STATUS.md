@@ -19,17 +19,24 @@ Last updated: 2026-04-04
 - Leaderboard benchmark: card view with stat bars, sortable table, view toggle (2026-04-04)
 - Agents: Dibbler remembers previous lines, players see key moments (game history context) (2026-04-04)
 - About page, turtle favicon, AndreasThinks footer (2026-04-04)
+- UI: player state on pitch tokens (standing/stunned/KO visuals), event flash on involved players, active team border (2026-04-04) [COMPLETE]
+- UI: mixed ticker infrastructure — tickerQueue, pushToTicker, refreshTicker, styled CSS classes, collapsible info panel, tab-collapse-btn, mobile max-height 40vh (2026-04-04) [PARTIALLY COMPLETE — see outstanding issues]
 
-## In progress
+## Outstanding issues (from code review 2026-04-04)
 
-- Mixed ticker feed (game events + commentary, colour-coded), collapsible info panel, mobile polish (Cline PID 135821 — plan: 2026-04-04-ticker-mix-collapse-mobile.md)
-- Player state rendered on pitch tokens (standing/stunned/KO), event flash on involved players, active team border around pitch (Cline PID 136883 — plan: 2026-04-04-pitch-state-visuals.md)
+The ticker/collapse/mobile job (plan: 2026-04-04-ticker-mix-collapse-mobile.md) has three gaps:
 
-## Next steps (prioritised)
+- MISSING: `pushToTicker` is never called from `injectCommentaryIntoLog` — commentary never enters the ticker feed
+- MISSING: `pushToTicker` is never called from `renderGameLog` — game events never enter the ticker feed
+- WRONG: Mobile CSS still contains `.global-ticker { display: none; }` (line ~1861) — ticker remains hidden on mobile despite plan requiring removal
 
-1. UU roster completion — add 5 missing positions (Haste Mage, Divination Wizard, Transformed Wizard, The Librarian, Archchancellor Ridcully), fix fallback roster 422 in simple_agents/player.py, regenerate ROSTERS.md (plan: 2026-04-04-uu-roster-completion.md)
-2. Tackle zones — visualise threatened squares on the pitch so players can see where they need dodge rolls
-3. Post-ticker polish — verify mixed ticker looks good once Cline finishes; review collapsible state on desktop vs mobile
+The ticker infrastructure (tickerQueue, TICKER_MAX, pushToTicker, refreshTicker, all CSS) is implemented and correct. Only the call-site wiring and the mobile display rule need fixing.
+
+## Current priority
+
+1. **uu-roster-completion** — add 5 missing positions (Haste Mage, Divination Wizard, Transformed Wizard, The Librarian, Archchancellor Ridcully), fix fallback roster 422 in simple_agents/player.py, regenerate ROSTERS.md (plan: 2026-04-04-uu-roster-completion.md)
+2. Fix ticker wiring gaps listed above (small targeted edits to dashboard.html)
+3. Tackle zones — visualise threatened squares on the pitch so players can see where they need dodge rolls
 
 ## Deferred / backlog
 
