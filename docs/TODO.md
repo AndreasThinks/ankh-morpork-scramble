@@ -36,8 +36,4 @@ Add a small reroll pip display near each team's score — e.g. `↺ 2/3`.
 
 ---
 
-## Roster
 
-### UU roster completion
-Missing wizard positions and fallback roster errors flagged in STATUS.md.
-Wizards need full position definitions (MA/ST/AG/PA/AV + skills).
