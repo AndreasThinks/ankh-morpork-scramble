@@ -1742,11 +1742,13 @@
             html, body {
                 height: auto;
                 min-height: 100vh;
-                overflow-y: auto;
+                overflow: auto;    /* fully clear overflow: hidden shorthand on both axes */
             }
 
             /* Allow main to grow with content */
             main {
+                flex: none;        /* stop flex-basis collapse in auto-height body */
+                min-height: auto;  /* release the min-height: 0 desktop lock */
                 overflow: visible;
                 padding: 0.5rem;
                 gap: 0.5rem;
@@ -1756,6 +1758,7 @@
             /* Pitch panel: self-sizing via aspect ratio, no longer flex-fill */
             .pitch-panel {
                 overflow: visible;
+                min-height: auto;  /* release desktop min-height: 0 */
             }
 
             .pitch-wrapper {
