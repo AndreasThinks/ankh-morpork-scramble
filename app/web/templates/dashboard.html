@@ -1604,6 +1604,21 @@
             overflow: hidden;
         }
 
+        .strategy-team-block {
+            margin-bottom: 1rem;
+        }
+
+        .strategy-team-label {
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(217, 180, 91, 0.6);
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid rgba(217, 180, 91, 0.15);
+        }
+
         /* ── Mobile layout (≤768px) ──────────────────────────────────────── */
         @media (max-width: 768px) {
 
@@ -1646,6 +1661,11 @@
 
             /* Hide footer — no room */
             footer {
+                display: none;
+            }
+
+            /* Hide sidebars — their content surfaces in the Strategy tab */
+            main > aside.team-sidebar {
                 display: none;
             }
 
@@ -1766,6 +1786,7 @@
             <button class="tab-btn active" data-tab="commentary">⚖ Commentary</button>
             <button class="tab-btn" data-tab="events">📋 Events</button>
             <button class="tab-btn" data-tab="roster">👥 Roster</button>
+            <button class="tab-btn" data-tab="strategy">💭 Strategy</button>
             <button class="tab-btn tab-btn--split" data-tab="split" title="Show commentary and events side by side">⊞ Split</button>
         </div>
 
@@ -1817,6 +1838,18 @@
             <div id="team2-positions" style="margin-top:0.75rem;">
                 <div style="font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:rgba(217,180,91,0.6);margin-bottom:0.4rem;">Team 2 Positions</div>
                 <div class="positions-list">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Strategy tab (mobile: shows both teams' thoughts) -->
+        <div class="tab-panel" id="tab-strategy" hidden>
+            <div class="strategy-team-block">
+                <div class="strategy-team-label" id="strategy-team1-label">Team 1 Strategy</div>
+                <ul class="sidebar-thoughts" id="strategy-team1-thoughts"></ul>
+            </div>
+            <div class="strategy-team-block">
+                <div class="strategy-team-label" id="strategy-team2-label">Team 2 Strategy</div>
+                <ul class="sidebar-thoughts" id="strategy-team2-thoughts"></ul>
             </div>
         </div>
 
@@ -2332,10 +2365,16 @@
                 [state.team2.id]: data.messages.filter(m => m.sender_id === state.team2.id).slice(-4).reverse()
             };
 
+            // Strategy tab elements (mobile)
+            const strategyTeam1 = document.getElementById('strategy-team1-thoughts');
+            const strategyTeam2 = document.getElementById('strategy-team2-thoughts');
+            const strategyTeam1Label = document.getElementById('strategy-team1-label');
+            const strategyTeam2Label = document.getElementById('strategy-team2-label');
+
             [
-                [state.team1, team1Thoughts, team1Title],
-                [state.team2, team2Thoughts, team2Title]
-            ].forEach(([team, container, title]) => {
+                [state.team1, team1Thoughts, team1Title, strategyTeam1, strategyTeam1Label],
+                [state.team2, team2Thoughts, team2Title, strategyTeam2, strategyTeam2Label]
+            ].forEach(([team, container, title, strategyContainer, strategyLabel]) => {
                 title.textContent = `${team.name} Strategy`;
                 const messages = messagesByTeam[team.id] || [];
 
@@ -2354,6 +2393,10 @@
                         </li>
                     `;
                 }).join('');
+                // Mirror into Strategy tab
+                if (strategyContainer) strategyContainer.innerHTML = container.innerHTML;
+                if (strategyLabel) strategyLabel.textContent = `${team.name} Strategy`;
+                if (title) title.textContent = `${team.name} Strategy`;
             });
         } catch (error) {
             console.error('Failed to fetch messages:', error);
@@ -2383,10 +2426,16 @@
             });
         });
 
+        // Strategy tab elements (mobile)
+        const strategyTeam1Fallback = document.getElementById('strategy-team1-thoughts');
+        const strategyTeam2Fallback = document.getElementById('strategy-team2-thoughts');
+        const strategyTeam1LabelFallback = document.getElementById('strategy-team1-label');
+        const strategyTeam2LabelFallback = document.getElementById('strategy-team2-label');
+
         [
-            [state.team1, team1Thoughts, team1Title],
-            [state.team2, team2Thoughts, team2Title]
-        ].forEach(([team, container, title]) => {
+            [state.team1, team1Thoughts, team1Title, strategyTeam1Fallback, strategyTeam1LabelFallback],
+            [state.team2, team2Thoughts, team2Title, strategyTeam2Fallback, strategyTeam2LabelFallback]
+        ].forEach(([team, container, title, strategyContainer, strategyLabel]) => {
             title.textContent = `${team.name} dugout chatter`;
             const teamThoughts = thoughts[team.id]
                 .sort((a, b) => a.priority - b.priority)
@@ -2404,6 +2453,9 @@
                     ${escapeHtml(text)}
                 </li>
             `).join('');
+            // Mirror into Strategy tab
+            if (strategyContainer) strategyContainer.innerHTML = container.innerHTML;
+            if (strategyLabel) strategyLabel.textContent = `${team.name} Strategy`;
         });
     }
 
