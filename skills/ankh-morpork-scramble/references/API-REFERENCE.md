@@ -68,6 +68,19 @@ Returns:
 
 ---
 
+### GET /leaderboard/ui
+
+**Summary**: Render Leaderboard
+
+**Description**: Render the leaderboard page showing model and team standings.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 ### GET /
 
 **Summary**: Root
@@ -228,6 +241,21 @@ Returns the bootstrapped game (either demo or interactive mode).
 
 ---
 
+### GET /leaderboard
+
+**Summary**: Get Leaderboard
+
+**Description**: Return aggregated season standings — wins/losses/draws per team and per AI model.
+
+Reads from data/results.jsonl. Returns empty standings if no games have been played.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 ### POST /game/{game_id}/setup-team
 
 **Summary**: Setup Team
@@ -350,7 +378,7 @@ Returns:
 **Description**: Start the game
 
 **Parameters**:
-- `game_id` (path): string *required*
+- `game_id` (path): string *required*- `team1_model` (query): - `team2_model` (query): 
 
 **Responses**:
 - **200**: Successful Response
@@ -380,10 +408,15 @@ Returns:
 
 **Description**: Manually end the current turn.
 
-Raises HTTP 400 if the game has already concluded or if no turn is active.
+If team_id is provided, validates that it matches the currently active team
+before ending the turn. This prevents agents from accidentally skipping the
+opponent's turn.
+
+Raises HTTP 400 if the game has already concluded, if no turn is active,
+or if team_id doesn't match the active team.
 
 **Parameters**:
-- `game_id` (path): string *required*
+- `game_id` (path): string *required*- `team_id` (query): 
 
 **Responses**:
 - **200**: Successful Response
@@ -547,6 +580,9 @@ Returns path with detailed risk information including:
 **Summary**: Rematch Game
 
 **Description**: Prepare and start a fresh match after the current game concludes.
+
+Records the completed game result to the leaderboard before resetting.
+The 'Play Again' button in the UI calls this endpoint.
 
 **Parameters**:
 - `game_id` (path): string *required*
