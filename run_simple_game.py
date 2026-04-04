@@ -61,8 +61,13 @@ TEAM_CONFIGS = {
 }
 COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "qwen/qwen3.6-plus:free")
 
-# If TEAM1_MODEL / TEAM2_MODEL are set explicitly, respect them and skip auto-pick.
-_MANUAL_MODEL_OVERRIDE = bool(os.getenv("TEAM1_MODEL") or os.getenv("TEAM2_MODEL"))
+# Use the tournament model picker unless TEAM1_MODEL / TEAM2_MODEL are set AND
+# OPENROUTER_MODELS is NOT set.  If OPENROUTER_MODELS is present it always wins —
+# that's the explicit tournament pool and it should override per-team defaults.
+_MANUAL_MODEL_OVERRIDE = bool(
+    (os.getenv("TEAM1_MODEL") or os.getenv("TEAM2_MODEL"))
+    and not os.getenv("OPENROUTER_MODELS")
+)
 
 # ── server ─────────────────────────────────────────────────────────────────
 
@@ -228,6 +233,17 @@ def main() -> None:
     wait_for_server()
     logger.info(f"Web UI:   http://192.168.4.57:{PORT}/ui")
     logger.info(f"API docs: http://192.168.4.57:{PORT}/docs")
+
+    if _MANUAL_MODEL_OVERRIDE:
+        logger.info(
+            "Manual model override active — team1=%s  team2=%s",
+            TEAM_CONFIGS["team1"]["model"], TEAM_CONFIGS["team2"]["model"],
+        )
+    else:
+        logger.info(
+            "Tournament mode active — will pick from pool each game "
+            "(OPENROUTER_MODELS=%s)", os.getenv("OPENROUTER_MODELS", "<default pool>")
+        )
 
     while True:
         if not _MANUAL_MODEL_OVERRIDE:
