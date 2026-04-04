@@ -1844,7 +1844,7 @@
 
         <!-- Commentary tab -->
         <div class="tab-panel" id="tab-commentary">
-            <div class="commentary-text loading" id="commentary-text">Awaiting the referee's first remarks...</div>
+            <div class="commentary-text loading" id="commentary-text">Dibbler is working his way round the crowd. Remarks forthcoming.</div>
             <span class="commentary-timestamp" id="commentary-timestamp"></span>
         </div>
 
@@ -2526,11 +2526,11 @@
             const refereeMessages = data.messages.filter(m => m.sender_id === 'referee');
 
             if (refereeMessages.length === 0) {
-                commentaryText.textContent = 'Havelock Bluntt has yet to pass judgement.';
+                commentaryText.textContent = 'Dibbler is working his way round the crowd. Remarks forthcoming.';
                 commentaryText.classList.remove('loading');
                 commentaryTimestamp.textContent = '';
                 const refStripText = document.getElementById('ref-strip-text');
-                if (refStripText) refStripText.textContent = 'Havelock Bluntt has yet to pass judgement.';
+                if (refStripText) refStripText.textContent = 'Dibbler is working his way round the crowd. Remarks forthcoming.';
                 return;
             }
 
