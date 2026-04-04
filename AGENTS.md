@@ -34,7 +34,7 @@ and a structured event log.
 
 ---
 
-## Current state (as of 2026-04-04)
+## Current state (as of 2026-04-05)
 
 ### What's working
 
@@ -61,7 +61,7 @@ and a structured event log.
 
 - **Structured game log** — log renders from `state.events` directly. Four visual tiers
   (landmark/dramatic/action/quiet), inline dice display, filter bar (All/Combat/Ball/
-  Turnovers), count badge. No separate markdown fetch.
+  Turnovers), count badge. Newest events at the top. No separate markdown fetch.
 
 - **Agent intelligence** — per-player MA budget visible in state summary, valid-actions
   rendered as natural language, rich failure feedback with retry context, unacted-player
@@ -69,9 +69,6 @@ and a structured event log.
 
 ### Known failing tests (pre-existing, not regressions)
 
-- `test_execute_block_turnover_if_ball_carrier_down` — the test incorrectly expects
-  `turnover=True` when the *opponent's* ball carrier is knocked down. In Blood Bowl this
-  is not a turnover for the attacking team. Needs the test fixed, not the code.
 - `test_ui_dashboard_renders_default_game_id` — checks for "Recent Events" text that was
   renamed to "Match Events" in the log overhaul.
 - `test_ui_renders_core_components` — same "Recent Events" → "Match Events" issue.
@@ -80,26 +77,16 @@ and a structured event log.
 
 ## Active / upcoming work
 
-### In progress
-
-- **Game log improvements + layout** — `docs/plans/2026-04-04-game-log-improvements.md`
-  Tasks 1-6. Replaces markdown-based log with structured event rendering (Tasks 1-4 in
-  plan), adds newest-first ordering (Task 5), and fixes layout/fixed-height issues (Task 6).
-  All changes in `dashboard.html` only.
-
 ### Next priorities
 
-1. **Scuffle turnover test** — fix the pre-existing failing test
-   (`test_execute_block_turnover_if_ball_carrier_down`) by correcting the test assertion
-   to match Blood Bowl rules (opponent ball-carrier going down is NOT a turnover).
+1. **Fix stale UI test assertions** — `test_ui_dashboard_renders_default_game_id` and
+   `test_ui_renders_core_components` both check for "Recent Events" which was renamed to
+   "Match Events". One-line fix each.
 
 2. **Database persistence upgrade** — `data/results.jsonl` survives redeployments via the
    Railway volume, but SQLite would be cleaner for querying and more robust under concurrent
    writes. The volume is already mounted at `/data`. Simple migration: replace
    `LeaderboardStore` internals with `sqlite3` stdlib, keep the same public interface.
-
-3. **Run the pre-existing failing tests** — clean up the three stale test assertions so
-   the suite runs fully green.
 
 ---
 
