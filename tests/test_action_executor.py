@@ -198,35 +198,45 @@ def test_execute_block_without_target_fails():
     assert "SCUFFLE action requires target_player_id" in str(exc_info.value)
 
 
-def test_execute_block_turnover_if_ball_carrier_down():
-    """Test block causes turnover if ball carrier is knocked down"""
+def test_execute_block_opponent_ball_carrier_down_not_turnover():
+    """Knocking down the OPPONENT'S ball carrier is NOT a turnover for the attacker.
+
+    Blood Bowl rules (rules.md §11): a turnover occurs when the ACTIVE team's own
+    ball carrier is knocked down. Knocking down the opponent's carrier is good for
+    the attacking team — the ball drops but their turn continues.
+
+    The ball_dropped flag should still be True (ball was dropped).
+    """
     executor = ActionExecutor(DiceRoller(seed=42))
     game_state = create_test_game_state()
-    
-    attacker = create_test_player("p1", "team1", st=5)  # Strong attacker
-    defender = create_test_player("p2", "team2", st=2)  # Weak defender
+
+    attacker = create_test_player("p1", "team1", st=5)
+    defender = create_test_player("p2", "team2", st=2)
     game_state.players["p1"] = attacker
     game_state.players["p2"] = defender
-    
+
     game_state.pitch.player_positions["p1"] = Position(x=5, y=7)
     game_state.pitch.player_positions["p2"] = Position(x=6, y=7)
-    
-    # Defender has ball
+
+    # Opponent (defender, team2) has the ball
     game_state.pitch.ball_carrier = "p2"
     game_state.pitch.ball_position = Position(x=6, y=7)
-    
+
     action = ActionRequest(
         action_type=ActionType.SCUFFLE,
         player_id="p1",
         target_player_id="p2"
     )
-    
+
     result = executor.execute_action(game_state, action)
-    
-    # If defender was knocked down, should be turnover
+
+    # Knocking down the opponent's ball carrier drops the ball but is NOT a turnover
     if result.defender_knocked_down:
-        assert result.turnover == True
         assert result.ball_dropped == True
+        assert result.turnover == False, (
+            "Knocking down the opponent's ball carrier should NOT cause a turnover "
+            "for the attacking team (Blood Bowl rules §11)"
+        )
 
 
 def test_execute_blitz():
