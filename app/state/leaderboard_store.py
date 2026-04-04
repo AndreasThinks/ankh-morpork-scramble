@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,10 @@ from app.models.leaderboard import (
 
 logger = logging.getLogger("app.leaderboard")
 
-_DEFAULT_PATH = Path("data/results.jsonl")
+# Use /data (Railway volume mount) when available, otherwise fall back to
+# the local data/ directory for development. Set DATA_DIR env var to override.
+_DATA_DIR = Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
+_DEFAULT_PATH = _DATA_DIR / "results.jsonl"
 
 
 class LeaderboardStore:
