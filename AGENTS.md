@@ -34,7 +34,7 @@ and a structured event log.
 
 ---
 
-## Current state (as of 2026-04-05)
+## Current state (as of 2026-04-06)
 
 ### What's working
 
@@ -63,15 +63,26 @@ and a structured event log.
   (landmark/dramatic/action/quiet), inline dice display, filter bar (All/Combat/Ball/
   Turnovers), count badge. Newest events at the top. No separate markdown fetch.
 
+- **Single-screen layout** — viewport-locked (`height:100vh; overflow:hidden`). Pitch
+  fills centre column via `flex:1; min-height:0`. Status chips inline in compact header.
+  Commentary/Events/Roster tabs below pitch. Team sidebars show treasury + strategy
+  messages. Leaderboard link in right sidebar.
+
+- **Referee commentary** — `summarize_for_commentator()` identifies the headline event
+  (touchdown > turnover > casualty > ...) and provides structured context (ball carrier,
+  score). System prompt requires first sentence to name the action and players.
+
+- **Model tournament pool** — `simple_agents/model_picker.py` picks two distinct models
+  per game from a 10-model pool, weighted by `1/(games+1)` so less-played models get
+  more games. Manual `TEAM1_MODEL`/`TEAM2_MODEL` env vars override the picker.
+
 - **Agent intelligence** — per-player MA budget visible in state summary, valid-actions
   rendered as natural language, rich failure feedback with retry context, unacted-player
   count so agent knows when to end turn.
 
-### Known failing tests (pre-existing, not regressions)
+### Known failing tests
 
-- `test_ui_dashboard_renders_default_game_id` — checks for "Recent Events" text that was
-  renamed to "Match Events" in the log overhaul.
-- `test_ui_renders_core_components` — same "Recent Events" → "Match Events" issue.
+None. Suite is 279/279 green.
 
 ---
 
@@ -79,11 +90,7 @@ and a structured event log.
 
 ### Next priorities
 
-1. **Fix stale UI test assertions** — `test_ui_dashboard_renders_default_game_id` and
-   `test_ui_renders_core_components` both check for "Recent Events" which was renamed to
-   "Match Events". One-line fix each.
-
-2. **Database persistence upgrade** — `data/results.jsonl` survives redeployments via the
+1. **Database persistence upgrade** — `data/results.jsonl` survives redeployments via the
    Railway volume, but SQLite would be cleaner for querying and more robust under concurrent
    writes. The volume is already mounted at `/data`. Simple migration: replace
    `LeaderboardStore` internals with `sqlite3` stdlib, keep the same public interface.
