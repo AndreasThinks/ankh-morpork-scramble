@@ -141,12 +141,30 @@ None. Suite is 279/279 green.
 
 ---
 
+## Before every commit — mandatory steps
+
+```bash
+# 1. Regenerate docs (catches stale API-REFERENCE, ROSTERS, etc.)
+uv run python -m docs_generator.generate
+
+# 2. Run tests
+uv run pytest tests/ -q
+
+# 3. Commit and push
+git add -A && git commit -m "..." && git push
+```
+
+**The CI runs `docs_generator.generate --check` and will fail if docs are stale.**
+This happens whenever you: add/change a route in `app/main.py` or `app/web/ui.py`,
+change player positions in `app/models/team.py`, or change game mechanics.
+Always run step 1 before committing — it's safe to run even if nothing changed.
+
 ## Coding conventions
 
-- All new endpoints in `app/main.py` with docstring and `response_model`
+- All new endpoints go in `app/main.py` with a docstring and `response_model`
 - Pydantic models in `app/models/` — one file per domain
-- No new Python packages without checking `pyproject.toml` (Railway build constraint)
+- No new Python packages without checking `pyproject.toml` first (Railway build)
 - No new npm/JS dependencies — vanilla JS only in the dashboard
 - Commits: `type(scope): description` — e.g. `feat(leaderboard): add GameResult model`
-- Always `git push` after committing — Railway auto-deploys on push
+- Always `git push` after committing so Railway can auto-deploy
 - Run tests before committing: `source .venv/bin/activate && python -m pytest tests/ -q`

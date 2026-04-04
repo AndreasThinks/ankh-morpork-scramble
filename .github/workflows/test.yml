@@ -29,7 +29,16 @@ jobs:
     
     - name: Check documentation is current
       run: |
-        uv run python -m docs_generator.generate --check
+        uv run python -m docs_generator.generate
+        if ! git diff --quiet; then
+          echo ""
+          echo "❌ Docs were stale. The following files were regenerated:"
+          git diff --name-only
+          echo ""
+          echo "Run 'uv run python -m docs_generator.generate' locally and commit the result."
+          exit 1
+        fi
+        echo "✅ All documentation is up to date."
     
     - name: Run tests
       run: |
