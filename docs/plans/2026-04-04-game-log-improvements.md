@@ -1058,6 +1058,165 @@ Confirm the log panel clears and begins fresh (event count badge resets to 0).
 
 ---
 
+---
+
+## Task 5 (added): Newest-first ordering — log and team messages
+
+### Game log: prepend instead of append
+
+The current plan appends new events at the bottom and auto-scrolls. Change `renderGameLog()`
+to **prepend** new events at the top so the most recent action is always visible without
+scrolling.
+
+In `renderGameLog()`, change the scroll logic and insertion point:
+
+```javascript
+// Replace:
+container.appendChild(fragment);
+// ...
+if (wasNearBottom) {
+    container.scrollTop = container.scrollHeight;
+}
+
+// With:
+container.insertBefore(fragment, container.firstChild);
+// No auto-scroll needed — newest is always at the top.
+// Remove the wasNearBottom scroll block entirely.
+```
+
+Also remove the `wasNearBottom` variable and its setup since it's no longer needed.
+
+The `lastRenderedEventCount` tracking still works correctly — we still only process
+`events.slice(lastRenderedEventCount)`, but we insert the fragment before existing rows.
+
+For the game-reset path (`events.length < lastRenderedEventCount`), clear and rebuild
+from scratch as before — no change needed there.
+
+### Team messages: reverse order
+
+In `renderThoughts()`, the messages are fetched as `.slice(-4)` (last 4). Reverse this
+slice before rendering so the newest message appears at the top of each team panel.
+
+**Find in `renderThoughts()`:**
+```javascript
+[state.team1.id]: data.messages.filter(m => m.sender_id === state.team1.id).slice(-4),
+[state.team2.id]: data.messages.filter(m => m.sender_id === state.team2.id).slice(-4)
+```
+
+**Replace with:**
+```javascript
+[state.team1.id]: data.messages.filter(m => m.sender_id === state.team1.id).slice(-4).reverse(),
+[state.team2.id]: data.messages.filter(m => m.sender_id === state.team2.id).slice(-4).reverse()
+```
+
+Also update `renderFallbackThoughts()` — after `.sort((a, b) => a.priority - b.priority).slice(0, 4)`,
+add `.reverse()` so the fallback matches.
+
+**Commit:** `feat(log): newest-first ordering for game log and team messages`
+
+---
+
+## Task 6 (added): Layout — remove fixed heights, use full screen
+
+### Problem
+
+`.positions-panel` has `max-height: 400px; overflow-y: auto` which creates an awkward
+scroll box inside the sidebar. The sidebar panels don't stretch to use the full screen
+height. The three-column layout (`main` grid) doesn't tell columns to fill vertically.
+
+### CSS fixes
+
+**1. Remove the fixed max-height on `.positions-panel`:**
+
+Find:
+```css
+        .positions-panel {
+            margin-top: 1.5rem;
+            background: rgba(30, 19, 10, 0.75);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 1rem 1.25rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+```
+
+Replace with:
+```css
+        .positions-panel {
+            margin-top: 1.5rem;
+            background: rgba(30, 19, 10, 0.75);
+            border-radius: 14px;
+            border: 1px solid rgba(217, 180, 91, 0.22);
+            padding: 1rem 1.25rem;
+        }
+```
+
+**2. Make the three-column grid fill the viewport height:**
+
+Find:
+```css
+        main {
+            flex: 1;
+            padding: clamp(1.5rem, 3vw, 3rem);
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) minmax(560px, 2fr) minmax(220px, 1fr);
+            gap: clamp(1rem, 2.5vw, 2rem);
+        }
+```
+
+Replace with:
+```css
+        main {
+            flex: 1;
+            padding: clamp(1.5rem, 3vw, 3rem);
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) minmax(560px, 2fr) minmax(220px, 1fr);
+            grid-template-rows: 1fr;
+            align-items: start;
+            gap: clamp(1rem, 2.5vw, 2rem);
+            min-height: 0;
+        }
+```
+
+**3. Make sidebar panels stretch and scroll internally rather than capping at fixed heights:**
+
+Add after the `.panel` block:
+```css
+        .thoughts,
+        aside.panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .thoughts ul {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 60vh;
+        }
+```
+
+This allows the thoughts/strategy panels to grow to use available space but caps their
+scroll area at 60% of viewport height so they don't push everything else off screen on
+small viewports.
+
+**4. Cap the game log at a viewport-relative height instead of a fixed pixel value:**
+
+Find:
+```css
+        .game-log .log-entries {
+            ...
+            max-height: 420px;
+```
+
+Change `max-height: 420px` to `max-height: 55vh`.
+
+This means on a tall monitor the log shows more events; on a laptop it stays reasonable.
+
+**Commit:** `fix(layout): remove fixed heights, use viewport-relative sizing`
+
+---
+
 ## What this fixes
 
 | Before | After |
@@ -1071,6 +1230,10 @@ Confirm the log panel clears and begins fresh (event count badge resets to 0).
 | Dice rolls ignored | Die faces (⚀–⚅) with success/failure colour |
 | No event count badge | Live counter in panel header |
 | No `escapeHtml()` utility | Added as `escapeHtml()` in JS module scope |
+| Newest events buried at bottom, requires scrolling | Newest events at top — visible immediately |
+| Team messages in chronological order | Newest message first in each team panel |
+| positions-panel fixed at 400px — awkward scroll box | No fixed height — flows naturally |
+| Layout doesn't fill screen height | Viewport-relative heights, columns fill available space |
 
 ## Execution notes
 
