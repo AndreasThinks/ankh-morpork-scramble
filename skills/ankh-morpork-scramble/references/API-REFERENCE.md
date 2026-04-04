@@ -81,11 +81,11 @@ Returns:
 
 ---
 
-### GET /
+### GET /about
 
-**Summary**: Root
+**Summary**: Render About
 
-**Description**: Root endpoint
+**Description**: Render the about / project info page.
 
 
 
