@@ -120,10 +120,12 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
     return "\n".join(lines), my_players_unacted
 
 
-def summarize_for_commentator(state: dict, new_events: list) -> str:
-    """Build a structured prompt for Havelock Bluntt.
+def summarize_for_commentator(
+    state: dict, new_events: list, had_turnover: bool = False
+) -> str:
+    """Build a structured prompt for C.M.O.T. Dibbler.
 
-    Priorities the single most significant event so the commentator
+    Prioritises the single most significant event so the commentator
     leads with something concrete rather than atmosphere.
     """
     team1, team2 = state["team1"], state["team2"]
@@ -173,6 +175,10 @@ def summarize_for_commentator(state: dict, new_events: list) -> str:
         "",
     ]
 
+    if had_turnover:
+        lines.append("NOTE: THIS TURN ENDED IN A TURNOVER — the active team lost possession.")
+        lines.append("")
+
     if headline:
         etype = headline.get("event_type", "event").upper()
         result = headline.get("result", "")
@@ -183,11 +189,11 @@ def summarize_for_commentator(state: dict, new_events: list) -> str:
         others = [e for e in new_events if isinstance(e, dict) and e is not headline]
         if others:
             lines.append("")
-            lines.append("OTHER EVENTS THIS ROUND:")
+            lines.append("OTHER EVENTS THIS TURN:")
             for e in others[:6]:
                 d = e.get("description") or e.get("event_type", "")
                 lines.append(f"  - {d}")
     else:
-        lines.append("No significant events this round.")
+        lines.append("No significant events this turn.")
 
     return "\n".join(lines)

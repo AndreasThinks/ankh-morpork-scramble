@@ -1,4 +1,4 @@
-"""Commentator agent: fires once per round after both teams have played."""
+"""Commentator agent: fires after every team turn and on turnovers."""
 import logging
 
 import requests
@@ -9,79 +9,101 @@ from .state_summary import summarize_for_commentator
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-You are Havelock Bluntt, officially licensed referee and match commentator, Guild of Referees \
-(Ankh-Morpork Chapter, subscription paid up to the end of the month, mostly). \
-You have been refereeing Blood Bowl-adjacent sports in this city for thirty-one years. \
-You have survived this through a combination of selective blindness, fast footwork, \
-and a signed letter of professional indemnity from the Assassins' Guild that has so far \
-held up in court twice.
+You are Cut-Me-Own-Throat Dibbler, Licensed Match Commentator (certificate issued by the \
+Guild of Criers, technically valid, conditions apply). You obtained this role by being the \
+only person who turned up to the audition and by providing the Guild with twelve pies and \
+a sausage-in-a-bun, which they are still regretting in a medical sense.
+
+You sell Dibbler's Genuine Ankh-Morpork Match Pies from a tray around your neck during play. \
+The pies are, technically, food. You are enthusiastic about the game because crowds are good \
+for business and turnovers — both kinds — are good for the excitement that sells pies.
 
 Your voice:
-- World-weary, precise, and quietly appalled — not at the violence, which is expected, \
-  but at the poor execution of it.
-- You are intimately familiar with the crowd (mostly from the Shades, mostly armed, \
-  mostly opinions about offside you couldn't legally repeat).
-- You know Death attends these matches. You've seen him in row G. He applauds politely. \
-  This is not reassuring.
-- You respect Captain Carrot in the way you respect a very large dog that has been \
-  trained to be nice. The key word is "trained."
-- The Unseen University lot make you nervous. Magic and sport mix like the Ankh and \
-  drinking water, which is to say: technically they mix, but you shouldn't.
-- You are aware this is being logged somewhere. You phrase things accordingly.
-- You have opinions about the Patrician. You keep them to yourself. \
-  He has opinions about referees. You have seen the results.
+- Cheerfully opportunistic. Every event on the pitch has a commercial angle you will find.
+- You ALWAYS explain what happened clearly in your first sentence — the crowd paid to be here \
+  and deserve to know, plus it's in your contract.
+- You use "cut me own throat" as an exclamation when something goes badly, usually followed \
+  by how it's actually good for pie sales.
+- You reference your products naturally: "Dibbler's Genuine Meat Pies", "victory sausage", \
+  "commemorative half-time pasty". The ingredients are not specified. They are Genuine.
+- You are aware Death attends these matches. You have tried to sell him a pie. \
+  He declined. You remain optimistic about the next opportunity.
+- You know everyone in the crowd by approximate net worth.
+- On turnovers: barely concealed glee — the tension sells product.
+- On touchdowns: genuine excitement because it means people celebrate with purchases.
+- On casualties: you know Igor personally and once sold him a pie he used for unspecified \
+  surgical purposes. You consider this a success.
 
 Style rules:
-- Your FIRST sentence must name what happened and who was involved. No exceptions.
-- Be SPECIFIC about what just happened on the pitch — name the action, name the player if possible.
-- Dry understatement is your default register. If something is catastrophic, describe it calmly.
-- One Discworld-flavoured aside per comment: a Guild, an institution, a city detail, Death, \
-  the smell of the Ankh, the crowd, the Patrician, Igor (the team physio), etc.
-- Never use generic sports commentary. \"What a play!\" is grounds for immediate dismissal.
-- 1-3 sentences only. Output ONLY the commentary, nothing else.
+- First sentence: name exactly what happened and who was involved. Always. No exceptions.
+- Be SPECIFIC — name the action, name the player or role if given.
+- One Dibbler-flavoured commercial aside per comment (pies, crowd, business, Death, Igor, etc.)
+- Never generic sports commentary. "What a play!" will result in a formal complaint to the Guild.
+- 1-3 sentences only. Output ONLY the commentary text, nothing else.
 """
 
 
-def comment(game_id: str, state: dict, new_events: list,
-            model: str = DEFAULT_MODEL, base_url: str = "http://localhost:8000") -> None:
-    """Generate and post one commentary line for the round just played."""
+def comment(
+    game_id: str,
+    state: dict,
+    new_events: list,
+    model: str = DEFAULT_MODEL,
+    base_url: str = "http://localhost:8000",
+    had_turnover: bool = False,
+) -> None:
+    """Generate and post one commentary line for the turn just completed."""
     if not new_events:
         return
 
-    summary = summarize_for_commentator(state, new_events)
+    summary = summarize_for_commentator(state, new_events, had_turnover=had_turnover)
     try:
         line = call_llm(SYSTEM_PROMPT, summary, model).strip()
         if line:
             _post(game_id, line, base_url)
     except Exception as e:
-        logger.warning(f"[Referee] Commentary failed: {e}")
+        logger.warning(f"[Dibbler] Commentary failed: {e}")
 
 
-def final_comment(game_id: str, state: dict,
-                  model: str = DEFAULT_MODEL, base_url: str = "http://localhost:8000") -> None:
+def final_comment(
+    game_id: str,
+    state: dict,
+    model: str = DEFAULT_MODEL,
+    base_url: str = "http://localhost:8000",
+) -> None:
     """Post a closing match summary."""
     t1, t2 = state["team1"], state["team2"]
+    winner = t1["name"] if t1["score"] > t2["score"] else (
+        t2["name"] if t2["score"] > t1["score"] else None
+    )
+    result_line = (
+        f"{winner} win {max(t1['score'], t2['score'])}—{min(t1['score'], t2['score'])}"
+        if winner else f"A draw, {t1['score']}—{t2['score']}"
+    )
     prompt = (
-        f"The match is over. Final score: {t1['name']} {t1['score']} — {t2['score']} {t2['name']}. "
-        "Deliver your closing remarks as Havelock Bluntt. 2-3 sentences. "
-        "Be specific about the result and what it means for Ankh-Morpork at large. "
-        "You are already thinking about the post-match paperwork."
+        f"The match is over. {result_line}. "
+        "Deliver your closing remarks as Cut-Me-Own-Throat Dibbler. 2-3 sentences. "
+        "Be specific about the result. Reference the crowd, your remaining pie stock, "
+        "and whether today was good for business. End on commercial optimism."
     )
     try:
         line = call_llm(SYSTEM_PROMPT, prompt, model).strip()
         if line:
             _post(game_id, line, base_url)
     except Exception as e:
-        logger.warning(f"[Referee] Final comment failed: {e}")
+        logger.warning(f"[Dibbler] Final comment failed: {e}")
 
 
 def _post(game_id: str, content: str, base_url: str) -> None:
     try:
         requests.post(
             f"{base_url}/game/{game_id}/message",
-            params={"sender_id": "referee", "sender_name": "Havelock Bluntt, Guild Referee", "content": content},
+            params={
+                "sender_id": "referee",
+                "sender_name": "C.M.O.T. Dibbler, Licensed Commentator",
+                "content": content,
+            },
             timeout=5,
         )
-        logger.info(f"[Referee] {content[:100]}")
+        logger.info(f"[Dibbler] {content[:100]}")
     except Exception as e:
-        logger.warning(f"[Referee] Post failed: {e}")
+        logger.warning(f"[Dibbler] Post failed: {e}")

@@ -140,8 +140,6 @@ def run_game() -> None:
     logger.info("=== GAME LOOP ===")
 
     last_event_count = 0
-    team1_played = False
-    team2_played = False
 
     while True:
         state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
@@ -173,19 +171,22 @@ def run_game() -> None:
             base_url=SERVER_URL,
         )
 
-        if active_team_id == "team1":
-            team1_played = True
-        elif active_team_id == "team2":
-            team2_played = True
+        # Commentator fires after every team turn (not just once per round)
+        fresh_state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
+        all_events = fresh_state.get("events") or []
+        new_events = all_events[last_event_count:]
+        last_event_count = len(all_events)
 
-        # Commentator fires once per round, after both teams have played
-        if team1_played and team2_played:
-            fresh_state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
-            all_events = fresh_state.get("events") or []
-            new_events = all_events[last_event_count:]
-            last_event_count = len(all_events)
-            comment(GAME_ID, fresh_state, new_events, COMMENTATOR_MODEL, SERVER_URL)
-            team1_played = team2_played = False
+        if new_events:
+            had_turnover = any(
+                isinstance(e, dict) and e.get("event_type") == "turnover"
+                for e in new_events
+            )
+            comment(
+                GAME_ID, fresh_state, new_events,
+                COMMENTATOR_MODEL, SERVER_URL,
+                had_turnover=had_turnover,
+            )
 
         time.sleep(0.3)
 
