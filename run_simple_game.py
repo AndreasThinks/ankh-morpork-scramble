@@ -109,7 +109,14 @@ def run_setup() -> None:
     for _ in range(30):
         state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
         if state.get("team1_ready") and state.get("team2_ready"):
-            r = requests.post(f"{SERVER_URL}/game/{GAME_ID}/start")
+            # Pass model names to /start endpoint
+            r = requests.post(
+                f"{SERVER_URL}/game/{GAME_ID}/start",
+                params={
+                    "team1_model": TEAM_CONFIGS["team1"]["model"],
+                    "team2_model": TEAM_CONFIGS["team2"]["model"],
+                }
+            )
             if r.status_code == 200:
                 logger.info("Game started!")
                 return
@@ -174,6 +181,20 @@ def run_game() -> None:
 
         time.sleep(0.3)
 
+def wait_for_rematch() -> None:
+    """Poll until the game returns to setup phase after rematch."""
+    logger.info("Waiting for rematch to reset to setup phase...")
+    for _ in range(60):
+        try:
+            state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
+            if state.get("phase") == "setup":
+                logger.info("Game reset to setup — ready for next match.")
+                return
+        except Exception as e:
+            logger.warning(f"Error polling for rematch: {e}")
+        time.sleep(5)
+    raise RuntimeError("Game never returned to setup phase after rematch.")
+
 # ── entrypoint ──────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -197,9 +218,10 @@ def main() -> None:
     logger.info(f"Web UI:   http://192.168.4.57:{PORT}/ui")
     logger.info(f"API docs: http://192.168.4.57:{PORT}/docs")
 
-    run_setup()
-    run_game()
-    shutdown()
+    while True:
+        run_setup()
+        run_game()
+        wait_for_rematch()
 
 
 if __name__ == "__main__":

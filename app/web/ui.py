@@ -45,3 +45,9 @@ def render_dashboard(request: Request, game_id: Optional[str] = None) -> HTMLRes
         "dashboard.html",
         {"game_id": game_id, "poll_interval": poll_interval}
     )
+
+
+@router.get("/leaderboard/ui", response_class=HTMLResponse)
+def render_leaderboard(request: Request) -> HTMLResponse:
+    """Render the leaderboard page showing model and team standings."""
+    return _templates.TemplateResponse(request, "leaderboard.html", {})

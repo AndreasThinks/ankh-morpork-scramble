@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ankh-Morpork Scramble – Season Standings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #1f160c;
+            --bg-highlight: #2a1d11;
+            --panel: #24170c;
+            --panel-border: rgba(187, 142, 76, 0.45);
+            --panel-shadow: rgba(8, 4, 0, 0.6);
+            --accent-blue: #3f7cac;
+            --accent-orange: #c46d28;
+            --accent-gold: #d9b45b;
+            --accent-gold-soft: rgba(217, 180, 91, 0.65);
+            --grid: rgba(108, 78, 43, 0.45);
+            --grid-alt: rgba(66, 46, 26, 0.55);
+            --text: #f2e3c6;
+            --muted: rgba(242, 227, 198, 0.7);
+            --paper: #362312;
+            --paper-highlight: rgba(242, 227, 198, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Spectral", Georgia, "Times New Roman", serif;
+            background: radial-gradient(circle at 22% 16%, rgba(217, 180, 91, 0.12), transparent 55%),
+                        radial-gradient(circle at 78% 12%, rgba(106, 76, 38, 0.18), transparent 50%),
+                        radial-gradient(circle at 50% 80%, rgba(115, 76, 38, 0.15), transparent 55%),
+                        var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        header {
+            max-width: 1200px;
+            margin: 0 auto 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0 0 0.5rem;
+            font-family: "Cinzel", "Times New Roman", serif;
+            font-size: 2rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto 1.5rem;
+        }
+
+        nav a {
+            color: var(--accent-gold);
+            text-decoration: none;
+            font-family: "Cinzel", serif;
+            font-size: 0.9rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        nav a:hover {
+            color: var(--accent-orange);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px var(--panel-shadow);
+        }
+
+        .section h2 {
+            margin: 0 0 1rem;
+            font-family: "Cinzel", serif;
+            font-size: 1.3rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th {
+            color: var(--accent-gold);
+            font-family: "Cinzel", serif;
+            font-size: 0.85rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 2px solid rgba(217, 180, 91, 0.3);
+            text-align: left;
+        }
+
+        th:not(:first-child) {
+            text-align: center;
+        }
+
+        td {
+            padding: 0.75rem 0.5rem;
+            border-top: 1px solid rgba(217, 180, 91, 0.1);
+            color: var(--text);
+        }
+
+        td:not(:first-child) {
+            text-align: center;
+        }
+
+        tr:hover {
+            background: rgba(217, 180, 91, 0.05);
+        }
+
+        .model-name {
+            font-weight: 500;
+            color: var(--accent-gold-soft);
+        }
+
+        .team-name {
+            font-weight: 500;
+            color: var(--accent-gold-soft);
+        }
+
+        .positive {
+            color: #7fb069;
+        }
+
+        .negative {
+            color: #e07856;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: var(--accent-orange);
+        }
+
+        .empty {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/ui">← Back to Match</a>
+    </nav>
+
+    <header>
+        <h1>Season Standings</h1>
+        <p id="summary">Loading leaderboard data...</p>
+    </header>
+
+    <div class="container">
+        <div class="section">
+            <h2>Model Performance</h2>
+            <div id="model-table-container">
+                <div class="loading">Loading model standings...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Team Performance</h2>
+            <div id="team-table-container">
+                <div class="loading">Loading team standings...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch('/leaderboard');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Update summary
+                const summary = document.getElementById('summary');
+                if (data.total_games === 0) {
+                    summary.textContent = 'No completed games yet.';
+                } else {
+                    summary.textContent = `${data.total_games} game${data.total_games === 1 ? '' : 's'} on record`;
+                }
+
+                // Render model table
+                renderModelTable(data.by_model);
+
+                // Render team table
+                renderTeamTable(data.by_team);
+
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+                document.getElementById('summary').textContent = 'Failed to load leaderboard data.';
+                document.getElementById('model-table-container').innerHTML = 
+                    `<div class="error">Error: ${error.message}</div>`;
+                document.getElementById('team-table-container').innerHTML = 
+                    `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function renderModelTable(models) {
+            const container = document.getElementById('model-table-container');
+            
+            if (models.length === 0) {
+                container.innerHTML = '<div class="empty">No model data available.</div>';
+                return;
+            }
+
+            const rows = models.map(m => {
+                const diffClass = m.score_diff > 0 ? 'positive' : (m.score_diff < 0 ? 'negative' : '');
+                const diffSign = m.score_diff > 0 ? '+' : '';
+                return `
+                    <tr>
+                        <td class="model-name" title="${escapeHtml(m.model_id)}">${escapeHtml(m.model_id)}</td>
+                        <td>${m.games}</td>
+                        <td>${m.wins}</td>
+                        <td>${m.losses}</td>
+                        <td>${m.draws}</td>
+                        <td>${m.goals_for}</td>
+                        <td>${m.goals_against}</td>
+                        <td class="${diffClass}">${diffSign}${m.score_diff}</td>
+                        <td>${m.casualties_caused}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>GP</th>
+                            <th>W</th>
+                            <th>L</th>
+                            <th>D</th>
+                            <th>GF</th>
+                            <th>GA</th>
+                            <th>+/-</th>
+                            <th>Cas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderTeamTable(teams) {
+            const container = document.getElementById('team-table-container');
+            
+            if (teams.length === 0) {
+                container.innerHTML = '<div class="empty">No team data available.</div>';
+                return;
+            }
+
+            const rows = teams.map(t => {
+                const diffClass = t.score_diff > 0 ? 'positive' : (t.score_diff < 0 ? 'negative' : '');
+                const diffSign = t.score_diff > 0 ? '+' : '';
+                return `
+                    <tr>
+                        <td class="team-name">${escapeHtml(t.team_name)}</td>
+                        <td>${t.games}</td>
+                        <td>${t.wins}</td>
+                        <td>${t.losses}</td>
+                        <td>${t.draws}</td>
+                        <td>${t.goals_for}</td>
+                        <td>${t.goals_against}</td>
+                        <td class="${diffClass}">${diffSign}${t.score_diff}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>GP</th>
+                            <th>W</th>
+                            <th>L</th>
+                            <th>D</th>
+                            <th>GF</th>
+                            <th>GA</th>
+                            <th>+/-</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load on page load
+        loadLeaderboard();
+    </script>
+</body>
+</html>

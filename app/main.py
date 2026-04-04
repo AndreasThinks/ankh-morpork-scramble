@@ -32,6 +32,7 @@ from app.setup.interactive_game import INTERACTIVE_GAME_ID, bootstrap_interactiv
 from app.state.game_manager import GameManager
 from app.game.statistics import StatisticsAggregator
 from app.models.events import GameStatistics
+from app.models.leaderboard import LeaderboardResponse
 
 # Global game manager instance
 game_manager = GameManager()
@@ -422,6 +423,15 @@ def get_game_statistics(game_id: str):
     return aggregator.aggregate()
 
 
+@app.get("/leaderboard", response_model=LeaderboardResponse)
+def get_leaderboard():
+    """Return aggregated season standings — wins/losses/draws per team and per AI model.
+    
+    Reads from data/results.jsonl. Returns empty standings if no games have been played.
+    """
+    return game_manager.leaderboard.get_leaderboard()
+
+
 @app.post("/game/{game_id}/setup-team", response_model=GameState)
 def setup_team(
     game_id: str,
@@ -526,10 +536,18 @@ def place_players(game_id: str, request: SetupRequest):
 
 
 @app.post("/game/{game_id}/start", response_model=GameState)
-def start_game(game_id: str):
+def start_game(
+    game_id: str,
+    team1_model: Optional[str] = None,
+    team2_model: Optional[str] = None,
+):
     """Start the game"""
     try:
         game_state = game_manager.start_game(game_id)
+        if team1_model:
+            game_state.team1_model = team1_model
+        if team2_model:
+            game_state.team2_model = team2_model
         return game_state
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -861,12 +879,20 @@ def reset_game(game_id: str):
 
 @app.post("/game/{game_id}/rematch", response_model=GameState)
 def rematch_game(game_id: str):
-    """Prepare and start a fresh match after the current game concludes."""
+    """Prepare and start a fresh match after the current game concludes.
+    
+    Records the completed game result to the leaderboard before resetting.
+    The 'Play Again' button in the UI calls this endpoint.
+    """
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
 
     try:
+        # ── NEW: record result before we wipe the state ──────────────
+        game_manager._record_result_if_concluded(game_state)
+        # ─────────────────────────────────────────────────────────────
+        
         if demo_mode and default_demo_game_id and game_id == default_demo_game_id:
             # Remove the existing entry so ``bootstrap_default_game`` creates a new instance
             game_manager.games.pop(game_id, None)

@@ -55,6 +55,10 @@ class GameState(BaseModel):
     team1_joined: bool = False
     team2_joined: bool = False
     game_started: bool = False
+    
+    # Model identity — which LLM is playing each team (stamped at /start time)
+    team1_model: Optional[str] = None
+    team2_model: Optional[str] = None
 
     # Setup completion status (for interactive setup)
     team1_ready: bool = False
@@ -257,6 +261,14 @@ class GameState(BaseModel):
 
         # Clear turn state
         self.turn = None
+        
+        # Reset scores
+        self.team1.score = 0
+        self.team2.score = 0
+        
+        # Clear model identity so stale model names don't bleed into next game
+        self.team1_model = None
+        self.team2_model = None
 
         # Keep join status and messages (preserve history)
         self.add_event("Game reset to setup phase")

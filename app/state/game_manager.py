@@ -16,6 +16,7 @@ from app.models.actions import (
 from app.state.action_executor import ActionExecutor
 from app.game.event_logger import EventLogger
 from app.game.log_saver import LogSaver
+from app.state.leaderboard_store import LeaderboardStore
 
 
 logger = logging.getLogger("app.game.manager")
@@ -29,6 +30,8 @@ class GameManager:
         self.executor = ActionExecutor()
         self.log_saver = LogSaver()
         self.auto_save_logs = auto_save_logs
+        self.leaderboard = LeaderboardStore()
+        self._recorded_games: set[str] = set()   # in-memory guard against double-recording
     
     def create_game(self, game_id: Optional[str] = None) -> GameState:
         """Create a new game"""
@@ -490,6 +493,57 @@ class GameManager:
 
         return None
 
+    def _record_result_if_concluded(self, game_state: GameState) -> None:
+        """Record a completed game to the leaderboard (idempotent)."""
+        if game_state.phase != GamePhase.CONCLUDED:
+            return
+        if game_state.game_id in self._recorded_games:
+            return
+        self._recorded_games.add(game_state.game_id)
+
+        # Pull casualties + turnovers from StatisticsAggregator
+        from app.game.statistics import StatisticsAggregator
+        try:
+            stats = StatisticsAggregator(game_state).aggregate()
+            t1_stats = stats.team_stats.get(game_state.team1.id)
+            t2_stats = stats.team_stats.get(game_state.team2.id)
+            t1_casualties = t1_stats.casualties_caused if t1_stats else 0
+            t2_casualties = t2_stats.casualties_caused if t2_stats else 0
+            t1_turnovers = t1_stats.turnovers if t1_stats else 0
+            t2_turnovers = t2_stats.turnovers if t2_stats else 0
+        except Exception:
+            t1_casualties = t2_casualties = t1_turnovers = t2_turnovers = 0
+
+        t1_score = game_state.team1.score
+        t2_score = game_state.team2.score
+        winner_model = None
+        winner_team = None
+        if t1_score > t2_score:
+            winner_model = game_state.team1_model
+            winner_team = game_state.team1.name
+        elif t2_score > t1_score:
+            winner_model = game_state.team2_model
+            winner_team = game_state.team2.name
+
+        from app.models.leaderboard import GameResult
+        result = GameResult(
+            game_id=game_state.game_id,
+            team1_name=game_state.team1.name,
+            team1_model=game_state.team1_model or "unknown",
+            team1_score=t1_score,
+            team2_name=game_state.team2.name,
+            team2_model=game_state.team2_model or "unknown",
+            team2_score=t2_score,
+            team1_casualties=t1_casualties,
+            team2_casualties=t2_casualties,
+            team1_turnovers=t1_turnovers,
+            team2_turnovers=t2_turnovers,
+            winner_model=winner_model,
+            winner_team=winner_team,
+        )
+        self.leaderboard.record(result)
+        logger.info("Leaderboard updated for game %s", game_state.game_id)
+
     def _save_game_logs(self, game_state: GameState) -> None:
         """Save game logs to disk (internal helper)."""
         try:
@@ -497,6 +551,9 @@ class GameManager:
             logger.debug("Saved logs for game %s", game_state.game_id)
         except Exception as e:
             logger.error("Failed to save logs for game %s: %s", game_state.game_id, e)
+        
+        # Record result if game is concluded
+        self._record_result_if_concluded(game_state)
 
     def export_game_log(self, game_id: str, format: str = "markdown") -> Optional[str]:
         """
