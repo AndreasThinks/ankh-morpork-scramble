@@ -108,25 +108,49 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
             f"  ST{p.get('st') or position_data.get('st','?')}{flag_str}"
         )
 
-    # Recent events
+    # Game narrative — key historic moments + recent turn detail
     events = state.get("events") or []
     if events:
-        lines.append("")
-        lines.append("RECENT EVENTS (last 8):")
-        for e in events[-8:]:
-            desc = e.get("description", e.get("event_type", str(e))) if isinstance(e, dict) else str(e)
-            lines.append(f"  - {desc}")
+        # Key moments: touchdowns, casualties, turnovers, half markers
+        _KEY = {"touchdown", "casualty", "turnover", "half_start", "half_end", "injury"}
+        key_moments = [
+            e for e in events
+            if isinstance(e, dict) and e.get("event_type") in _KEY
+        ]
+        if key_moments:
+            lines.append("")
+            lines.append("KEY MOMENTS SO FAR:")
+            for e in key_moments[-6:]:
+                desc = e.get("description") or e.get("event_type", "")
+                lines.append(f"  - {desc}")
+
+        # Last turn's events (non-move, non-bookkeeping) for immediate context
+        _NOISE = {"move", "stand_up", "turn_start", "turn_end", "scatter", "armor_break"}
+        recent = [
+            e for e in events[-20:]
+            if isinstance(e, dict) and e.get("event_type") not in _NOISE
+        ]
+        if recent:
+            lines.append("")
+            lines.append("RECENT ACTIONS:")
+            for e in recent[-5:]:
+                desc = e.get("description") or e.get("event_type", "")
+                lines.append(f"  - {desc}")
 
     return "\n".join(lines), my_players_unacted
 
 
 def summarize_for_commentator(
-    state: dict, new_events: list, had_turnover: bool = False
+    state: dict,
+    new_events: list,
+    had_turnover: bool = False,
+    previous_lines: list[str] | None = None,
 ) -> str:
     """Build a structured prompt for C.M.O.T. Dibbler.
 
     Prioritises the single most significant event so the commentator
     leads with something concrete rather than atmosphere.
+    Includes previous commentary so Dibbler can build narrative and avoid repetition.
     """
     team1, team2 = state["team1"], state["team2"]
     turn = state.get("turn") or {}
@@ -152,7 +176,17 @@ def summarize_for_commentator(
     else:
         ball_context = "Ball off pitch"
 
-    # Find the headline event (highest tier wins)
+    # Key game history — touchdowns, casualties, turnovers only
+    all_events = state.get("events") or []
+    _HISTORIC = {"touchdown", "casualty", "turnover", "half_start", "half_end"}
+    historic = [
+        e for e in all_events
+        if isinstance(e, dict) and e.get("event_type") in _HISTORIC
+        # exclude events from this current turn (they're in new_events)
+        and e not in new_events
+    ]
+
+    # Find the headline event for this turn (highest tier wins)
     _PRIORITY = {
         "touchdown": 0, "turnover": 1, "casualty": 2, "injury": 3,
         "knockdown": 4, "block": 5, "foul": 6,
@@ -175,6 +209,21 @@ def summarize_for_commentator(
         "",
     ]
 
+    # Previous Dibbler lines — so he can build narrative and not repeat himself
+    if previous_lines:
+        lines.append("YOUR PREVIOUS LINES THIS MATCH (do not repeat these ideas or phrases):")
+        for pl in previous_lines[-4:]:
+            lines.append(f'  "{pl[:120]}"')
+        lines.append("")
+
+    # Key historical moments earlier in the game
+    if historic:
+        lines.append("KEY EVENTS EARLIER IN THIS MATCH:")
+        for e in historic[-6:]:
+            d = e.get("description") or e.get("event_type", "")
+            lines.append(f"  - {d}")
+        lines.append("")
+
     if had_turnover:
         lines.append("NOTE: THIS TURN ENDED IN A TURNOVER — the active team lost possession.")
         lines.append("")
@@ -185,7 +234,6 @@ def summarize_for_commentator(
         desc = headline.get("description") or etype
         lines.append(f"HEADLINE EVENT ({etype}{', ' + result if result else ''}):")
         lines.append(f"  {desc}")
-        # Other events as secondary context
         others = [e for e in new_events if isinstance(e, dict) and e is not headline]
         if others:
             lines.append("")

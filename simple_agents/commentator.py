@@ -43,6 +43,23 @@ Style rules:
 """
 
 
+def _fetch_previous_lines(game_id: str, base_url: str, limit: int = 4) -> list[str]:
+    """Return Dibbler's last N commentary lines for this game."""
+    try:
+        r = requests.get(
+            f"{base_url}/game/{game_id}/messages?limit=50", timeout=5
+        )
+        r.raise_for_status()
+        messages = r.json().get("messages", [])
+        return [
+            m["content"] for m in messages
+            if m.get("sender_id") == "referee"
+        ][-limit:]
+    except Exception as exc:
+        logger.debug("Could not fetch previous commentary: %s", exc)
+        return []
+
+
 def comment(
     game_id: str,
     state: dict,
@@ -55,7 +72,12 @@ def comment(
     if not new_events:
         return
 
-    summary = summarize_for_commentator(state, new_events, had_turnover=had_turnover)
+    previous_lines = _fetch_previous_lines(game_id, base_url)
+    summary = summarize_for_commentator(
+        state, new_events,
+        had_turnover=had_turnover,
+        previous_lines=previous_lines,
+    )
     try:
         line = call_llm(SYSTEM_PROMPT, summary, model).strip()
         if line:
