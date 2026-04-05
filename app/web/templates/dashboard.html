@@ -283,7 +283,20 @@
         }
 
         .ball-token {
-            transition: cx 0.32s ease-out, cy 0.32s ease-out;
+            transition: cx 0.32s ease-out, cy 0.32s ease-out, opacity 0.25s ease-out;
+        }
+        .ball-token.no-slide {
+            transition: opacity 0.25s ease-out;
+        }
+
+        @keyframes throwTrail {
+            0%   { opacity: 0.95; stroke-width: 0.12; }
+            60%  { opacity: 0.55; stroke-width: 0.08; }
+            100% { opacity: 0; stroke-width: 0.04; }
+        }
+        .throw-trail {
+            animation: throwTrail 0.7s ease-out forwards;
+            pointer-events: none;
         }
 
         header .score-line .score-value small {
@@ -2530,6 +2543,23 @@
         }
     }
 
+    function fireThrowTrail(fromPos, toPos) {
+        const tokensGroup = document.getElementById('pitch-tokens');
+        if (!tokensGroup || !fromPos || !toPos) return;
+        const line = document.createElementNS(SVG_NS, "line");
+        line.setAttribute("x1", fromPos.x + 0.5);
+        line.setAttribute("y1", fromPos.y + 0.5);
+        line.setAttribute("x2", toPos.x + 0.5);
+        line.setAttribute("y2", toPos.y + 0.5);
+        line.setAttribute("stroke", "rgba(255,220,80,0.9)");
+        line.setAttribute("stroke-width", "0.12");
+        line.setAttribute("stroke-dasharray", "0.25 0.18");
+        line.setAttribute("stroke-linecap", "round");
+        line.classList.add("throw-trail");
+        tokensGroup.appendChild(line);
+        line.addEventListener("animationend", () => line.remove(), { once: true });
+    }
+
     function fireMoveFlash(pos) {
         const tokensGroup = document.getElementById('pitch-tokens');
         if (!tokensGroup) return;
@@ -2654,6 +2684,18 @@
         }
         token.appendChild(label);
 
+        if (isCarrier) {
+            const carried = document.createElementNS(SVG_NS, "circle");
+            carried.setAttribute("cx", 0.32);
+            carried.setAttribute("cy", -0.32);
+            carried.setAttribute("r", 0.16);
+            carried.setAttribute("fill", "var(--accent-gold)");
+            carried.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+            carried.setAttribute("stroke-width", "0.05");
+            carried.dataset.role = "carried-ball";
+            token.appendChild(carried);
+        }
+
         // Dim token if player has already acted this turn
         token.setAttribute("opacity", player.has_acted ? "0.45" : "1");
 
@@ -2665,8 +2707,10 @@
     function updatePlayerToken(token, playerId, player, pos, team, isCarrier) {
         const playerState = player.state || 'standing';
 
-        // Slide the whole token to its new position via transform
-        token.classList.remove("no-slide");
+        // Slide the whole token to its new position via transform.
+        // `no-slide` is cleared asynchronously after token creation (see
+        // renderPitch), so by the time we get here the transform transition
+        // is already active and a simple setAttribute animates smoothly.
         token.dataset.posX = pos.x;
         token.dataset.posY = pos.y;
         token.setAttribute("transform", `translate(${pos.x + 0.5}, ${pos.y + 0.5})`);
@@ -2744,6 +2788,22 @@
             token.insertBefore(aura, token.firstChild);
         } else if (!isCarrier && existingAura) {
             existingAura.remove();
+        }
+
+        // Carried-ball dot: visible on the carrier token so carries read at a glance.
+        const existingCarriedBall = token.querySelector("[data-role=carried-ball]");
+        if (isCarrier && !existingCarriedBall) {
+            const carried = document.createElementNS(SVG_NS, "circle");
+            carried.setAttribute("cx", 0.32);
+            carried.setAttribute("cy", -0.32);
+            carried.setAttribute("r", 0.16);
+            carried.setAttribute("fill", "var(--accent-gold)");
+            carried.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
+            carried.setAttribute("stroke-width", "0.05");
+            carried.dataset.role = "carried-ball";
+            token.appendChild(carried);
+        } else if (!isCarrier && existingCarriedBall) {
+            existingCarriedBall.remove();
         }
 
         // Update tooltip
@@ -2852,9 +2912,16 @@
                 token.style.opacity = "0";
                 tokensGroup.appendChild(token);
                 tokenElements.set(playerId, token);
-                // Fade in; allow slide animation after first paint
+                // Fade in; allow slide animation after first paint.
+                // Removing `no-slide` in a *second* rAF (after a real paint
+                // with the class still on) establishes the baseline style so
+                // the next transform change actually transitions instead of
+                // being coalesced into the same style recalc.
                 requestAnimationFrame(() => {
                     token.style.opacity = "1";
+                    requestAnimationFrame(() => {
+                        token.classList.remove("no-slide");
+                    });
                 });
             }
         }
@@ -2875,34 +2942,70 @@
         prevPlayerPositions = { ...currentPositions };
 
         // Handle loose ball
-        if (state.pitch.ball_position && !state.pitch.ball_carrier) {
-            const bx = state.pitch.ball_position.x + 0.5;
-            const by = state.pitch.ball_position.y + 0.5;
+        const ballPos = state.pitch.ball_position;
+        const ballCarrier = state.pitch.ball_carrier;
+        if (ballPos && !ballCarrier) {
+            const bx = ballPos.x + 0.5;
+            const by = ballPos.y + 0.5;
             if (!ballElement) {
                 ballElement = document.createElementNS(SVG_NS, "circle");
                 ballElement.setAttribute("r", 0.25);
                 ballElement.setAttribute("fill", "var(--accent-gold)");
                 ballElement.setAttribute("stroke", "rgba(18, 12, 7, 0.9)");
                 ballElement.setAttribute("stroke-width", "0.08");
-                ballElement.setAttribute("class", "ball-token");
+                // Spawn with no-slide so the first cx/cy set doesn't animate
+                // from (0,0). Removed on a second rAF once the baseline style
+                // has been painted.
+                ballElement.setAttribute("class", "ball-token no-slide");
+                ballElement.setAttribute("cx", bx);
+                ballElement.setAttribute("cy", by);
+                ballElement.style.opacity = "0";
                 tokensGroup.appendChild(ballElement);
-            }
-            const prevBx = ballElement.getAttribute("cx");
-            const prevBy = ballElement.getAttribute("cy");
-            const ballMoved = prevBx && (Math.abs(parseFloat(prevBx) - bx) > 0.01 || Math.abs(parseFloat(prevBy) - by) > 0.01);
-            ballElement.setAttribute("cx", bx);
-            ballElement.setAttribute("cy", by);
-            ballElement.style.opacity = "1";
-            if (ballMoved) {
-                ballElement.classList.remove("ball-landing");
-                void ballElement.offsetWidth; // force reflow to restart animation
-                ballElement.classList.add("ball-landing");
-                ballElement.addEventListener("animationend", () => {
+                requestAnimationFrame(() => {
+                    ballElement.style.opacity = "1";
+                    requestAnimationFrame(() => {
+                        ballElement.classList.remove("no-slide");
+                    });
+                });
+            } else {
+                const prevBx = ballElement.getAttribute("cx");
+                const prevBy = ballElement.getAttribute("cy");
+                const ballMoved = prevBx && (Math.abs(parseFloat(prevBx) - bx) > 0.01 || Math.abs(parseFloat(prevBy) - by) > 0.01);
+                ballElement.setAttribute("cx", bx);
+                ballElement.setAttribute("cy", by);
+                ballElement.style.opacity = "1";
+                if (ballMoved) {
                     ballElement.classList.remove("ball-landing");
-                }, { once: true });
+                    void ballElement.offsetWidth; // force reflow to restart animation
+                    ballElement.classList.add("ball-landing");
+                    ballElement.addEventListener("animationend", () => {
+                        ballElement.classList.remove("ball-landing");
+                    }, { once: true });
+                }
             }
         } else if (ballElement) {
+            // Ball is carried (or off-pitch): hide and, if carried, pin the
+            // hidden element to the carrier's square without transitioning,
+            // so when the ball later becomes loose it reappears near the
+            // carrier and the drop/scatter transition is meaningful.
             ballElement.style.opacity = "0";
+            if (ballCarrier) {
+                const carrierPos = currentPositions[ballCarrier];
+                if (carrierPos) {
+                    const cx = carrierPos.x + 0.5;
+                    const cy = carrierPos.y + 0.5;
+                    const wasNoSlide = ballElement.classList.contains("no-slide");
+                    if (!wasNoSlide) ballElement.classList.add("no-slide");
+                    ballElement.setAttribute("cx", cx);
+                    ballElement.setAttribute("cy", cy);
+                    if (!wasNoSlide) {
+                        // Force reflow then restore transition so the next
+                        // cx/cy change will animate.
+                        void ballElement.offsetWidth;
+                        ballElement.classList.remove("no-slide");
+                    }
+                }
+            }
         }
 
         // Active team border
@@ -3482,6 +3585,14 @@
             }
             if (latest.target_player_id) {
                 fireEventFlash(latest.target_player_id, latest.result, 'defender');
+            }
+        }
+
+        // Draw a thrown-ball trail for any new pass/handoff/scatter events.
+        for (const event of newEvents) {
+            if ((event.event_type === 'pass' || event.event_type === 'handoff' || event.event_type === 'scatter')
+                && event.from_position && event.to_position) {
+                fireThrowTrail(event.from_position, event.to_position);
             }
         }
     }
