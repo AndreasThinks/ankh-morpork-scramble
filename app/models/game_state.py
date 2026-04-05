@@ -3,8 +3,8 @@ from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 import logging
 from pydantic import BaseModel, Field
-from app.models.enums import GamePhase, TeamType
-from app.models.pitch import Pitch
+from app.models.enums import GamePhase, PlayerState, TeamType
+from app.models.pitch import Pitch, Position
 from app.models.player import Player
 from app.models.team import Team
 
@@ -192,6 +192,34 @@ class GameState(BaseModel):
             if self.turn.half == 2 and self.phase == GamePhase.INTERMISSION:
                 self.phase = GamePhase.PLAYING
     
+    def reset_for_kickoff(self) -> None:
+        """Restore player formations and ball for a new kickoff after a touchdown.
+
+        - Players still eligible (not KO'd, casualty, or sent off) return to
+          their starting positions; prone/stunned players stand back up.
+        - Ineligible players stay off the pitch.
+        - The ball is placed at centre with no carrier.
+        """
+        ineligible = {
+            PlayerState.KNOCKED_OUT,
+            PlayerState.CASUALTY,
+            PlayerState.SENT_OFF,
+        }
+        initial = self.pitch.initial_positions or {}
+        self.pitch.player_positions.clear()
+        for player_id, pos in initial.items():
+            if player_id not in self.players:
+                continue
+            player = self.players[player_id]
+            if player.state in ineligible:
+                continue
+            if player.state in {PlayerState.PRONE, PlayerState.STUNNED}:
+                player.state = PlayerState.STANDING
+            self.pitch.player_positions[player_id] = Position(x=pos.x, y=pos.y)
+
+        self.pitch.ball_carrier = None
+        self.pitch.place_ball(Position(x=13, y=7))
+
     def end_half(self) -> None:
         """End the current half"""
         if not self.turn:

@@ -29,7 +29,10 @@ class Pitch(BaseModel):
     """Game pitch with player positions and ball state"""
     # Player positions: player_id -> Position
     player_positions: dict[str, Position] = Field(default_factory=dict)
-    
+
+    # Snapshot of positions at kickoff, used to restore formations after a touchdown
+    initial_positions: dict[str, Position] = Field(default_factory=dict)
+
     # Ball state
     ball_position: Optional[Position] = None
     ball_carrier: Optional[str] = None  # player_id holding the ball

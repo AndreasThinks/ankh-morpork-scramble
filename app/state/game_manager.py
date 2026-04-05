@@ -172,6 +172,12 @@ class GameManager:
         ball_pos = Position(x=13, y=7)
         game_state.pitch.place_ball(ball_pos)
 
+        # Snapshot deployment formation so we can restore it after each touchdown
+        game_state.pitch.initial_positions = {
+            pid: Position(x=pos.x, y=pos.y)
+            for pid, pos in game_state.pitch.player_positions.items()
+        }
+
         # Log game events
         event_logger = EventLogger(game_state)
         event_logger.log_game_start(game_state.team1.name, game_state.team2.name)
@@ -469,13 +475,10 @@ class GameManager:
 
             game_state.add_event(f"{scored_team.name} scored!")
 
-            # Reset for new drive
-            game_state.pitch.ball_carrier = None
-            ball_pos = Position(x=13, y=7)
-            game_state.pitch.place_ball(ball_pos)
-
-            # Log kickoff
-            event_logger.log_kickoff(ball_pos)
+            # Reset drive: restore both teams to deployment formation, stand
+            # prone/stunned players back up, and centre the ball.
+            game_state.reset_for_kickoff()
+            event_logger.log_kickoff(game_state.pitch.ball_position)
 
             logger.info(
                 "Game %s: %s scored (score %s-%s)",
@@ -484,6 +487,13 @@ class GameManager:
                 game_state.team1.score,
                 game_state.team2.score,
             )
+
+            # Scoring ends the turn — the other team receives the next drive.
+            # Guarded so we don't try to end a turn on an already-concluded game
+            # (e.g. touchdown during the final turn of the second half triggers
+            # the half/game end inside switch_turn).
+            if game_state.phase != GamePhase.CONCLUDED:
+                self.end_turn(game_id)
 
             # Auto-save logs after touchdown
             if self.auto_save_logs:

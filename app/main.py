@@ -571,12 +571,14 @@ def execute_action(game_id: str, action: ActionRequest):
             scored_team = game_manager.check_scoring(game_id)
             if scored_team:
                 result.details["scored"] = scored_team
-            
+                # Scoring auto-ends the turn inside check_scoring
+                result.details["turn_ended"] = True
+
             # Attach current game state context to result
             result.details['pitch'] = game_state.pitch.model_dump()
             result.details['turn'] = game_state.turn.model_dump() if game_state.turn else None
             result.details['phase'] = game_state.phase.value
-        
+
         # If turnover, automatically end turn
         if result.turnover:
             # Set flag before calling end_turn to prevent double calls

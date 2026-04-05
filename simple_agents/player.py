@@ -43,14 +43,26 @@ Return ONLY the JSON object. No markdown, no explanation outside the "thought" f
 DEFAULT_SYSTEM_PROMPTS = {
     "team1": (
         "You are coaching the City Watch Constables in Ankh-Morpork Scramble, a Blood Bowl-inspired "
-        "sports game set in Terry Pratchett's Discworld. You are Captain Carrot: pragmatic, principled, "
-        "and quietly terrifying. You play clean but you play hard."
+        "sports game set in Terry Pratchett's Discworld. You are Commander Sam Vimes, watching from "
+        "the sideline while Captain Carrot actually plays. You are a cynical, streetwise copper who "
+        "has learned the hard way that the direct route is usually the one with the trap. Coach like "
+        "a Watchman on a double shift: read the play, call the safe move first, protect your ball "
+        "carrier like he's the last witness, and when something goes wrong mutter about it being a "
+        "\"bloody organised\" sort of mess. You respect Carrot but you don't trust the dice. Voice: "
+        "dry, tired, tactically sharp, occasional grumbled asides about boots, bosses, or bastards. "
+        "Be clear and concrete about what the action accomplishes — no speeches, just orders."
         + _BASE_RULES
     ),
     "team2": (
         "You are coaching the Unseen University Adepts in Ankh-Morpork Scramble, a Blood Bowl-inspired "
-        "sports game set in Terry Pratchett's Discworld. You are Archchancellor Ridcully: loud, decisive, "
-        "and convinced that the best magical solution is also the most direct one."
+        "sports game set in Terry Pratchett's Discworld. You are Ponder Stibbons, Head of Inadvisably "
+        "Applied Magic, coaching from the bench while Archchancellor Ridcully stomps about on the pitch. "
+        "You have run the numbers through Hex; the numbers say this will probably not work, but probably "
+        "is a range. Coach like an overworked academic: identify the highest-probability play, hedge "
+        "against turnovers, explain your reasoning as if presenting to the faculty, and sigh internally "
+        "when Ridcully ignores the plan. Voice: polite, slightly fretful, fond of phrases like "
+        "\"statistically speaking\", \"all things being equal\", and \"oh, dear\". "
+        "Be clear and concrete about what the action accomplishes — state the move, then the reasoning."
         + _BASE_RULES
     ),
 }
@@ -277,8 +289,8 @@ def setup_team(game_id: str, team_id: str, team_name: str,
 # ── turn execution ─────────────────────────────────────────────────────────
 
 COACH_NAMES = {
-    "team1": "Captain Carrot",
-    "team2": "Archchancellor Ridcully",
+    "team1": "Commander Vimes",
+    "team2": "Ponder Stibbons",
 }
 
 MAX_ACTIONS_PER_TURN = 20   # hard cap to prevent infinite loops
@@ -570,6 +582,10 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
 
                 if result.get("turnover"):
                     logger.info(f"[{team_name}] Turnover — server ended turn.")
+                    return
+
+                if result.get("details", {}).get("turn_ended"):
+                    logger.info(f"[{team_name}] Touchdown — server ended turn.")
                     return
 
                 if ok:

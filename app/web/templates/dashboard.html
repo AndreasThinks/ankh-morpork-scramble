@@ -260,7 +260,24 @@
         }
 
         .player-token {
+            transition: opacity 0.3s ease-out, transform 0.32s ease-out;
+        }
+        .player-token.no-slide {
             transition: opacity 0.3s ease-out;
+        }
+
+        @keyframes recentMoverPulse {
+            0%   { stroke-opacity: 0.95; stroke-width: 0.14; }
+            50%  { stroke-opacity: 0.55; stroke-width: 0.20; }
+            100% { stroke-opacity: 0.95; stroke-width: 0.14; }
+        }
+        .recent-mover-halo {
+            animation: recentMoverPulse 1.1s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .ball-token {
+            transition: cx 0.32s ease-out, cy 0.32s ease-out;
         }
 
         header .score-line .score-value small {
@@ -541,9 +558,11 @@
             display: block;
             margin-top: 0.5rem;
             font-size: 0.8rem;
-            color: rgba(217, 180, 91, 0.65);
-            letter-spacing: 0.04em;
+            color: rgba(217, 180, 91, 0.85);
+            letter-spacing: 0.06em;
             text-align: right;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .pitch-wrapper {
@@ -775,9 +794,11 @@
             display: block;
             margin-top: 0.25rem;
             font-size: 0.75rem;
-            color: rgba(217, 180, 91, 0.55);
-            letter-spacing: 0.04em;
+            color: rgba(217, 180, 91, 0.75);
+            letter-spacing: 0.06em;
             padding-left: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         /* Team sidebar */
@@ -2365,6 +2386,43 @@
 
     const SVG_NS = "http://www.w3.org/2000/svg";
 
+    // Track which tokens currently carry the "just-moved" halo so we can
+    // clear it when their player acts next (or on the next tick).
+    const recentMoverHaloIds = new Set();
+
+    function applyRecentMoverHalos(movedPlayerIds) {
+        const haloSet = new Set(movedPlayerIds);
+        // Clear halos from players that no longer qualify
+        for (const pid of recentMoverHaloIds) {
+            if (!haloSet.has(pid)) {
+                const token = tokenElements.get(pid);
+                if (token) {
+                    const halo = token.querySelector('[data-role=recent-halo]');
+                    if (halo) halo.remove();
+                }
+                recentMoverHaloIds.delete(pid);
+            }
+        }
+        // Add halos to newly-qualifying movers
+        for (const pid of haloSet) {
+            if (recentMoverHaloIds.has(pid)) continue;
+            const token = tokenElements.get(pid);
+            if (!token) continue;
+            const halo = document.createElementNS(SVG_NS, 'circle');
+            halo.setAttribute('cx', 0);
+            halo.setAttribute('cy', 0);
+            halo.setAttribute('r', 0.6);
+            halo.setAttribute('fill', 'none');
+            halo.setAttribute('stroke', 'rgba(255,240,120,0.9)');
+            halo.setAttribute('stroke-width', '0.14');
+            halo.setAttribute('class', 'recent-mover-halo');
+            halo.dataset.role = 'recent-halo';
+            // Insert at front so it sits underneath the body circle
+            token.insertBefore(halo, token.firstChild);
+            recentMoverHaloIds.add(pid);
+        }
+    }
+
     function fireMoveFlash(pos) {
         const tokensGroup = document.getElementById('pitch-tokens');
         if (!tokensGroup) return;
@@ -2383,10 +2441,11 @@
     function fireEventFlash(playerId, result, role) {
         const token = tokenElements.get(playerId);
         if (!token) return;
-        const body = token.querySelector('[data-role=body]');
-        if (!body) return;
-        const cx = parseFloat(body.getAttribute('cx'));
-        const cy = parseFloat(body.getAttribute('cy'));
+        const px = parseFloat(token.dataset.posX);
+        const py = parseFloat(token.dataset.posY);
+        if (Number.isNaN(px) || Number.isNaN(py)) return;
+        const cx = px + 0.5;
+        const cy = py + 0.5;
         const tokensGroup = document.getElementById('pitch-tokens');
         if (!tokensGroup) return;
 
@@ -2414,13 +2473,16 @@
 
     function buildPlayerToken(playerId, player, pos, team, isCarrier) {
         const token = document.createElementNS(SVG_NS, "g");
-        token.setAttribute("class", "player-token");
+        token.setAttribute("class", "player-token no-slide");
         token.dataset.playerId = playerId;
+        token.dataset.posX = pos.x;
+        token.dataset.posY = pos.y;
+        token.setAttribute("transform", `translate(${pos.x + 0.5}, ${pos.y + 0.5})`);
 
         if (isCarrier) {
             const aura = document.createElementNS(SVG_NS, "circle");
-            aura.setAttribute("cx", pos.x + 0.5);
-            aura.setAttribute("cy", pos.y + 0.5);
+            aura.setAttribute("cx", 0);
+            aura.setAttribute("cy", 0);
             aura.setAttribute("r", 0.7);
             aura.setAttribute("fill", "none");
             aura.setAttribute("stroke", "var(--accent-gold)");
@@ -2433,8 +2495,8 @@
         const playerState = player.state || 'standing';
 
         const circle = document.createElementNS(SVG_NS, "circle");
-        circle.setAttribute("cx", pos.x + 0.5);
-        circle.setAttribute("cy", pos.y + 0.5);
+        circle.setAttribute("cx", 0);
+        circle.setAttribute("cy", 0);
         circle.setAttribute("r", playerState === 'prone' ? 0.3 : 0.45);
         circle.dataset.role = "body";
 
@@ -2464,8 +2526,8 @@
         token.appendChild(circle);
 
         const label = document.createElementNS(SVG_NS, "text");
-        label.setAttribute("x", pos.x + 0.5);
-        label.setAttribute("y", pos.y + 0.58);
+        label.setAttribute("x", 0);
+        label.setAttribute("y", 0.08);
         label.setAttribute("text-anchor", "middle");
         label.setAttribute("font-size", "0.38");
         label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : playerState === 'prone' ? 'rgba(255,255,255,0.92)' : 'rgba(18,12,7,0.92)');
@@ -2496,11 +2558,17 @@
     function updatePlayerToken(token, playerId, player, pos, team, isCarrier) {
         const playerState = player.state || 'standing';
 
-        // Update body circle position and state styling
+        // Slide the whole token to its new position via transform
+        token.classList.remove("no-slide");
+        token.dataset.posX = pos.x;
+        token.dataset.posY = pos.y;
+        token.setAttribute("transform", `translate(${pos.x + 0.5}, ${pos.y + 0.5})`);
+
+        // Update body circle (local coords — positioning is via the group transform)
         const circle = token.querySelector("[data-role=body]");
         if (circle) {
-            circle.setAttribute("cx", pos.x + 0.5);
-            circle.setAttribute("cy", pos.y + 0.5);
+            circle.setAttribute("cx", 0);
+            circle.setAttribute("cy", 0);
             circle.setAttribute("r", playerState === 'prone' ? 0.3 : 0.45);
 
             // Re-apply state-dependent styling
@@ -2531,11 +2599,11 @@
             }
         }
 
-        // Update label position and state-dependent text
+        // Update label (local coords)
         const label = token.querySelector("[data-role=label]");
         if (label) {
-            label.setAttribute("x", pos.x + 0.5);
-            label.setAttribute("y", pos.y + 0.58);
+            label.setAttribute("x", 0);
+            label.setAttribute("y", 0.08);
             label.setAttribute("fill", playerState === 'knocked_out' ? 'rgba(200,100,80,0.9)' : playerState === 'prone' ? 'rgba(255,255,255,0.92)' : 'rgba(18,12,7,0.92)');
 
             if (playerState === 'knocked_out') {
@@ -2558,20 +2626,17 @@
         const existingAura = token.querySelector("[data-role=aura]");
         if (isCarrier && !existingAura) {
             const aura = document.createElementNS(SVG_NS, "circle");
-            aura.setAttribute("cx", pos.x + 0.5);
-            aura.setAttribute("cy", pos.y + 0.5);
+            aura.setAttribute("cx", 0);
+            aura.setAttribute("cy", 0);
             aura.setAttribute("r", 0.7);
             aura.setAttribute("fill", "none");
             aura.setAttribute("stroke", "var(--accent-gold)");
             aura.setAttribute("stroke-width", "0.12");
             aura.setAttribute("stroke-dasharray", "0.3 0.2");
             aura.dataset.role = "aura";
-            token.insertBefore(aura, circle);
+            token.insertBefore(aura, token.firstChild);
         } else if (!isCarrier && existingAura) {
             existingAura.remove();
-        } else if (isCarrier && existingAura) {
-            existingAura.setAttribute("cx", pos.x + 0.5);
-            existingAura.setAttribute("cy", pos.y + 0.5);
         }
 
         // Update tooltip
@@ -2654,6 +2719,8 @@
         }
 
         // Update or create tokens for current players
+        const movedThisTick = [];
+        const moveFlashQueue = [];
         for (const [playerId, pos] of Object.entries(currentPositions)) {
             const player = state.players[playerId];
             if (!player) continue;
@@ -2668,7 +2735,8 @@
                 const token = tokenElements.get(playerId);
                 updatePlayerToken(token, playerId, player, pos, team, isCarrier);
                 if (moved) {
-                    fireMoveFlash(pos);
+                    moveFlashQueue.push(pos);
+                    movedThisTick.push(playerId);
                 }
             } else {
                 // Create new token
@@ -2676,12 +2744,23 @@
                 token.style.opacity = "0";
                 tokensGroup.appendChild(token);
                 tokenElements.set(playerId, token);
-                // Fade in
+                // Fade in; allow slide animation after first paint
                 requestAnimationFrame(() => {
-                    token.style.transition = "opacity 0.3s ease-out";
                     token.style.opacity = "1";
                 });
             }
+        }
+
+        // "Just-moved" halo and per-square flashes — skip both when a
+        // large number of players moved simultaneously (e.g. drive reset
+        // after a touchdown restores both teams to formation) so the
+        // viewer isn't swamped by ~22 pulses at once.
+        const DRIVE_RESET_THRESHOLD = 8;
+        if (movedThisTick.length >= DRIVE_RESET_THRESHOLD) {
+            applyRecentMoverHalos([]);
+        } else {
+            applyRecentMoverHalos(movedThisTick);
+            for (const pos of moveFlashQueue) fireMoveFlash(pos);
         }
 
         // Update prevPlayerPositions
@@ -2904,7 +2983,16 @@
             const turnInfo = latestComment.turn_number
                 ? `Turn ${latestComment.turn_number}`
                 : 'Pre-match';
-            commentaryTimestamp.textContent = `— ${turnInfo}`;
+            let timeInfo = '';
+            if (latestComment.timestamp) {
+                const d = new Date(latestComment.timestamp + (latestComment.timestamp.endsWith('Z') ? '' : 'Z'));
+                if (!isNaN(d)) {
+                    timeInfo = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            }
+            commentaryTimestamp.textContent = timeInfo
+                ? `★ LATEST — ${turnInfo} • ${timeInfo}`
+                : `★ LATEST — ${turnInfo}`;
 
         } catch (error) {
             console.error('Failed to fetch referee commentary:', error);

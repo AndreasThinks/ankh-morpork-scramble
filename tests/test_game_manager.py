@@ -245,6 +245,90 @@ def test_scoring_resets_ball_position():
     assert game.pitch.ball_position == Position(x=13, y=7)
 
 
+def test_touchdown_ends_turn_and_restores_formation():
+    """A touchdown should end the current turn, switch to the other team,
+    and restore both teams to their deployment formation (ball centred,
+    no carrier)."""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "2"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "2"})
+
+    game.team1_joined = True
+    game.team2_joined = True
+
+    # Place players on both halves so start_game can snapshot a formation
+    t1_ids = game.team1.player_ids
+    t2_ids = game.team2.player_ids
+    game.pitch.player_positions[t1_ids[0]] = Position(x=5, y=6)
+    game.pitch.player_positions[t1_ids[1]] = Position(x=5, y=8)
+    game.pitch.player_positions[t2_ids[0]] = Position(x=20, y=6)
+    game.pitch.player_positions[t2_ids[1]] = Position(x=20, y=8)
+
+    manager.start_game("test_game")
+    assert game.turn.active_team_id == game.team1.id
+    initial_snapshot = dict(game.pitch.initial_positions)
+    assert len(initial_snapshot) == 4
+
+    # Team 1 ball carrier walks into team1's endzone
+    carrier = t1_ids[0]
+    game.pitch.player_positions[carrier] = Position(x=24, y=7)
+    game.pitch.ball_carrier = carrier
+
+    scored_team = manager.check_scoring("test_game")
+
+    # Scoring recorded
+    assert scored_team == game.team1.id
+    assert game.team1.score == 1
+
+    # Ball reset, no carrier
+    assert game.pitch.ball_carrier is None
+    assert game.pitch.ball_position == Position(x=13, y=7)
+
+    # Both teams restored to snapshot formation
+    for pid, pos in initial_snapshot.items():
+        assert game.pitch.player_positions[pid] == pos
+
+    # Turn ended — other team is now active
+    assert game.turn.active_team_id == game.team2.id
+    assert game.phase == GamePhase.PLAYING
+
+
+def test_touchdown_on_final_turn_concludes_game():
+    """A touchdown on the final turn of the second half should still
+    cleanly transition the game to CONCLUDED rather than stalling."""
+    manager = GameManager()
+    game = manager.create_game("test_game")
+
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "1"})
+
+    game.team1_joined = True
+    game.team2_joined = True
+    game.pitch.player_positions[game.team1.player_ids[0]] = Position(x=5, y=7)
+    game.pitch.player_positions[game.team2.player_ids[0]] = Position(x=20, y=7)
+
+    manager.start_game("test_game")
+
+    # Fast-forward to half 2, team 2's final turn with team 2 active
+    game.turn.half = 2
+    game.turn.team_turn = 8
+    game.turn.active_team_id = game.team2.id
+
+    # Team 2 scores in team 2's endzone
+    carrier = game.team2.player_ids[0]
+    game.pitch.player_positions[carrier] = Position(x=1, y=7)
+    game.pitch.ball_carrier = carrier
+
+    scored_team = manager.check_scoring("test_game")
+
+    assert scored_team == game.team2.id
+    assert game.team2.score == 1
+    # check_scoring → end_turn → switch_turn → end_half → CONCLUDED
+    assert game.phase == GamePhase.CONCLUDED
+
+
 def test_no_scoring_in_wrong_endzone():
     """Test no scoring when in wrong endzone"""
     manager = GameManager()
