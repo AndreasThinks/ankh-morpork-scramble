@@ -19,6 +19,7 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
 
     my_end_zone = 25 if my_team_id == "team1" else 0
     opp_end_zone = 0 if my_team_id == "team1" else 25
+    score_direction = "INCREASE x" if my_end_zone == 25 else "DECREASE x"
 
     lines = [
         "=== GAME STATE ===",
@@ -29,14 +30,26 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
     if ball_carrier_id:
         carrier = players.get(ball_carrier_id) or {}
         pos = player_positions.get(ball_carrier_id) or {}
+        bx = pos.get("x")
+        by = pos.get("y")
         who = "YOUR" if carrier.get("team_id") == my_team_id else "OPPONENT'S"
-        lines.append(f"Ball: carried by {who} {carrier.get('position','?')} [{ball_carrier_id}] at ({pos.get('x','?')},{pos.get('y','?')})")
+        extra = ""
+        if carrier.get("team_id") == my_team_id and isinstance(bx, int):
+            dist = abs(bx - my_end_zone)
+            extra = f" — {dist} square(s) from scoring at x={my_end_zone}"
+        lines.append(
+            f"Ball: carried by {who} {carrier.get('position','?')} [{ball_carrier_id}] at ({bx},{by}){extra}"
+        )
     elif ball_pos:
         lines.append(f"Ball: loose at ({ball_pos.get('x','?')},{ball_pos.get('y','?')})")
     else:
         lines.append("Ball: not yet in play")
 
-    lines.append(f"End zones: YOURS x={my_end_zone}  |  OPPONENT x={opp_end_zone}")
+    lines.append(
+        f"SCORING DIRECTION: you score at x={my_end_zone}. "
+        f"To advance the ball carrier toward scoring you must {score_direction}. "
+        f"Opponent's end zone is x={opp_end_zone} — do NOT carry the ball there."
+    )
     lines.append("")
 
     # My squad
