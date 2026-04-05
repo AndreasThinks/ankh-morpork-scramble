@@ -136,10 +136,19 @@ def run_setup() -> None:
 def run_game() -> None:
     from simple_agents.player import play_turn
     from simple_agents.commentator import comment, final_comment
+    from simple_agents.model_picker import get_fallback_model
 
     logger.info("=== GAME LOOP ===")
 
     last_event_count = 0
+    # Track consecutive LLM-failed turns per team, plus models already tried,
+    # so we can hot-swap a team's model when it keeps erroring out.
+    consecutive_llm_failures: dict[str, int] = {"team1": 0, "team2": 0}
+    tried_models: dict[str, set[str]] = {
+        "team1": {TEAM_CONFIGS["team1"]["model"]},
+        "team2": {TEAM_CONFIGS["team2"]["model"]},
+    }
+    SWAP_AFTER_FAILURES = 2
 
     while True:
         state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
@@ -161,7 +170,7 @@ def run_game() -> None:
             time.sleep(1)
             continue
 
-        play_turn(
+        result = play_turn(
             game_id=GAME_ID,
             team_id=cfg["team_id"],
             team_name=cfg["team_name"],
@@ -169,7 +178,41 @@ def run_game() -> None:
             model=cfg["model"],
             system_prompt=cfg.get("system_prompt"),
             base_url=SERVER_URL,
-        )
+        ) or {}
+
+        # Hot-swap the team's model if it keeps producing nothing usable.
+        # Skipped when TEAM1_MODEL/TEAM2_MODEL were set manually without a
+        # pool override — the user picked that model deliberately.
+        if result.get("llm_failed"):
+            consecutive_llm_failures[active_team_id] += 1
+            logger.warning(
+                "[%s] LLM turn failed (%d/%d) with model=%s",
+                cfg["team_name"],
+                consecutive_llm_failures[active_team_id],
+                SWAP_AFTER_FAILURES,
+                cfg["model"],
+            )
+            if (
+                consecutive_llm_failures[active_team_id] >= SWAP_AFTER_FAILURES
+                and not _MANUAL_MODEL_OVERRIDE
+            ):
+                new_model = get_fallback_model(tried_models[active_team_id])
+                if new_model:
+                    logger.warning(
+                        "[%s] Swapping model %s → %s after %d consecutive failures",
+                        cfg["team_name"], cfg["model"], new_model,
+                        consecutive_llm_failures[active_team_id],
+                    )
+                    cfg["model"] = new_model
+                    tried_models[active_team_id].add(new_model)
+                    consecutive_llm_failures[active_team_id] = 0
+                else:
+                    logger.error(
+                        "[%s] No untried models left in pool; sticking with %s",
+                        cfg["team_name"], cfg["model"],
+                    )
+        else:
+            consecutive_llm_failures[active_team_id] = 0
 
         # Commentator fires after every team turn (not just once per round)
         fresh_state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()

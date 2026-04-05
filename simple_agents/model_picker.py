@@ -36,6 +36,20 @@ def _get_pool() -> list[str]:
     return list(MODEL_POOL)
 
 
+def get_fallback_model(exclude: set[str]) -> Optional[str]:
+    """Return a random model from the pool not in ``exclude``.
+
+    Used to swap out a team's model when it keeps erroring. Returns None
+    if every pool entry has already been tried (caller should stop
+    swapping in that case).
+    """
+    pool = _get_pool()
+    candidates = [m for m in pool if m not in exclude]
+    if not candidates:
+        return None
+    return random.choice(candidates)
+
+
 def _fetch_games_per_model(leaderboard_url: str) -> dict[str, int]:
     """Return {model_id: games_played} from the leaderboard API."""
     try:

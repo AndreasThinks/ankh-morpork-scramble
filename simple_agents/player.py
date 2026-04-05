@@ -505,8 +505,13 @@ def _build_failure_note(last_failure: str, last_action: dict | None, state: dict
 
 def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
               model: str = None, system_prompt: str = None,
-              base_url: str = "http://localhost:8000") -> None:
-    """Execute one full turn: one LLM call per action, with retry on failure."""
+              base_url: str = "http://localhost:8000") -> dict:
+    """Execute one full turn: one LLM call per action, with retry on failure.
+
+    Returns a stats dict: {"actions_taken": int, "llm_failed": bool}. Callers
+    can use ``llm_failed`` to detect turns where the model never produced a
+    usable response (e.g. 404s, rate-limit exhaustion) and swap models.
+    """
     model = model or DEFAULT_MODELS.get(team_id, DEFAULT_MODEL)
 
     my_end_zone = 25 if team_id == "team1" else 0
@@ -518,6 +523,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     actions_taken = 0
     last_failure: str | None = None
     last_action: dict | None = None
+    llm_ever_succeeded = False
 
     while actions_taken < MAX_ACTIONS_PER_TURN:
         # Refresh state before each action
@@ -530,7 +536,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
         turn = state.get("turn") or {}
         if turn.get("active_team_id") != team_id:
             logger.info(f"[{team_name}] Turn passed (turnover or phase change).")
-            return
+            return {"actions_taken": actions_taken, "llm_failed": False}
 
         summary, players_unacted = summarize_for_player(state, team_id)
         valid_r = requests.get(f"{base_url}/game/{game_id}/valid-actions", timeout=5)
@@ -557,6 +563,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
         try:
             response = call_llm(sys_prompt, user_msg, model)
             thought, action = _parse_step(response)
+            llm_ever_succeeded = True
         except Exception as e:
             logger.error(f"[{team_name}] LLM error: {e}")
             break
@@ -582,11 +589,11 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
 
                 if result.get("turnover"):
                     logger.info(f"[{team_name}] Turnover — server ended turn.")
-                    return
+                    return {"actions_taken": actions_taken, "llm_failed": False}
 
                 if result.get("details", {}).get("turn_ended"):
                     logger.info(f"[{team_name}] Touchdown — server ended turn.")
-                    return
+                    return {"actions_taken": actions_taken, "llm_failed": False}
 
                 if ok:
                     last_failure = None
@@ -608,6 +615,7 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     # End turn explicitly
     r = requests.post(f"{base_url}/game/{game_id}/end-turn", params={"team_id": team_id}, timeout=5)
     logger.info(f"[{team_name}] Turn ended (status {r.status_code}).")
+    return {"actions_taken": actions_taken, "llm_failed": not llm_ever_succeeded}
 
 
 def _parse_actions(text: str) -> list:
