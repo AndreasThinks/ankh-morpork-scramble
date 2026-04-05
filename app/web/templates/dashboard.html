@@ -541,9 +541,11 @@
             display: block;
             margin-top: 0.5rem;
             font-size: 0.8rem;
-            color: rgba(217, 180, 91, 0.65);
-            letter-spacing: 0.04em;
+            color: rgba(217, 180, 91, 0.85);
+            letter-spacing: 0.06em;
             text-align: right;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .pitch-wrapper {
@@ -775,9 +777,11 @@
             display: block;
             margin-top: 0.25rem;
             font-size: 0.75rem;
-            color: rgba(217, 180, 91, 0.55);
-            letter-spacing: 0.04em;
+            color: rgba(217, 180, 91, 0.75);
+            letter-spacing: 0.06em;
             padding-left: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         /* Team sidebar */
@@ -2904,7 +2908,16 @@
             const turnInfo = latestComment.turn_number
                 ? `Turn ${latestComment.turn_number}`
                 : 'Pre-match';
-            commentaryTimestamp.textContent = `— ${turnInfo}`;
+            let timeInfo = '';
+            if (latestComment.timestamp) {
+                const d = new Date(latestComment.timestamp + (latestComment.timestamp.endsWith('Z') ? '' : 'Z'));
+                if (!isNaN(d)) {
+                    timeInfo = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            }
+            commentaryTimestamp.textContent = timeInfo
+                ? `★ LATEST — ${turnInfo} • ${timeInfo}`
+                : `★ LATEST — ${turnInfo}`;
 
         } catch (error) {
             console.error('Failed to fetch referee commentary:', error);
