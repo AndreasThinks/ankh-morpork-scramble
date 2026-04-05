@@ -871,6 +871,7 @@ def reset_game(game_id: str):
     try:
         game_manager._record_result_if_concluded(game_state)
         game_state.reset_to_setup()
+        game_manager._recorded_games.discard(game_id)
         return game_state
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -895,6 +896,7 @@ def rematch_game(game_id: str):
         if demo_mode and default_demo_game_id and game_id == default_demo_game_id:
             # Remove the existing entry so ``bootstrap_default_game`` creates a new instance
             game_manager.games.pop(game_id, None)
+            game_manager._recorded_games.discard(game_id)
             fresh_state = bootstrap_default_game(
                 game_manager,
                 game_id=game_id,
@@ -909,6 +911,7 @@ def rematch_game(game_id: str):
 
         # Fallback for interactive/custom games: reset to setup and let clients configure
         game_state.reset_to_setup()
+        game_manager._recorded_games.discard(game_id)
         return game_state
 
     except Exception as e:

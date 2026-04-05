@@ -6,7 +6,7 @@ Starts the game server then drives two LLM player agents and a commentator
 through a full match via direct OpenRouter API calls. No Hermes agents.
 
 Configuration via environment variables (all optional):
-  TEAM1_MODEL, TEAM2_MODEL, COMMENTATOR_MODEL  — model IDs (default: qwen/qwen3.6-plus:free)
+  TEAM1_MODEL, TEAM2_MODEL, COMMENTATOR_MODEL  — model IDs (default: qwen/qwen3-8b:free)
   TEAM1_PROMPT, TEAM2_PROMPT                   — custom system prompts
   SERVER_PORT                                  — default 8000
   GAME_ID                                      — default "the-match"
@@ -49,17 +49,17 @@ TEAM_CONFIGS = {
     "team1": {
         "team_id": "team1",
         "team_name": "City Watch Constables",
-        "model": os.getenv("TEAM1_MODEL", "qwen/qwen3.6-plus:free"),
+        "model": os.getenv("TEAM1_MODEL", "qwen/qwen3-8b:free"),
         "system_prompt": os.getenv("TEAM1_PROMPT"),  # None → default in player.py
     },
     "team2": {
         "team_id": "team2",
         "team_name": "Unseen University Adepts",
-        "model": os.getenv("TEAM2_MODEL", "qwen/qwen3.6-plus:free"),
+        "model": os.getenv("TEAM2_MODEL", "qwen/qwen3-8b:free"),
         "system_prompt": os.getenv("TEAM2_PROMPT"),
     },
 }
-COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "qwen/qwen3.6-plus:free")
+COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "qwen/qwen3-8b:free")
 
 # Use the tournament model picker unless TEAM1_MODEL / TEAM2_MODEL are set AND
 # OPENROUTER_MODELS is NOT set.  If OPENROUTER_MODELS is present it always wins —
