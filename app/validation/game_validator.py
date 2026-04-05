@@ -171,6 +171,7 @@ class GameStateValidator:
 
         Checks:
         - Player can act
+        - Player has not already acted this turn
         - Target position is specified
         - Target position is on pitch
         - Target position is unoccupied
@@ -204,8 +205,16 @@ class GameStateValidator:
         if not valid_unoccupied:
             return False, error
 
-        # Check player has movement remaining
         player = game_state.get_player(action.player_id)
+
+        # Check player hasn't already acted this turn (1 action per player per turn)
+        if player.has_acted:
+            return False, (
+                f"Player '{action.player_id}' has already acted this turn "
+                f"(only 1 action per player per turn)"
+            )
+
+        # Check player has movement remaining
         if player.movement_remaining == 0:
             return False, f"Player '{action.player_id}' has no movement remaining this turn"
 
