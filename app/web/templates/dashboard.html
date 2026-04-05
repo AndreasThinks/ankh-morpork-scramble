@@ -1765,9 +1765,60 @@
             font-style: normal;
             color: rgba(242, 227, 198, 0.88);
         }
+        /* Legacy category tints (kept low-specificity so tier styles win) */
         .ticker-item--combat  { color: rgba(220, 110, 90, 0.9); }
         .ticker-item--ball    { color: rgba(100, 185, 230, 0.9); }
         .ticker-item--turnover { color: rgba(220, 175, 60, 0.95); font-weight: 600; }
+
+        /* Tier-based visual hierarchy (overrides category tints) */
+        .ticker-item.ticker-item--tier-landmark {
+            font-size: 0.85rem;
+            font-weight: 800;
+            font-variant: small-caps;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--accent-gold);
+            background: rgba(217, 180, 91, 0.28);
+            border: 1px solid rgba(217, 180, 91, 0.55);
+            border-radius: 3px;
+            padding: 0 0.5rem;
+            font-style: normal;
+        }
+        .ticker-item.ticker-item--tier-dramatic {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: rgba(220, 110, 90, 1);
+            letter-spacing: 0.02em;
+            text-decoration: underline wavy rgba(220, 110, 90, 0.5);
+            font-style: normal;
+        }
+        .ticker-item.ticker-item--tier-commentary {
+            font-size: 0.78rem;
+            font-style: italic;
+            color: rgba(217, 180, 91, 0.95);
+        }
+        .ticker-item.ticker-item--tier-commentary::before { content: "« "; opacity: 0.7; }
+        .ticker-item.ticker-item--tier-commentary::after  { content: " »"; opacity: 0.7; }
+        .ticker-item.ticker-item--tier-action {
+            font-size: 0.72rem;
+            color: rgba(242, 227, 198, 0.88);
+            font-style: normal;
+        }
+        .ticker-item.ticker-item--tier-quiet {
+            font-size: 0.7rem;
+            color: rgba(242, 227, 198, 0.5);
+            font-style: normal;
+        }
+
+        /* One-shot highlight pulse when a top-tier item first appears */
+        @keyframes tickerFlash {
+            0%   { background-color: rgba(217, 180, 91, 0.55); box-shadow: 0 0 8px rgba(217, 180, 91, 0.5); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .ticker-item--flash { animation: tickerFlash 1.8s ease-out 1; }
+        }
+
         .ticker-sep {
             color: rgba(217, 180, 91, 0.25);
             font-style: normal;
@@ -3157,7 +3208,7 @@
         touchdown:   '🏈',
         turnover:    '🔄',
         casualty:    '🚑',
-        injury:      '⚡',
+        injury:      '⚕',
         knockdown:   '💫',
         armor_break: '🛡',
         block:       '💥',
@@ -3286,7 +3337,7 @@
         const wasNearBottom =
             container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
-        pushToTicker('commentary', '⚖', text, 'commentary');
+        pushToTicker('commentary', '⚖', text, 'commentary', 'commentary');
         container.appendChild(el);
 
         if (wasNearBottom) {
@@ -3411,7 +3462,7 @@
             );
             fragment.appendChild(el);
             if (event.description) {
-                pushToTicker('event', EVENT_ICONS[event.event_type] || '•', event.description, getEventCategory(event.event_type));
+                pushToTicker('event', EVENT_ICONS[event.event_type] || '•', event.description, getEventCategory(event.event_type), getEventTier(event.event_type), event.event_type);
             }
         }
         container.insertBefore(fragment, container.firstChild);
@@ -3850,12 +3901,37 @@
     let tokenElements = new Map();   // playerId -> SVG <g> element
     let ballElement = null;          // the loose ball <circle>
     let tickerQueue = [];            // mixed-feed ticker items
-    const TICKER_MAX = 10;
+    const TICKER_MAX = 20;
     let tickerRunning = false;       // true once the scroll animation has started
 
+    // Text prefixes for the biggest moments — readable even mid-scroll.
+    const TICKER_PREFIX = {
+        touchdown: '‼ TOUCHDOWN ',
+        casualty:  '☠ ',
+        injury:    '⚕ ',
+        turnover:  '⟲ TURNOVER ',
+        game_end:  '🏁 ',
+        half_end:  '🏁 ',
+    };
+
     // ── Mixed-feed ticker ──────────────────────────────────────────────
-    function pushToTicker(type, icon, text, category) {
-        tickerQueue.push({ type, icon, text, category: category || '' });
+    function pushToTicker(type, icon, text, category, tier, eventType) {
+        const t = tier || (type === 'commentary' ? 'commentary' : 'action');
+        const flash = (t === 'landmark' || t === 'dramatic' || t === 'commentary');
+
+        // When a headline arrives, demote any quiet-tier items already queued
+        // so the big moment reaches the visible track sooner.
+        if (t === 'landmark' || t === 'dramatic') {
+            tickerQueue = tickerQueue.filter(item => item.tier !== 'quiet');
+        }
+
+        tickerQueue.push({
+            type, icon, text,
+            category: category || '',
+            tier: t,
+            eventType: eventType || '',
+            flash,
+        });
         if (tickerQueue.length > TICKER_MAX) tickerQueue.shift();
         refreshTicker();
     }
@@ -3880,9 +3956,14 @@
             }
             const span = document.createElement('span');
             const catClass = item.category ? ` ticker-item--${item.category}` : '';
-            span.className = `ticker-item ticker-item--${item.type}${catClass}`;
-            span.textContent = `${item.icon} ${item.text}`;
+            const tierClass = item.tier ? ` ticker-item--tier-${item.tier}` : '';
+            const flashClass = item.flash ? ' ticker-item--flash' : '';
+            span.className = `ticker-item ticker-item--${item.type}${catClass}${tierClass}${flashClass}`;
+            const prefix = TICKER_PREFIX[item.eventType] || '';
+            span.textContent = `${item.icon} ${prefix}${item.text}`;
             frag.appendChild(span);
+            // Clear the flash flag so rebuilds don't re-trigger the animation
+            item.flash = false;
         });
         inner.innerHTML = '';
         inner.appendChild(frag);
