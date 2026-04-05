@@ -1947,6 +1947,22 @@
     </style>
 </head>
 <body data-game-id="{{ game_id }}">
+<div id="maintenance-overlay" style="display:none; position:fixed; inset:0; z-index:9999;
+     background:rgba(18,12,8,0.94); color:#f4e4c1; font-family:Georgia,serif;
+     align-items:center; justify-content:center; padding:2rem; text-align:center;">
+    <div style="max-width:640px;">
+        <div style="font-size:3rem; margin-bottom:1rem;">🥧</div>
+        <h2 id="maintenance-title" style="font-size:1.8rem; margin:0 0 1rem; color:#e0b870;">
+            Match Paused
+        </h2>
+        <p id="maintenance-message" style="font-size:1.1rem; line-height:1.5; margin:0 0 1rem;">
+            The wizards are recalibrating the thaumic broadcast. Back in a tick.
+        </p>
+        <p style="font-size:0.9rem; opacity:0.7; margin:0;">
+            This page will refresh automatically once play resumes.
+        </p>
+    </div>
+</div>
 <header>
     <h1>Ankh-Morpork Scramble</h1>
     <div class="score-line" id="score-line">
@@ -3969,6 +3985,52 @@
 
         // Set up polling interval
         pollIntervalId = setInterval(fetchState, POLL_INTERVAL);
+
+        // Service status: check immediately and every ~10s thereafter
+        fetchServiceStatus();
+        setInterval(fetchServiceStatus, 10000);
+    }
+
+    // Maintenance / service-status check
+    const MAINTENANCE_MESSAGES = {
+        out_of_credits: {
+            title: "Dibbler's Till Is Empty",
+            body: "The Guild of Criers regrets to announce that C.M.O.T. Dibbler has run out of small change. Matches will resume once fresh coin jangles in the till.",
+        },
+        no_models: {
+            title: "Thaumic Broadcast Down",
+            body: "The wizards are recalibrating the thaumic broadcast. Back in a tick.",
+        },
+        degraded: {
+            title: "Service Degraded",
+            body: "Things are a bit wobbly on the pitch. Commentary may be sporadic.",
+        },
+    };
+
+    async function fetchServiceStatus() {
+        try {
+            const r = await fetch("/service-status", { cache: "no-store" });
+            if (!r.ok) return;
+            const data = await r.json();
+            const overlay = document.getElementById("maintenance-overlay");
+            const titleEl = document.getElementById("maintenance-title");
+            const msgEl = document.getElementById("maintenance-message");
+            if (!overlay) return;
+            const status = data.status || "ok";
+            if (status === "ok") {
+                overlay.style.display = "none";
+            } else {
+                const copy = MAINTENANCE_MESSAGES[status] || {
+                    title: "Match Paused",
+                    body: "Something's up behind the scenes. Back shortly.",
+                };
+                if (titleEl) titleEl.textContent = copy.title;
+                if (msgEl) msgEl.textContent = copy.body;
+                overlay.style.display = "flex";
+            }
+        } catch (e) {
+            // network blip — keep current overlay state
+        }
     }
 
     // Live update ticker

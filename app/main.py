@@ -134,6 +134,45 @@ def health_check():
     }
 
 
+# ── service status ─────────────────────────────────────────────────────────
+# Surfaces LLM-backend health to the UI so we can show a maintenance screen
+# when OpenRouter is out of credits or every model in the pool is dead.
+import time as _svc_time
+
+_VALID_SERVICE_STATES = {"ok", "out_of_credits", "no_models", "degraded"}
+service_status: dict = {
+    "status": "ok",
+    "reason": None,
+    "updated_at": _svc_time.time(),
+}
+
+
+@app.get("/service-status")
+def get_service_status():
+    """Public endpoint the dashboard polls to show/hide the maintenance banner."""
+    return service_status
+
+
+@app.post("/admin/service-status")
+def set_service_status(
+    status: str = Query(..., description="One of: ok, out_of_credits, no_models, degraded"),
+    reason: Optional[str] = Query(None),
+    x_admin_key: Optional[str] = Header(None),
+):
+    """Allow the match runner to flip the service status (admin only)."""
+    verify_admin_key(x_admin_key)
+    if status not in _VALID_SERVICE_STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {sorted(_VALID_SERVICE_STATES)}",
+        )
+    service_status["status"] = status
+    service_status["reason"] = reason or None
+    service_status["updated_at"] = _svc_time.time()
+    logger.warning("service-status updated: %s (reason=%s)", status, reason)
+    return service_status
+
+
 def verify_admin_key(x_admin_key: Optional[str] = Header(None)) -> bool:
     """Verify admin API key from header"""
     admin_key = os.getenv("ADMIN_API_KEY")
