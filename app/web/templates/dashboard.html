@@ -665,7 +665,7 @@
         }
 
         .tooltip {
-            position: absolute;
+            position: fixed;
             pointer-events: none;
             padding: 0.75rem 0.9rem;
             background: rgba(36, 23, 12, 0.96);
@@ -678,7 +678,7 @@
             opacity: 0;
             transform: translate(-50%, -110%);
             transition: opacity 0.12s ease;
-            z-index: 10;
+            z-index: 1000;
         }
 
         .tooltip.visible {
@@ -1802,6 +1802,12 @@
                 overflow: visible;
             }
 
+            .tooltip {
+                max-width: min(260px, calc(100vw - 24px));
+                padding: 0.5rem 0.6rem;
+                font-size: 0.78rem;
+            }
+
             .pitch-canvas {
                 height: auto;
                 max-height: none;
@@ -2364,10 +2370,34 @@
         `;
     }
 
+    const TOOLTIP_MARGIN = 8;
+
     function positionTooltip(event) {
-        const bounds = event.currentTarget.ownerSVGElement.getBoundingClientRect();
-        const x = event.clientX - bounds.left;
-        const y = event.clientY - bounds.top;
+        const rect = tooltip.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        let x = event.clientX;
+        let y = event.clientY;
+
+        // Flip below the cursor if there isn't room above.
+        const flipBelow = (y - rect.height * 1.1) < TOOLTIP_MARGIN;
+
+        // Clamp horizontally, accounting for translateX(-50%).
+        const halfW = rect.width / 2;
+        if (x - halfW < TOOLTIP_MARGIN) x = halfW + TOOLTIP_MARGIN;
+        if (x + halfW > vw - TOOLTIP_MARGIN) x = vw - halfW - TOOLTIP_MARGIN;
+
+        if (flipBelow) {
+            // translate(-50%, 20px) => tooltip top edge is y + 20
+            if (y + 20 + rect.height > vh - TOOLTIP_MARGIN) {
+                y = vh - TOOLTIP_MARGIN - 20 - rect.height;
+            }
+            tooltip.style.transform = 'translate(-50%, 20px)';
+        } else {
+            tooltip.style.transform = 'translate(-50%, -110%)';
+        }
+
         tooltip.style.left = `${x}px`;
         tooltip.style.top = `${y}px`;
     }
