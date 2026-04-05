@@ -3436,6 +3436,14 @@
         scoreboardStatsCache = null;
         startNewGameBtn.disabled = false;
         startNewGameBtn.textContent = 'Start New Game';
+        if (autoRestartTimerId !== null) {
+            clearTimeout(autoRestartTimerId);
+            autoRestartTimerId = null;
+        }
+        if (autoRestartCountdownId !== null) {
+            clearInterval(autoRestartCountdownId);
+            autoRestartCountdownId = null;
+        }
     }
 
     function formatAttempt(success = 0, attempts = 0) {
@@ -3637,6 +3645,33 @@
             scoreboardHighlights.innerHTML = '<li>Unable to load detailed statistics.</li>';
             scoreboardNote.textContent = `Statistics unavailable: ${error.message}`;
         }
+
+        // Auto-restart after 1 hour if nobody clicks the button
+        const AUTO_RESTART_SECONDS = 3600;
+        let secondsLeft = AUTO_RESTART_SECONDS;
+
+        function updateCountdownNote() {
+            const mins = Math.floor(secondsLeft / 60);
+            const secs = secondsLeft % 60;
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            scoreboardNote.textContent = `Next game starts automatically in ${timeStr} — or click Start New Game now.`;
+        }
+
+        updateCountdownNote();
+
+        autoRestartCountdownId = setInterval(() => {
+            secondsLeft -= 1;
+            updateCountdownNote();
+        }, 1000);
+
+        autoRestartTimerId = setTimeout(() => {
+            clearInterval(autoRestartCountdownId);
+            autoRestartCountdownId = null;
+            autoRestartTimerId = null;
+            if (scoreboardVisible && !startNewGameBtn.disabled) {
+                startNewGameBtn.click();
+            }
+        }, AUTO_RESTART_SECONDS * 1000);
     }
 
     startNewGameBtn.addEventListener('click', async () => {
@@ -3786,6 +3821,8 @@
     let isPolling = false;
     let scoreboardVisible = false;
     let scoreboardStatsCache = null;
+    let autoRestartTimerId = null;
+    let autoRestartCountdownId = null;
     let prevTeam1Score = -1;
     let prevTeam2Score = -1;
     let lastUpdateTime = Date.now();
