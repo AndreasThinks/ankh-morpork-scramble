@@ -2720,6 +2720,7 @@
 
         // Update or create tokens for current players
         const movedThisTick = [];
+        const moveFlashQueue = [];
         for (const [playerId, pos] of Object.entries(currentPositions)) {
             const player = state.players[playerId];
             if (!player) continue;
@@ -2734,7 +2735,7 @@
                 const token = tokenElements.get(playerId);
                 updatePlayerToken(token, playerId, player, pos, team, isCarrier);
                 if (moved) {
-                    fireMoveFlash(pos);
+                    moveFlashQueue.push(pos);
                     movedThisTick.push(playerId);
                 }
             } else {
@@ -2750,9 +2751,17 @@
             }
         }
 
-        // "Just-moved" halo — highlights the player(s) that changed
-        // position this tick, cleared on the next one.
-        applyRecentMoverHalos(movedThisTick);
+        // "Just-moved" halo and per-square flashes — skip both when a
+        // large number of players moved simultaneously (e.g. drive reset
+        // after a touchdown restores both teams to formation) so the
+        // viewer isn't swamped by ~22 pulses at once.
+        const DRIVE_RESET_THRESHOLD = 8;
+        if (movedThisTick.length >= DRIVE_RESET_THRESHOLD) {
+            applyRecentMoverHalos([]);
+        } else {
+            applyRecentMoverHalos(movedThisTick);
+            for (const pos of moveFlashQueue) fireMoveFlash(pos);
+        }
 
         // Update prevPlayerPositions
         prevPlayerPositions = { ...currentPositions };
