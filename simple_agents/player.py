@@ -5,7 +5,7 @@ import re
 
 import requests
 
-from .llm import call_llm, DEFAULT_MODEL
+from .llm import call_llm, DEFAULT_MODEL, LLMPermanentError
 from .state_summary import summarize_for_player
 
 logger = logging.getLogger(__name__)
@@ -524,6 +524,8 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     last_failure: str | None = None
     last_action: dict | None = None
     llm_ever_succeeded = False
+    permanent_failure = False
+    failure_reason: str | None = None
 
     while actions_taken < MAX_ACTIONS_PER_TURN:
         # Refresh state before each action
@@ -564,6 +566,11 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
             response = call_llm(sys_prompt, user_msg, model)
             thought, action = _parse_step(response)
             llm_ever_succeeded = True
+        except LLMPermanentError as e:
+            logger.error(f"[{team_name}] LLM permanent error ({model}): {e}")
+            permanent_failure = True
+            failure_reason = "out_of_credits" if e.out_of_credits else "unavailable"
+            break
         except Exception as e:
             logger.error(f"[{team_name}] LLM error: {e}")
             break
@@ -615,7 +622,12 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     # End turn explicitly
     r = requests.post(f"{base_url}/game/{game_id}/end-turn", params={"team_id": team_id}, timeout=5)
     logger.info(f"[{team_name}] Turn ended (status {r.status_code}).")
-    return {"actions_taken": actions_taken, "llm_failed": not llm_ever_succeeded}
+    return {
+        "actions_taken": actions_taken,
+        "llm_failed": not llm_ever_succeeded,
+        "permanent_failure": permanent_failure,
+        "failure_reason": failure_reason,
+    }
 
 
 def _parse_actions(text: str) -> list:

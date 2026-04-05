@@ -1,12 +1,76 @@
 """Commentator agent: fires after every team turn and on turnovers."""
 import logging
+from typing import Optional
 
 import requests
 
-from .llm import call_llm, DEFAULT_MODEL
+from .llm import call_llm, DEFAULT_MODEL, LLMPermanentError
+from . import model_picker
 from .state_summary import summarize_for_commentator
 
 logger = logging.getLogger(__name__)
+
+# Current commentator model + already-tried set for this process. Mutated by
+# set_commentator_model() at match start and by internal fallback logic below.
+_current_commentator_model: str = DEFAULT_MODEL
+_tried_commentator_models: set[str] = set()
+
+
+def set_commentator_model(model: str) -> None:
+    """Set the current commentator model, resetting the tried-models set."""
+    global _current_commentator_model, _tried_commentator_models
+    _current_commentator_model = model
+    _tried_commentator_models = {model}
+
+
+def get_commentator_model() -> str:
+    return _current_commentator_model
+
+
+def _try_swap_commentator(failed_model: str, reason: str) -> Optional[str]:
+    """Mark ``failed_model`` dead and swap in a fallback. Returns the new model or None."""
+    global _current_commentator_model
+    model_picker.mark_model_dead(failed_model, reason)
+    new_model = model_picker.get_fallback_model(_tried_commentator_models)
+    if new_model is None:
+        logger.error("[Dibbler] No untried commentator model left; giving up.")
+        return None
+    logger.warning(
+        "[Dibbler] Commentator swap %s → %s (%s)", failed_model, new_model, reason
+    )
+    _current_commentator_model = new_model
+    _tried_commentator_models.add(new_model)
+    return new_model
+
+
+def _call_with_fallback(system_prompt: str, user_msg: str, model: Optional[str]) -> Optional[str]:
+    """Call the LLM, swapping models on a permanent error. Returns the text or None."""
+    global _current_commentator_model
+    # Prefer the module-level model once a swap has happened — the caller is
+    # likely still passing the original (now dead) model each turn.
+    current = _current_commentator_model or model or DEFAULT_MODEL
+    _current_commentator_model = current
+    _tried_commentator_models.add(current)
+    try:
+        return call_llm(system_prompt, user_msg, current)
+    except LLMPermanentError as e:
+        reason = "out_of_credits" if e.out_of_credits else "unavailable"
+        logger.warning("[Dibbler] Commentary permanent error on %s: %s", current, e)
+        if e.out_of_credits:
+            # Global condition — no swap will help.
+            model_picker.mark_model_dead(current, "out_of_credits")
+            return None
+        new_model = _try_swap_commentator(current, reason)
+        if new_model is None:
+            return None
+        try:
+            return call_llm(system_prompt, user_msg, new_model)
+        except Exception as e2:
+            logger.warning("[Dibbler] Commentary retry on %s failed: %s", new_model, e2)
+            return None
+    except Exception as e:
+        logger.warning("[Dibbler] Commentary failed: %s", e)
+        return None
 
 SYSTEM_PROMPT = """\
 You are Cut-Me-Own-Throat Dibbler, Licensed Match Commentator (certificate issued by the \
@@ -78,12 +142,11 @@ def comment(
         had_turnover=had_turnover,
         previous_lines=previous_lines,
     )
-    try:
-        line = call_llm(SYSTEM_PROMPT, summary, model).strip()
+    response = _call_with_fallback(SYSTEM_PROMPT, summary, model)
+    if response:
+        line = response.strip()
         if line:
             _post(game_id, line, base_url)
-    except Exception as e:
-        logger.warning(f"[Dibbler] Commentary failed: {e}")
 
 
 def final_comment(
@@ -107,12 +170,11 @@ def final_comment(
         "Be specific about the result. Reference the crowd, your remaining pie stock, "
         "and whether today was good for business. End on commercial optimism."
     )
-    try:
-        line = call_llm(SYSTEM_PROMPT, prompt, model).strip()
+    response = _call_with_fallback(SYSTEM_PROMPT, prompt, model)
+    if response:
+        line = response.strip()
         if line:
             _post(game_id, line, base_url)
-    except Exception as e:
-        logger.warning(f"[Dibbler] Final comment failed: {e}")
 
 
 def _post(game_id: str, content: str, base_url: str) -> None:

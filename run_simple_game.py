@@ -69,6 +69,42 @@ _MANUAL_MODEL_OVERRIDE = bool(
     and not os.getenv("OPENROUTER_MODELS")
 )
 
+# ── service status helper ─────────────────────────────────────────────────
+
+_last_published_status: str | None = None
+
+
+def _publish_service_status(status: str, reason: str | None = None) -> None:
+    """Push the current service status to the API so the UI can react.
+
+    Admin key is read from ADMIN_API_KEY env var; if unset, we log and skip.
+    """
+    global _last_published_status
+    if status == _last_published_status:
+        return
+    admin_key = os.getenv("ADMIN_API_KEY")
+    if not admin_key:
+        logger.warning(
+            "_publish_service_status(%s): ADMIN_API_KEY unset — cannot notify server.", status,
+        )
+        _last_published_status = status
+        return
+    try:
+        r = requests.post(
+            f"{SERVER_URL}/admin/service-status",
+            params={"status": status, "reason": reason or ""},
+            headers={"X-Admin-Key": admin_key},
+            timeout=5,
+        )
+        if r.status_code < 400:
+            logger.info("_publish_service_status: %s → server OK", status)
+            _last_published_status = status
+        else:
+            logger.warning("_publish_service_status: server returned %d: %s", r.status_code, r.text[:200])
+    except Exception as exc:
+        logger.warning("_publish_service_status: failed to notify server: %s", exc)
+
+
 # ── server ─────────────────────────────────────────────────────────────────
 
 def start_server() -> subprocess.Popen:
@@ -135,8 +171,11 @@ def run_setup() -> None:
 
 def run_game() -> None:
     from simple_agents.player import play_turn
-    from simple_agents.commentator import comment, final_comment
-    from simple_agents.model_picker import get_fallback_model
+    from simple_agents.commentator import comment, final_comment, set_commentator_model
+    from simple_agents.model_picker import get_fallback_model, mark_model_dead, get_service_status
+
+    # Initialise the commentator's live model for this match so it can swap internally.
+    set_commentator_model(COMMENTATOR_MODEL)
 
     logger.info("=== GAME LOOP ===")
 
@@ -183,25 +222,38 @@ def run_game() -> None:
         # Hot-swap the team's model if it keeps producing nothing usable.
         # Skipped when TEAM1_MODEL/TEAM2_MODEL were set manually without a
         # pool override — the user picked that model deliberately.
+        permanent = result.get("permanent_failure")
+        failure_reason = result.get("failure_reason") or "unavailable"
         if result.get("llm_failed"):
             consecutive_llm_failures[active_team_id] += 1
             logger.warning(
-                "[%s] LLM turn failed (%d/%d) with model=%s",
+                "[%s] LLM turn failed (%d/%d) with model=%s%s",
                 cfg["team_name"],
                 consecutive_llm_failures[active_team_id],
                 SWAP_AFTER_FAILURES,
                 cfg["model"],
+                " [permanent]" if permanent else "",
             )
+            # Permanent error → ban the model globally *now*; transient errors
+            # still need to accumulate before we swap.
+            if permanent:
+                mark_model_dead(cfg["model"], failure_reason)
+                # If this flipped the service status, notify the UI immediately.
+                current_status = get_service_status()
+                if current_status != "ok":
+                    _publish_service_status(current_status, failure_reason)
+            threshold = 1 if permanent else SWAP_AFTER_FAILURES
             if (
-                consecutive_llm_failures[active_team_id] >= SWAP_AFTER_FAILURES
+                consecutive_llm_failures[active_team_id] >= threshold
                 and not _MANUAL_MODEL_OVERRIDE
             ):
                 new_model = get_fallback_model(tried_models[active_team_id])
                 if new_model:
                     logger.warning(
-                        "[%s] Swapping model %s → %s after %d consecutive failures",
+                        "[%s] Swapping model %s → %s after %d failure(s)%s",
                         cfg["team_name"], cfg["model"], new_model,
                         consecutive_llm_failures[active_team_id],
+                        " [permanent]" if permanent else "",
                     )
                     cfg["model"] = new_model
                     tried_models[active_team_id].add(new_model)
@@ -277,6 +329,19 @@ def main() -> None:
     wait_for_server()
     logger.info(f"Web UI:   http://192.168.4.57:{PORT}/ui")
     logger.info(f"API docs: http://192.168.4.57:{PORT}/docs")
+
+    # Probe every pool model once — drop dead ones and detect out-of-credits.
+    from simple_agents.model_picker import validate_pool, get_service_status
+    validate_pool()
+    status = get_service_status()
+    _publish_service_status(status)
+    if status != "ok":
+        logger.error(
+            "Startup model validation failed (status=%s) — entering maintenance mode.", status,
+        )
+        # Keep the API up so the UI shows the maintenance screen, but don't launch matches.
+        while True:
+            time.sleep(60)
 
     if _MANUAL_MODEL_OVERRIDE:
         logger.info(
