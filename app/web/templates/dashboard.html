@@ -78,9 +78,11 @@
             display: flex;
             gap: 0.35rem;
             align-items: center;
-            flex-shrink: 0;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             margin-left: auto;
+            min-width: 0;
+            max-width: 100%;
         }
 
         header .score-line {
@@ -166,6 +168,10 @@
                 flex-wrap: wrap;
                 justify-content: flex-end;
                 gap: 0.2rem;
+            }
+
+            #status-turn {
+                max-width: 60vw;
             }
 
             /* Score line takes its own full-width second row */
@@ -389,6 +395,10 @@
             background: rgba(73, 50, 24, 0.5);
             color: var(--muted);
             white-space: nowrap;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .status-chip.danger {
