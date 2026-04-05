@@ -136,7 +136,7 @@ def dispatch_hermes_agents() -> None:
             [
                 "hermes", "chat",
                 "-q", context,
-                "-m", "qwen/qwen3.6-plus:free",
+                "-m", "qwen/qwen3-8b:free",
                 "--provider", "openrouter",
                 "-s", "ankh-morpork-player",
                 "-Q",
@@ -154,7 +154,7 @@ def dispatch_hermes_agents() -> None:
         [
             "hermes", "chat",
             "-q", COMMENTATOR_CONTEXT,
-            "-m", "qwen/qwen3.6-plus:free",
+            "-m", "qwen/qwen3-8b:free",
             "--provider", "openrouter",
             "-s", "ankh-morpork-commentator",
             "-Q",
