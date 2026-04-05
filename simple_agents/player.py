@@ -584,6 +584,10 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
                     logger.info(f"[{team_name}] Turnover — server ended turn.")
                     return
 
+                if result.get("details", {}).get("turn_ended"):
+                    logger.info(f"[{team_name}] Touchdown — server ended turn.")
+                    return
+
                 if ok:
                     last_failure = None
                     last_action = None
