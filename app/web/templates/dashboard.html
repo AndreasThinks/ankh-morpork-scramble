@@ -2720,6 +2720,7 @@
             for (const [playerId, pos] of Object.entries(currentPositions)) {
                 const player = state.players[playerId];
                 if (!player) continue;
+                if (player.state !== 'standing') continue;
                 const isTeam1 = player.team_id === state.team1.id;
                 for (let dx = -1; dx <= 1; dx++) {
                     for (let dy = -1; dy <= 1; dy++) {
