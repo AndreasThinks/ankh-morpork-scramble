@@ -32,6 +32,8 @@ Action formats for the "action" field:
             in VALID ACTIONS. Each step must be adjacent (1 square) to the previous.
   Block:    {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
   Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
+            target_position must be exactly 1 square away (adjacent) to target_player_id's position.
+            Only charge targets listed under CHARGEABLE TARGETS in VALID ACTIONS are reachable.
    Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
    Handoff:  {"action_type":"quick_pass","player_id":"...","target_receiver_id":"..."}
    Standup:  {"action_type":"stand_up","player_id":"..."}
@@ -395,12 +397,63 @@ def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> s
                  target_descs.append(f"[{tpid}] {trole} at ({tx},{ty})")
              lines.append(f"  - [{attacker_pid}] {role} at ({x},{y}) can scuffle: {'; '.join(target_descs)}")
 
-     # One-per-turn special actions
-     specials = []
+     # Charge: enumerate reachable targets so the LLM doesn't guess
+     lines.append("")
      if valid_actions.get("can_charge"):
-         specials.append("CHARGE (move + block in one action) — not yet used this turn")
+         lines.append("CHARGE (move + block in one action) — not yet used this turn.")
+         lines.append("  To charge: move your player to a square adjacent to the target, then block.")
+         lines.append("  target_position must be exactly 1 square away from target_player_id.")
+         lines.append("  CHARGEABLE TARGETS (only these are reachable this action):")
+
+         # Build opponent position lookup
+         opp_positions = {}
+         for pid, pdata in players.items():
+             if pdata.get("team_id") != team_id:
+                 ppos = player_positions.get(pid) or {}
+                 if ppos:
+                     opp_positions[pid] = ppos
+
+         has_any_charge = False
+         for pid in movable:
+             p = players.get(pid) or {}
+             pos = player_positions.get(pid) or {}
+             if p.get("has_acted"):
+                 continue
+             position_data = p.get("position") or {}
+             role = position_data.get("role", pid)
+             x, y = pos.get("x", "?"), pos.get("y", "?")
+
+             reachable = reachable_map.get(pid) or []
+             reachable_set = {(s["x"], s["y"]) for s in reachable}
+
+             charge_opts = []
+             for opp_pid, opp_pos in opp_positions.items():
+                 ox, oy = opp_pos.get("x"), opp_pos.get("y")
+                 if ox is None or oy is None:
+                     continue
+                 opp_pdata = players.get(opp_pid) or {}
+                 opp_role = (opp_pdata.get("position") or {}).get("role", opp_pid)
+                 adj = [(ox + dx, oy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                        if (dx, dy) != (0, 0) and (ox + dx, oy + dy) in reachable_set]
+                 if adj:
+                     pos_str = ", ".join(f"({ax},{ay})" for ax, ay in adj[:3])
+                     charge_opts.append(f"[{opp_pid}] {opp_role} at ({ox},{oy}) — move to {pos_str}")
+
+             if charge_opts:
+                 has_any_charge = True
+                 lines.append(f"  - [{pid}] {role} at ({x},{y}):")
+                 for opt in charge_opts:
+                     lines.append(f"      {opt}")
+             else:
+                 lines.append(f"  - [{pid}] {role} at ({x},{y}): no opponents within charge range")
+
+         if not has_any_charge:
+             lines.append("  (No player can reach any opponent this turn for a charge.)")
      else:
-         specials.append("CHARGE — already used this turn (only once allowed)")
+         lines.append("CHARGE — already used this turn (only once allowed).")
+
+     # Other one-per-turn special actions
+     specials = []
      if valid_actions.get("can_hurl"):
          specials.append("HURL (pass the ball) — not yet used this turn")
      else:
@@ -411,7 +464,7 @@ def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> s
          specials.append("QUICK PASS — already used this turn")
 
      lines.append("")
-     lines.append("One-per-turn special actions:")
+     lines.append("Other one-per-turn special actions:")
      for s in specials:
          lines.append(f"  - {s}")
 
@@ -483,6 +536,19 @@ def _build_failure_note(last_failure: str, last_action: dict | None, state: dict
                  lines.append("    -> This player is off the pitch and cannot act.")
              if state_val == "stunned":
                  lines.append("    -> This player is stunned and cannot act.")
+
+         # If it was a charge or scuffle, note adjacency constraint
+         if action_type in ("charge", "scuffle"):
+             target_id = last_action.get("target_player_id")
+             if target_id:
+                 tpos = player_positions.get(target_id) or {}
+                 tx, ty = tpos.get("x"), tpos.get("y")
+                 if tx is not None:
+                     lines.append(f"  -> For charge/scuffle, your player must be in a square")
+                     lines.append(f"     directly adjacent (1 square) to [{target_id}] at ({tx},{ty}).")
+                     lines.append(f"     For charge: check CHARGEABLE TARGETS above — only listed targets are reachable.")
+             if action_type == "charge":
+                 lines.append(f"  -> target_position must be a square adjacent to target_player_id, not the target's own square.")
 
          # If it was a move, note path length constraint
          if action_type == "move":
