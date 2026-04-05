@@ -836,6 +836,17 @@
             gap: 0.4rem;
             overflow-y: auto;
             min-height: 0;
+            transition: border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .team-sidebar.active-turn-blue {
+            border-color: var(--accent-blue);
+            box-shadow: 0 24px 60px var(--panel-shadow), 0 0 18px rgba(63, 124, 172, 0.45);
+        }
+
+        .team-sidebar.active-turn-orange {
+            border-color: var(--accent-orange);
+            box-shadow: 0 24px 60px var(--panel-shadow), 0 0 18px rgba(196, 109, 40, 0.45);
         }
 
         .sidebar-team-name {
@@ -3016,6 +3027,13 @@
             : activeTeamId === state.team2?.id
             ? 'var(--accent-orange)'
             : 'rgba(217,180,91,0.3)';
+
+        const team1Panel = document.getElementById('team1-thoughts-panel');
+        const team2Panel = document.getElementById('team2-thoughts-panel');
+        if (team1Panel && team2Panel) {
+            team1Panel.classList.toggle('active-turn-blue', activeTeamId === state.team1?.id);
+            team2Panel.classList.toggle('active-turn-orange', activeTeamId === state.team2?.id);
+        }
 
         let borderRect = svg.querySelector('[data-role="active-border"]');
         if (!borderRect) {
