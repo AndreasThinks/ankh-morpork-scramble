@@ -352,6 +352,35 @@ class TestGameStateValidator:
         assert is_valid is False
         assert "no movement remaining" in error.lower()
 
+    def test_validate_move_action_already_acted(self, simple_game_state):
+        """Should reject move when player has already acted this turn"""
+        active_team = simple_game_state.get_active_team()
+        player_id = active_team.player_ids[0]
+        player = simple_game_state.get_player(player_id)
+
+        # Simulate the player having already taken an action this turn
+        player.has_acted = True
+
+        action = ActionRequest(
+            action_type=ActionType.MOVE,
+            player_id=player_id,
+            target_position=Position(x=5, y=8)
+        )
+
+        is_valid, error = GameStateValidator.validate_move_action(
+            simple_game_state, action
+        )
+        assert is_valid is False
+        assert "already acted" in error.lower()
+
+        # After reset_turn, the same move should validate
+        player.reset_turn()
+        is_valid, error = GameStateValidator.validate_move_action(
+            simple_game_state, action
+        )
+        assert is_valid is True
+        assert error is None
+
     def test_validate_move_action_occupied_target(self, simple_game_state):
         """Should reject move to occupied position"""
         active_team = simple_game_state.get_active_team()

@@ -697,11 +697,11 @@ def get_valid_actions(game_id: str):
     for player_id in active_team.player_ids:
         player = game_state.get_player(player_id)
         
-        if player.is_standing and player.movement_remaining > 0:
+        if player.is_standing and player.movement_remaining > 0 and not player.has_acted:
             movable_players.append(player_id)
-        
+
         # Find blockable targets for this player
-        if player.is_standing:
+        if player.is_standing and not player.has_acted:
             player_pos = game_state.pitch.player_positions.get(player_id)
             if player_pos:
                 targets = []
