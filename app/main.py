@@ -182,7 +182,7 @@ app.include_router(versus_router, prefix="/versus")
 @app.get("/versus/ui", include_in_schema=False)
 def redirect_versus_ui():
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/versus/watch", status_code=301)
+    return RedirectResponse(url="/versus", status_code=301)
 
 
 @app.get("/health")
@@ -1217,11 +1217,45 @@ def versus_lobby_public_status():
             "SELECT a.name FROM lobby l JOIN agents a ON l.agent_id = a.agent_id "
             "WHERE l.status='waiting' ORDER BY l.joined_at ASC"
         ).fetchall()
+        # Get active game details for spectators
+        active_rows = conn.execute(
+            "SELECT ga.game_id, ga.team_id, a.name "
+            "FROM game_agents ga "
+            "JOIN agents a ON ga.agent_id = a.agent_id "
+            "JOIN lobby l ON ga.agent_id = l.agent_id "
+            "WHERE l.status IN ('matched', 'playing') "
+            "ORDER BY ga.game_id, ga.team_id"
+        ).fetchall()
+
+    # Group active game rows by game_id and enrich with live state
+    games_by_id: dict[str, dict] = {}
+    for row in active_rows:
+        gid = row["game_id"]
+        if gid not in games_by_id:
+            games_by_id[gid] = {"game_id": gid}
+        games_by_id[gid][row["team_id"] + "_name"] = row["name"]
+
+    active_games = []
+    for gid, info in games_by_id.items():
+        gs = game_manager.games.get(gid)
+        if gs is None:
+            continue  # game already concluded and cleaned up
+        info["team1_score"] = gs.team1.score
+        info["team2_score"] = gs.team2.score
+        info["phase"] = gs.phase.value if hasattr(gs.phase, "value") else str(gs.phase)
+        if gs.turn:
+            info["half"] = gs.turn.half
+            info["turn"] = gs.turn.team_turn
+        else:
+            info["half"] = None
+            info["turn"] = None
+        active_games.append(info)
 
     return {
         "waiting": waiting,
         "active_players": matched,
         "waiting_agents": [r["name"] for r in waiting_agents],
+        "active_games": active_games,
     }
 
 
