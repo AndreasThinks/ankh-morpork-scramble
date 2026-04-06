@@ -24,12 +24,12 @@ _dead_models: set[str] = set()
 _service_status: str = "ok"  # one of: "ok", "out_of_credits", "no_models"
 
 MODEL_POOL = [
-    "qwen/qwen3-8b:free",
-    "qwen/qwen3-14b:free",
     "google/gemma-3-12b-it:free",
     "google/gemma-3-27b-it:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
     "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen3-14b:free",
+    "qwen/qwen3-8b:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
     "mistralai/mistral-nemo:free",
     "microsoft/phi-4:free",
     "deepseek/deepseek-r1-0528:free",

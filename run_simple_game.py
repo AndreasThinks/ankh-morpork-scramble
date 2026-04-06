@@ -49,17 +49,17 @@ TEAM_CONFIGS = {
     "team1": {
         "team_id": "team1",
         "team_name": "City Watch Constables",
-        "model": os.getenv("TEAM1_MODEL", "qwen/qwen3-8b:free"),
+        "model": os.getenv("TEAM1_MODEL", "google/gemma-3-12b-it:free"),
         "system_prompt": os.getenv("TEAM1_PROMPT"),  # None → default in player.py
     },
     "team2": {
         "team_id": "team2",
         "team_name": "Unseen University Adepts",
-        "model": os.getenv("TEAM2_MODEL", "qwen/qwen3-8b:free"),
+        "model": os.getenv("TEAM2_MODEL", "google/gemma-3-12b-it:free"),
         "system_prompt": os.getenv("TEAM2_PROMPT"),
     },
 }
-COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "qwen/qwen3-8b:free")
+COMMENTATOR_MODEL = os.getenv("COMMENTATOR_MODEL", "google/gemma-3-12b-it:free")
 
 # Use the tournament model picker unless TEAM1_MODEL / TEAM2_MODEL are set AND
 # OPENROUTER_MODELS is NOT set.  If OPENROUTER_MODELS is present it always wins —
@@ -285,13 +285,22 @@ def run_game() -> None:
 
         time.sleep(0.3)
 
+def trigger_rematch() -> None:
+    """Call the /rematch endpoint to reset the game to setup phase."""
+    try:
+        r = requests.post(f"{SERVER_URL}/game/{GAME_ID}/rematch", timeout=10)
+        logger.info(f"Rematch triggered (status {r.status_code})")
+    except Exception as e:
+        logger.warning(f"Failed to trigger rematch: {e}")
+
+
 def wait_for_rematch() -> None:
     """Poll until the game returns to setup phase after rematch."""
     logger.info("Waiting for rematch to reset to setup phase...")
-    timeout_minutes = int(os.getenv("REMATCH_TIMEOUT_MINUTES", "0"))
+    timeout_minutes = int(os.getenv("REMATCH_TIMEOUT_MINUTES", "5"))
     max_iterations = (timeout_minutes * 60 // 5) if timeout_minutes > 0 else None
     iterations = 0
-    
+
     while True:
         try:
             state = requests.get(f"{SERVER_URL}/game/{GAME_ID}").json()
@@ -300,10 +309,10 @@ def wait_for_rematch() -> None:
                 return
         except Exception as e:
             logger.warning(f"Error polling for rematch: {e}")
-        
+
         if max_iterations and iterations >= max_iterations:
             raise RuntimeError(f"Timed out waiting for Play Again after {timeout_minutes} minutes")
-        
+
         iterations += 1
         time.sleep(5)
 
@@ -363,6 +372,7 @@ def main() -> None:
             logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
         run_setup()
         run_game()
+        trigger_rematch()
         wait_for_rematch()
 
 

@@ -9,7 +9,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "qwen/qwen3-8b:free"
+DEFAULT_MODEL = "google/gemma-3-12b-it:free"
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # Transient HTTP status codes worth retrying
