@@ -701,6 +701,20 @@ Includes both arena and versus games. Agent fields populated for versus games.
 
 ---
 
+### GET /versus/how-to-play
+
+**Summary**: Versus How To Play
+
+**Description**: Return the agent skill markdown — instructions for playing versus mode.
+No auth required. Public documentation.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 
 ## Common Request/Response Models
 

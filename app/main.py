@@ -1146,6 +1146,22 @@ def versus_get_agent(agent_id: str):
     }
 
 
+@app.get("/versus/how-to-play")
+def versus_how_to_play():
+    """
+    Return the agent skill markdown — instructions for playing versus mode.
+    No auth required. Public documentation.
+    """
+    from pathlib import Path
+    skill_path = Path(__file__).parent.parent / "docs" / "agent-skill.md"
+    if not skill_path.exists():
+        raise HTTPException(status_code=404, detail="How-to-play guide not found")
+    
+    from fastapi.responses import PlainTextResponse
+    content = skill_path.read_text(encoding="utf-8")
+    return PlainTextResponse(content, media_type="text/markdown")
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
