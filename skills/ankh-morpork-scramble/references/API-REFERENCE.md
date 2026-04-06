@@ -353,7 +353,7 @@ Returns:
     PurchaseResult with updated budget status
 
 **Parameters**:
-- `game_id` (path): string *required*- `team_id` (path): string *required*- `position_key` (query): string *required*
+- `game_id` (path): string *required*- `team_id` (path): string *required*- `position_key` (query): string *required*- `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response
@@ -375,7 +375,7 @@ Returns:
     PurchaseResult with updated budget status
 
 **Parameters**:
-- `game_id` (path): string *required*- `team_id` (path): string *required*
+- `game_id` (path): string *required*- `team_id` (path): string *required*- `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response
@@ -390,7 +390,7 @@ Returns:
 **Description**: Place players on the pitch during setup
 
 **Parameters**:
-- `game_id` (path): string *required*
+- `game_id` (path): string *required*- `x-agent-token` (header): 
 **Request Body**: `application/json`
 
 **Responses**:
@@ -421,7 +421,7 @@ Returns:
 **Description**: Execute a game action
 
 **Parameters**:
-- `game_id` (path): string *required*
+- `game_id` (path): string *required*- `x-agent-token` (header): 
 **Request Body**: `application/json`
 
 **Responses**:
@@ -444,7 +444,7 @@ Raises HTTP 400 if the game has already concluded, if no turn is active,
 or if team_id doesn't match the active team.
 
 **Parameters**:
-- `game_id` (path): string *required*- `team_id` (query): 
+- `game_id` (path): string *required*- `team_id` (query): - `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response
@@ -459,7 +459,7 @@ or if team_id doesn't match the active team.
 **Description**: Use a team re-roll
 
 **Parameters**:
-- `game_id` (path): string *required*- `team_id` (query): string *required*
+- `game_id` (path): string *required*- `team_id` (query): string *required*- `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response
@@ -550,7 +550,7 @@ Returns path with detailed risk information including:
 **Description**: Mark a team as joined
 
 **Parameters**:
-- `game_id` (path): string *required*- `team_id` (query): string *required*
+- `game_id` (path): string *required*- `team_id` (query): string *required*- `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response
@@ -565,7 +565,7 @@ Returns path with detailed risk information including:
 **Description**: Send a message in the game
 
 **Parameters**:
-- `game_id` (path): string *required*- `sender_id` (query): string *required*- `sender_name` (query): string *required*- `content` (query): string *required*
+- `game_id` (path): string *required*- `sender_id` (query): string *required*- `sender_name` (query): string *required*- `content` (query): string *required*- `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Query
+from fastapi import Depends, FastAPI, HTTPException, Header, Query
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
@@ -36,6 +36,7 @@ from app.models.leaderboard import LeaderboardResponse
 from app.models.agent import AgentIdentity, AgentContext, JoinRequest, JoinResponse, LobbyStatusResponse
 from app.state.agent_registry import AgentRegistry, init_db
 from app.state.lobby import LobbyManager
+from app.api.versus_auth import optional_agent_auth
 
 # Global game manager instance
 game_manager = GameManager()
@@ -525,7 +526,12 @@ def get_available_positions(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/team/{team_id}/buy-player", response_model=PurchaseResult)
-def buy_player(game_id: str, team_id: str, position_key: str):
+def buy_player(
+    game_id: str,
+    team_id: str,
+    position_key: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """
     Purchase a player for a team during setup phase
 
@@ -537,6 +543,8 @@ def buy_player(game_id: str, team_id: str, position_key: str):
     Returns:
         PurchaseResult with updated budget status
     """
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only buy players for your own team")
     try:
         result = game_manager.buy_player(game_id, team_id, position_key)
         return result
@@ -545,7 +553,11 @@ def buy_player(game_id: str, team_id: str, position_key: str):
 
 
 @app.post("/game/{game_id}/team/{team_id}/buy-reroll", response_model=PurchaseResult)
-def buy_reroll(game_id: str, team_id: str):
+def buy_reroll(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """
     Purchase a team reroll during setup phase
 
@@ -556,6 +568,8 @@ def buy_reroll(game_id: str, team_id: str):
     Returns:
         PurchaseResult with updated budget status
     """
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only buy rerolls for your own team")
     try:
         result = game_manager.buy_reroll(game_id, team_id)
         return result
@@ -564,8 +578,14 @@ def buy_reroll(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/place-players", response_model=GameState)
-def place_players(game_id: str, request: SetupRequest):
+def place_players(
+    game_id: str,
+    request: SetupRequest,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Place players on the pitch during setup"""
+    if agent_ctx and agent_ctx.team_id != request.team_id:
+        raise HTTPException(status_code=403, detail="You can only place players for your own team")
     try:
         game_state = game_manager.place_players(
             game_id,
@@ -596,11 +616,24 @@ def start_game(
 
 
 @app.post("/game/{game_id}/action", response_model=ActionResult)
-def execute_action(game_id: str, action: ActionRequest):
+def execute_action(
+    game_id: str,
+    action: ActionRequest,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Execute a game action"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    # Versus auth: confirm it's this agent's turn
+    if agent_ctx and game_state.turn:
+        active_team = game_state.get_active_team()
+        if agent_ctx.team_id != active_team.id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"It is not your turn (active team: {active_team.id})"
+            )
     
     # Verify player belongs to active team
     if game_state.turn and not game_state.is_player_on_active_team(action.player_id):
@@ -639,7 +672,11 @@ def execute_action(game_id: str, action: ActionRequest):
 
 
 @app.post("/game/{game_id}/end-turn", response_model=GameState)
-def end_turn(game_id: str, team_id: Optional[str] = None):
+def end_turn(
+    game_id: str,
+    team_id: Optional[str] = None,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Manually end the current turn.
 
     If team_id is provided, validates that it matches the currently active team
@@ -653,6 +690,10 @@ def end_turn(game_id: str, team_id: Optional[str] = None):
         game_state = game_manager.get_game(game_id)
         if not game_state:
             raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+
+        # Versus auth: use agent's team_id if available, override client param
+        if agent_ctx:
+            team_id = agent_ctx.team_id
 
         if team_id is not None and game_state.turn:
             active_team = game_state.get_active_team()
@@ -671,11 +712,18 @@ def end_turn(game_id: str, team_id: Optional[str] = None):
 
 
 @app.post("/game/{game_id}/reroll")
-def use_reroll(game_id: str, team_id: str):
+def use_reroll(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Use a team re-roll"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only use rerolls for your own team")
     
     try:
         team = game_state.get_team_by_id(team_id)
@@ -839,11 +887,18 @@ def suggest_path(game_id: str, player_id: str, target_x: int, target_y: int):
 
 
 @app.post("/game/{game_id}/join")
-def join_game(game_id: str, team_id: str):
+def join_game(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Mark a team as joined"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only join as your own team")
     
     try:
         if team_id == game_state.team1.id:
@@ -867,11 +922,22 @@ def join_game(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/message")
-def send_message(game_id: str, sender_id: str, sender_name: str, content: str):
+def send_message(
+    game_id: str,
+    sender_id: str,
+    sender_name: str,
+    content: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Send a message in the game"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    # If agent_ctx present, use authenticated identity instead of trusting query params
+    if agent_ctx:
+        sender_id = agent_ctx.agent_id
+        sender_name = agent_ctx.name
     
     try:
         message = game_state.add_message(sender_id, sender_name, content)
