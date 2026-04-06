@@ -256,6 +256,44 @@ def test_rush_extends_movement():
     assert len(rush_rolls) == 1
 
 
+def test_find_path_to_routes_around_obstacle():
+    """find_path_to() should find a path even when the straight line is blocked."""
+    handler = MovementHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    # p1 at (10,7) wants to reach (12,7); (11,7) is blocked by an opponent
+    player = create_test_player("p1", "team1", ma=6)
+    blocker = create_test_player("blocker", "team2", ma=6)
+    game_state.players["p1"] = player
+    game_state.players["blocker"] = blocker
+    game_state.pitch.player_positions["p1"] = Position(x=10, y=7)
+    game_state.pitch.player_positions["blocker"] = Position(x=11, y=7)
+
+    target = Position(x=12, y=7)
+    path = handler.find_path_to(game_state, "p1", target)
+
+    assert path is not None, "Should find an alternate route around the blocker"
+    assert path[-1] == target, "Path must end at the target"
+    # None of the intermediate squares should be occupied
+    for step in path:
+        if step != target:
+            assert not game_state.pitch.is_occupied(step), f"Step {step} is occupied"
+
+
+def test_find_path_to_returns_none_when_unreachable():
+    """find_path_to() returns None when the target is beyond movement range."""
+    handler = MovementHandler(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    player = create_test_player("p1", "team1", ma=2)
+    game_state.players["p1"] = player
+    game_state.pitch.player_positions["p1"] = Position(x=0, y=0)
+
+    # Target is 10 squares away — well beyond MA 2 + 2 rush
+    path = handler.find_path_to(game_state, "p1", Position(x=10, y=0))
+    assert path is None
+
+
 def test_cannot_rush_more_than_2_squares():
     """Test that rushing is limited to 2 squares"""
     handler = MovementHandler(DiceRoller(seed=42))

@@ -179,11 +179,23 @@ class ActionExecutor:
             action.path
         )
 
+        if not success and error == "Position is occupied" and not dice_rolls:
+            # The path went through a blocked intermediate square but the
+            # destination may still be reachable via a different route.
+            # Re-run BFS to find a valid path and retry transparently.
+            corrected = self.movement.find_path_to(
+                game_state, action.player_id, final_pos
+            )
+            if corrected:
+                success, dice_rolls, error = self.movement.move_player(
+                    game_state, action.player_id, corrected
+                )
+
         if not success:
             # Movement failed - only turnover if dice rolls failed
             turnover = len(dice_rolls) > 0  # Turnover only if a roll was made and failed
             ball_dropped = False
-            
+
             if dice_rolls:
                 # Log the failed dodge/rush that caused the turnover
                 failed_roll = dice_rolls[-1]

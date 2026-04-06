@@ -236,6 +236,66 @@ class MovementHandler:
         
         return True, dice_rolls, None
     
+    def find_path_to(
+        self,
+        game_state: GameState,
+        player_id: str,
+        target_pos: Position,
+    ) -> Optional[list[Position]]:
+        """BFS pathfinding from player's current position to target_pos.
+
+        Returns the list of steps (excluding the starting square) or None if
+        the target is unreachable within the player's remaining movement + 2
+        rush squares.
+        """
+        from collections import deque
+
+        player = game_state.get_player(player_id)
+        start = game_state.pitch.player_positions.get(player_id)
+        if not player or not start:
+            return None
+
+        max_steps = player.movement_remaining + 2
+
+        # prev maps (x, y) → predecessor (x, y) or None for start
+        prev: dict[tuple[int, int], Optional[tuple[int, int]]] = {
+            (start.x, start.y): None
+        }
+        queue: deque[tuple[int, int, int]] = deque([(start.x, start.y, 0)])
+
+        while queue:
+            x, y, steps = queue.popleft()
+
+            if x == target_pos.x and y == target_pos.y:
+                # Reconstruct path (excluding start)
+                path: list[Position] = []
+                cur: Optional[tuple[int, int]] = (x, y)
+                while cur is not None and prev[cur] is not None:
+                    path.append(Position(x=cur[0], y=cur[1]))
+                    cur = prev[cur]
+                path.reverse()
+                return path
+
+            if steps >= max_steps:
+                continue
+
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    if not (0 <= nx < 26 and 0 <= ny < 15):
+                        continue
+                    if (nx, ny) in prev:
+                        continue
+                    npos = Position(x=nx, y=ny)
+                    if game_state.pitch.is_occupied(npos):
+                        continue
+                    prev[(nx, ny)] = (x, y)
+                    queue.append((nx, ny, steps + 1))
+
+        return None
+
     def stand_up_player(self, player: Player) -> tuple[bool, Optional[str]]:
         """Attempt to stand up a prone player"""
         if player.state != PlayerState.PRONE:
