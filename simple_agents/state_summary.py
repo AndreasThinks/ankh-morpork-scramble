@@ -74,7 +74,7 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
             ma_str = f"MA{ma_total}"
 
         flags = []
-        if state_val in ("knocked_out", "casualty"):
+        if state_val in ("knocked_out", "casualty", "sent_off"):
             flags.append("OFF PITCH")
         elif state_val == "stunned":
             flags.append("STUNNED")
@@ -106,7 +106,7 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
         x, y = pos.get("x", "?"), pos.get("y", "?")
         state_val = p.get("state", "standing")
         flags = []
-        if state_val in ("knocked_out", "casualty"):
+        if state_val in ("knocked_out", "casualty", "sent_off"):
             flags.append("OFF PITCH")
         elif state_val == "stunned":
             flags.append("STUNNED")
