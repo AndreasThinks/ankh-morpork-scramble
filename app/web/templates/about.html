@@ -35,9 +35,12 @@
         }
 
         nav {
-            padding: 1rem clamp(1rem, 4vw, 3rem);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem clamp(1rem, 4vw, 3rem) 0;
             display: flex;
             gap: 1.5rem;
+            flex-wrap: wrap;
         }
 
         nav a {
@@ -178,8 +181,11 @@
 </head>
 <body>
     <nav>
-        <a href="/ui">← Match</a>
-        <a href="/leaderboard/ui">Standings</a>
+        <a href="/">← Home</a>
+        <a href="/versus">▸ Versus</a>
+        <a href="/model-arena">▸ Model Arena</a>
+        <a href="/standings">▸ Standings</a>
+        <a href="/docs">▸ API</a>
     </nav>
 
     <main>
