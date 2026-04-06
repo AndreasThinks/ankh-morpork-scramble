@@ -2,6 +2,7 @@
 import logging
 import uuid
 from typing import Optional
+from datetime import datetime, timezone
 from app.models.game_state import GameState, TurnState
 from app.models.team import Team, TEAM_ROSTERS
 from app.models.player import Player, PlayerPosition
@@ -17,6 +18,7 @@ from app.state.action_executor import ActionExecutor
 from app.game.event_logger import EventLogger
 from app.game.log_saver import LogSaver
 from app.state.leaderboard_store import LeaderboardStore
+from app.state.agent_registry import _get_conn, AgentRegistry
 
 
 logger = logging.getLogger("app.game.manager")
@@ -217,6 +219,9 @@ class GameManager:
         event_logger.log_turn_end(current_team_id)
 
         game_state.switch_turn()
+
+        # Reset turn timer for the new turn
+        game_state.turn.turn_started_at = datetime.now(timezone.utc)
 
         # Log turn start for new team (if game not ended)
         if game_state.phase not in [GamePhase.CONCLUDED, GamePhase.INTERMISSION]:
@@ -442,6 +447,36 @@ class GameManager:
             message=f"Successfully purchased team reroll. {budget_status.remaining}g remaining."
         )
 
+    def record_forfeit(self, game_id: str, forfeiting_team_id: str) -> None:
+        """Conclude a versus game as a forfeit loss for the specified team."""
+        game_state = self.get_game(game_id)
+        if not game_state:
+            return
+        if game_state.phase == GamePhase.CONCLUDED:
+            return  # already concluded
+
+        # Set the winning team's score to 1 if it's 0-0 (forfeit = loss)
+        if forfeiting_team_id == game_state.team1.id:
+            if game_state.team2.score == 0:
+                game_state.team2.score = 1
+        else:
+            if game_state.team1.score == 0:
+                game_state.team1.score = 1
+
+        # Conclude the game
+        game_state.phase = GamePhase.CONCLUDED
+
+        logger.warning(
+            "Game %s: %s forfeited (turn timeout). Concluding.",
+            game_id, forfeiting_team_id
+        )
+
+        # Save logs and record result
+        if self.auto_save_logs:
+            self._save_game_logs(game_state)
+        else:
+            self._record_result_if_concluded(game_state)
+
     def check_scoring(self, game_id: str) -> Optional[str]:
         """Check if a team has scored and handle it"""
         game_state = self.get_game(game_id)
@@ -571,9 +606,32 @@ class GameManager:
             winner_model = game_state.team2_model
             winner_team = game_state.team2.name
 
+        # Look up agent assignments for versus games (None for arena games)
+        team1_agent_id = team1_agent_name = None
+        team2_agent_id = team2_agent_name = None
+        try:
+            with _get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT ga.team_id, ga.agent_id, a.name "
+                    "FROM game_agents ga "
+                    "JOIN agents a ON ga.agent_id = a.agent_id "
+                    "WHERE ga.game_id = ?",
+                    (game_state.game_id,)
+                ).fetchall()
+            for row in rows:
+                if row["team_id"] == "team1":
+                    team1_agent_id = row["agent_id"]
+                    team1_agent_name = row["name"]
+                elif row["team_id"] == "team2":
+                    team2_agent_id = row["agent_id"]
+                    team2_agent_name = row["name"]
+        except Exception as exc:
+            logger.warning("Could not look up agent assignments for game %s: %s",
+                           game_state.game_id, exc)
+
         from app.models.leaderboard import GameResult
         result = GameResult(
-            game_id=str(uuid.uuid4()),
+            game_id=game_state.game_id,
             team1_name=game_state.team1.name,
             team1_model=game_state.team1_model or "unknown",
             team1_score=t1_score,
@@ -602,6 +660,10 @@ class GameManager:
             team2_messages_sent=t2_messages_sent,
             team1_total_message_chars=t1_total_message_chars,
             team2_total_message_chars=t2_total_message_chars,
+            team1_agent_id=team1_agent_id,
+            team1_agent_name=team1_agent_name,
+            team2_agent_id=team2_agent_id,
+            team2_agent_name=team2_agent_name,
         )
         
         try:
@@ -611,6 +673,18 @@ class GameManager:
         except Exception as e:
             self._recorded_games.discard(game_state.game_id)
             logger.error("Failed to record leaderboard for %s: %s", game_state.game_id, e)
+
+        # Clean up lobby rows for versus games so active_players count stays accurate
+        try:
+            with _get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM lobby WHERE agent_id IN "
+                    "(SELECT agent_id FROM game_agents WHERE game_id=?)",
+                    (game_state.game_id,)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning("Lobby cleanup failed for game %s: %s", game_state.game_id, e)
 
     def _save_game_logs(self, game_state: GameState) -> None:
         """Save game logs to disk (internal helper)."""

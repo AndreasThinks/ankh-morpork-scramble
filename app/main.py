@@ -4,15 +4,17 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Query
+from fastapi import Depends, FastAPI, HTTPException, Header, Query
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
+from app.web.versus_get_started import router as versus_router
 from app.api.middleware import rate_limiter, sanitize_id
 
 from app.models.game_state import GameState
@@ -33,9 +35,15 @@ from app.state.game_manager import GameManager
 from app.game.statistics import StatisticsAggregator
 from app.models.events import GameStatistics
 from app.models.leaderboard import LeaderboardResponse
+from app.models.agent import AgentIdentity, AgentContext, JoinRequest, JoinResponse, LobbyStatusResponse
+from app.state.agent_registry import AgentRegistry, init_db, _get_conn
+from app.state.lobby import LobbyManager
+from app.api.versus_auth import optional_agent_auth
 
 # Global game manager instance
 game_manager = GameManager()
+agent_registry = AgentRegistry()
+lobby_manager = LobbyManager(game_manager)
 
 # Configure logging early so startup hooks can log useful information
 _LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
@@ -79,6 +87,54 @@ else:
         interactive_game_id
     )
 
+# Turn timeout watcher helper
+def _versus_get_conn():
+    """Helper to get versus.db connection for timeout watcher."""
+    from app.state.agent_registry import _get_conn
+    return _get_conn()
+
+
+async def _turn_timeout_watcher():
+    """Background task: forfeit versus games where a turn has exceeded 5 minutes."""
+    from datetime import timedelta
+    TIMEOUT_MINUTES = 5
+    CHECK_INTERVAL = 60  # seconds
+
+    while True:
+        await asyncio.sleep(CHECK_INTERVAL)
+        try:
+            now = datetime.now(timezone.utc)
+            for game_id, game_state in list(game_manager.games.items()):
+                # Only check versus games (have agent assignments) that are active
+                if game_state.phase not in ("PLAYING", "KICKOFF"):
+                    continue
+                if not game_state.turn:
+                    continue
+                turn_started = game_state.turn.turn_started_at
+                if not turn_started:
+                    continue
+                # Make timezone-aware if naive
+                if turn_started.tzinfo is None:
+                    turn_started = turn_started.replace(tzinfo=timezone.utc)
+                elapsed = now - turn_started
+                if elapsed > timedelta(minutes=TIMEOUT_MINUTES):
+                    # Check this is a versus game
+                    with _versus_get_conn() as conn:
+                        row = conn.execute(
+                            "SELECT agent_id FROM game_agents WHERE game_id=? LIMIT 1",
+                            (game_id,)
+                        ).fetchone()
+                    if row:
+                        active_team = game_state.turn.active_team_id
+                        logger.warning(
+                            "Turn timeout: game %s team %s exceeded %d minutes",
+                            game_id, active_team, TIMEOUT_MINUTES
+                        )
+                        game_manager.record_forfeit(game_id, active_team)
+        except Exception as exc:
+            logger.error("Turn timeout watcher error: %s", exc)
+
+
 # Simple lifespan for FastAPI
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
@@ -86,8 +142,17 @@ async def app_lifespan(app: FastAPI):
     # Startup
     logger.info("FastAPI application starting up...")
     logger.info("Game manager initialized with %d active games", len(game_manager.games))
+    init_db()
+    logger.info("versus.db initialised")
+    
+    # Start turn timeout watcher
+    _timeout_task = asyncio.create_task(_turn_timeout_watcher())
+    logger.info("Turn timeout watcher started")
+    
     yield
+    
     # Shutdown
+    _timeout_task.cancel()
     logger.info("FastAPI application shutting down...")
 
 
@@ -116,13 +181,13 @@ app.middleware("http")(rate_limiter)
 
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
+app.include_router(versus_router, prefix="/versus")
 
 
-@app.get("/", include_in_schema=False)
-def root():
-    """Redirect root to the live dashboard."""
+@app.get("/versus/ui", include_in_schema=False)
+def redirect_versus_ui():
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/ui", status_code=302)
+    return RedirectResponse(url="/versus/watch", status_code=301)
 
 
 @app.get("/health")
@@ -518,7 +583,12 @@ def get_available_positions(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/team/{team_id}/buy-player", response_model=PurchaseResult)
-def buy_player(game_id: str, team_id: str, position_key: str):
+def buy_player(
+    game_id: str,
+    team_id: str,
+    position_key: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """
     Purchase a player for a team during setup phase
 
@@ -530,6 +600,8 @@ def buy_player(game_id: str, team_id: str, position_key: str):
     Returns:
         PurchaseResult with updated budget status
     """
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only buy players for your own team")
     try:
         result = game_manager.buy_player(game_id, team_id, position_key)
         return result
@@ -538,7 +610,11 @@ def buy_player(game_id: str, team_id: str, position_key: str):
 
 
 @app.post("/game/{game_id}/team/{team_id}/buy-reroll", response_model=PurchaseResult)
-def buy_reroll(game_id: str, team_id: str):
+def buy_reroll(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """
     Purchase a team reroll during setup phase
 
@@ -549,6 +625,8 @@ def buy_reroll(game_id: str, team_id: str):
     Returns:
         PurchaseResult with updated budget status
     """
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only buy rerolls for your own team")
     try:
         result = game_manager.buy_reroll(game_id, team_id)
         return result
@@ -557,8 +635,14 @@ def buy_reroll(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/place-players", response_model=GameState)
-def place_players(game_id: str, request: SetupRequest):
+def place_players(
+    game_id: str,
+    request: SetupRequest,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Place players on the pitch during setup"""
+    if agent_ctx and agent_ctx.team_id != request.team_id:
+        raise HTTPException(status_code=403, detail="You can only place players for your own team")
     try:
         game_state = game_manager.place_players(
             game_id,
@@ -575,6 +659,7 @@ def start_game(
     game_id: str,
     team1_model: Optional[str] = None,
     team2_model: Optional[str] = None,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
 ):
     """Start the game"""
     try:
@@ -589,11 +674,24 @@ def start_game(
 
 
 @app.post("/game/{game_id}/action", response_model=ActionResult)
-def execute_action(game_id: str, action: ActionRequest):
+def execute_action(
+    game_id: str,
+    action: ActionRequest,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Execute a game action"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    # Versus auth: confirm it's this agent's turn
+    if agent_ctx and game_state.turn:
+        active_team = game_state.get_active_team()
+        if agent_ctx.team_id != active_team.id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"It is not your turn (active team: {active_team.id})"
+            )
     
     # Verify player belongs to active team
     if game_state.turn and not game_state.is_player_on_active_team(action.player_id):
@@ -632,7 +730,11 @@ def execute_action(game_id: str, action: ActionRequest):
 
 
 @app.post("/game/{game_id}/end-turn", response_model=GameState)
-def end_turn(game_id: str, team_id: Optional[str] = None):
+def end_turn(
+    game_id: str,
+    team_id: Optional[str] = None,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Manually end the current turn.
 
     If team_id is provided, validates that it matches the currently active team
@@ -646,6 +748,10 @@ def end_turn(game_id: str, team_id: Optional[str] = None):
         game_state = game_manager.get_game(game_id)
         if not game_state:
             raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+
+        # Versus auth: use agent's team_id if available, override client param
+        if agent_ctx:
+            team_id = agent_ctx.team_id
 
         if team_id is not None and game_state.turn:
             active_team = game_state.get_active_team()
@@ -664,11 +770,18 @@ def end_turn(game_id: str, team_id: Optional[str] = None):
 
 
 @app.post("/game/{game_id}/reroll")
-def use_reroll(game_id: str, team_id: str):
+def use_reroll(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Use a team re-roll"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only use rerolls for your own team")
     
     try:
         team = game_state.get_team_by_id(team_id)
@@ -832,11 +945,18 @@ def suggest_path(game_id: str, player_id: str, target_x: int, target_y: int):
 
 
 @app.post("/game/{game_id}/join")
-def join_game(game_id: str, team_id: str):
+def join_game(
+    game_id: str,
+    team_id: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Mark a team as joined"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    if agent_ctx and agent_ctx.team_id != team_id:
+        raise HTTPException(status_code=403, detail="You can only join as your own team")
     
     try:
         if team_id == game_state.team1.id:
@@ -860,11 +980,22 @@ def join_game(game_id: str, team_id: str):
 
 
 @app.post("/game/{game_id}/message")
-def send_message(game_id: str, sender_id: str, sender_name: str, content: str):
+def send_message(
+    game_id: str,
+    sender_id: str,
+    sender_name: str,
+    content: str,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
+):
     """Send a message in the game"""
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    
+    # If agent_ctx present, use authenticated identity instead of trusting query params
+    if agent_ctx:
+        sender_id = agent_ctx.agent_id
+        sender_name = agent_ctx.name
     
     try:
         message = game_state.add_message(sender_id, sender_name, content)
@@ -955,6 +1086,164 @@ def rematch_game(game_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── versus mode endpoints ────────────────────────────────────────────────────
+
+@app.post("/versus/join", response_model=JoinResponse)
+def versus_join(request: JoinRequest):
+    """
+    Register a new agent or authenticate a returning one, then join the lobby.
+
+    New agent: provide { name, model (optional) }
+    Returning agent: provide { token }
+
+    Token is returned ONLY on first registration. Save it — it is never shown again.
+    """
+    if request.token:
+        # Returning agent
+        identity = agent_registry.resolve_token(request.token)
+        if not identity:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        raw_token = None
+    elif request.name:
+        # New agent — register
+        if agent_registry.name_taken(request.name):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Name '{request.name}' is already taken. Choose another."
+            )
+        try:
+            identity, raw_token = agent_registry.register(request.name, request.model)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either 'token' (returning agent) or 'name' (new agent)"
+        )
+
+    # Join the lobby
+    result = lobby_manager.join(identity.agent_id)
+
+    # Resolve opponent name if matched
+    opponent_name = None
+    if result.get("opponent_agent_id"):
+        opp = agent_registry.get_by_id(result["opponent_agent_id"])
+        if opp:
+            opponent_name = opp.name
+
+    return JoinResponse(
+        agent_id=identity.agent_id,
+        name=identity.name,
+        token=raw_token,
+        status=result["status"],
+        game_id=result.get("game_id"),
+        team_id=result.get("team_id"),
+        opponent_name=opponent_name,
+    )
+
+
+@app.get("/versus/lobby/status", response_model=LobbyStatusResponse)
+def versus_lobby_status(x_agent_token: Optional[str] = Header(None)):
+    """
+    Poll lobby status for the authenticated agent.
+    Returns waiting / matched / playing / not_in_lobby.
+    """
+    if not x_agent_token:
+        raise HTTPException(status_code=401, detail="X-Agent-Token header required")
+    identity = agent_registry.resolve_token(x_agent_token)
+    if not identity:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    status = lobby_manager.get_status(identity.agent_id)
+
+    return LobbyStatusResponse(
+        agent_id=identity.agent_id,
+        name=identity.name,
+        status=status["status"],
+        game_id=status.get("game_id"),
+        team_id=status.get("team_id"),
+        opponent_name=status.get("opponent_name"),
+    )
+
+
+@app.delete("/versus/lobby/leave")
+def versus_lobby_leave(x_agent_token: Optional[str] = Header(None)):
+    """Remove the authenticated agent from the lobby if waiting."""
+    if not x_agent_token:
+        raise HTTPException(status_code=401, detail="X-Agent-Token header required")
+    identity = agent_registry.resolve_token(x_agent_token)
+    if not identity:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    removed = lobby_manager.leave(identity.agent_id)
+    return {"removed": removed, "agent_id": identity.agent_id}
+
+
+@app.get("/versus/leaderboard", response_model=LeaderboardResponse)
+def versus_leaderboard():
+    """
+    Return aggregated standings by agent, model, and team.
+    Includes both arena and versus games. Agent fields populated for versus games.
+    """
+    return game_manager.leaderboard.get_leaderboard()
+
+
+@app.get("/versus/agents/{agent_id}")
+def versus_get_agent(agent_id: str):
+    """Get public profile for an agent (no token, no token_hash returned)."""
+    identity = agent_registry.get_by_id(agent_id)
+    if not identity:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {
+        "agent_id": identity.agent_id,
+        "name": identity.name,
+        "model": identity.model,
+        "registered_at": identity.registered_at,
+    }
+
+
+@app.get("/versus/lobby/public-status")
+def versus_lobby_public_status():
+    """
+    Public lobby state — no auth required.
+    Used by the dashboard to show current lobby activity.
+    """
+    with _get_conn() as conn:
+        waiting = conn.execute(
+            "SELECT COUNT(*) FROM lobby WHERE status='waiting'"
+        ).fetchone()[0]
+        matched = conn.execute(
+            "SELECT COUNT(*) FROM lobby WHERE status='matched' OR status='playing'"
+        ).fetchone()[0]
+        # Get waiting agent names (public info)
+        waiting_agents = conn.execute(
+            "SELECT a.name FROM lobby l JOIN agents a ON l.agent_id = a.agent_id "
+            "WHERE l.status='waiting' ORDER BY l.joined_at ASC"
+        ).fetchall()
+
+    return {
+        "waiting": waiting,
+        "active_players": matched,
+        "waiting_agents": [r["name"] for r in waiting_agents],
+    }
+
+
+@app.get("/versus/how-to-play")
+def versus_how_to_play():
+    """
+    Return the agent skill markdown — instructions for playing versus mode.
+    No auth required. Public documentation.
+    """
+    from pathlib import Path
+    skill_path = Path(__file__).parent.parent / "docs" / "agent-skill.md"
+    if not skill_path.exists():
+        raise HTTPException(status_code=404, detail="How-to-play guide not found")
+    
+    from fastapi.responses import PlainTextResponse
+    content = skill_path.read_text(encoding="utf-8")
+    return PlainTextResponse(content, media_type="text/markdown")
 
 
 if __name__ == "__main__":

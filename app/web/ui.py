@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.setup.default_game import DEFAULT_GAME_ID
@@ -17,43 +17,50 @@ _templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 router = APIRouter(tags=["ui"])
 
 
-@router.get("/ui", response_class=HTMLResponse)
-def render_dashboard(request: Request, game_id: Optional[str] = None) -> HTMLResponse:
-    """Render the live game dashboard.
+@router.get("/", response_class=HTMLResponse)
+def render_homepage(request: Request) -> HTMLResponse:
+    """Homepage — two lanes: Model Arena and Versus."""
+    return _templates.TemplateResponse(request, "homepage.html", {})
 
-    The dashboard uses simple JavaScript polling to display the current game
-    state, event log, and chat messages for the configured game identifier.
 
-    Args:
-        request: FastAPI request object
-        game_id: Game identifier to monitor. If not provided, uses the appropriate
-                 default based on DEMO_MODE environment variable.
+@router.get("/model-arena", response_class=HTMLResponse)
+def render_model_arena(request: Request) -> HTMLResponse:
+    """Model Arena landing page."""
+    return _templates.TemplateResponse(request, "model_arena.html", {})
 
-    Returns:
-        HTML response with rendered dashboard
-    """
-    # If no game_id provided, use the appropriate default based on DEMO_MODE
+
+@router.get("/model-arena/watch", response_class=HTMLResponse)
+def render_arena_watch(request: Request, game_id: Optional[str] = None) -> HTMLResponse:
+    """Live arena game dashboard (was /ui)."""
     if game_id is None:
         demo_mode = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
         game_id = DEFAULT_GAME_ID if demo_mode else INTERACTIVE_GAME_ID
-    
-    # Allow configuring poll interval via environment variable (in milliseconds)
     poll_interval = int(os.getenv("UI_POLL_INTERVAL", "2500"))
-
     return _templates.TemplateResponse(
-        request,
-        "dashboard.html",
+        request, "dashboard.html",
         {"game_id": game_id, "poll_interval": poll_interval}
     )
 
 
-@router.get("/leaderboard/ui", response_class=HTMLResponse)
-def render_leaderboard(request: Request) -> HTMLResponse:
-    """Render the leaderboard page showing model and team standings."""
+@router.get("/standings", response_class=HTMLResponse)
+def render_standings(request: Request) -> HTMLResponse:
+    """Combined leaderboard (was /leaderboard/ui)."""
     return _templates.TemplateResponse(request, "leaderboard.html", {})
+
+
+# ── Legacy redirects — keep old slugs working ──────────────────────────────
+
+@router.get("/ui")
+def redirect_ui():
+    return RedirectResponse(url="/model-arena/watch", status_code=301)
+
+
+@router.get("/leaderboard/ui")
+def redirect_leaderboard_ui():
+    return RedirectResponse(url="/standings", status_code=301)
 
 
 @router.get("/about", response_class=HTMLResponse)
 def render_about(request: Request) -> HTMLResponse:
-    """Render the about / project info page."""
+    """About page."""
     return _templates.TemplateResponse(request, "about.html", {})

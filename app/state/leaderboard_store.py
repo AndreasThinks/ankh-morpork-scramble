@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Optional
 
 from app.models.leaderboard import (
-    GameResult, ModelLeaderboardEntry, TeamLeaderboardEntry, LeaderboardResponse
+    GameResult, ModelLeaderboardEntry, TeamLeaderboardEntry, LeaderboardResponse,
+    AgentLeaderboardEntry
 )
 
 logger = logging.getLogger("app.leaderboard")
@@ -106,6 +107,7 @@ class LeaderboardStore:
 
         model_map: dict[str, ModelLeaderboardEntry] = {}
         team_map: dict[str, TeamLeaderboardEntry] = {}
+        agent_map: dict[str, AgentLeaderboardEntry] = {}
 
         for r in results:
             # ---- determine outcomes ----
@@ -183,12 +185,69 @@ class LeaderboardStore:
                 else:
                     entry.draws += 1
 
+            # ---- agent aggregation (versus games only) ----
+            for (agent_id, agent_name, model_id, score_for, score_against,
+                 outcome, casualties, blocks,
+                 passes_att, passes_comp,
+                 pickups_att, pickups_succ,
+                 turnovers, failed_dodges,
+                 messages_sent, total_message_chars) in [
+                (
+                    r.team1_agent_id, r.team1_agent_name, r.team1_model,
+                    r.team1_score, r.team2_score, t1_outcome,
+                    r.team1_casualties, r.team1_blocks,
+                    r.team1_passes_attempted, r.team1_passes_completed,
+                    r.team1_pickups_attempted, r.team1_pickups_succeeded,
+                    r.team1_turnovers, r.team1_failed_dodges,
+                    r.team1_messages_sent, r.team1_total_message_chars,
+                ),
+                (
+                    r.team2_agent_id, r.team2_agent_name, r.team2_model,
+                    r.team2_score, r.team1_score, t2_outcome,
+                    r.team2_casualties, r.team2_blocks,
+                    r.team2_passes_attempted, r.team2_passes_completed,
+                    r.team2_pickups_attempted, r.team2_pickups_succeeded,
+                    r.team2_turnovers, r.team2_failed_dodges,
+                    r.team2_messages_sent, r.team2_total_message_chars,
+                ),
+            ]:
+                if not agent_id:
+                    continue  # arena game, no agent identity
+                if agent_id not in agent_map:
+                    agent_map[agent_id] = AgentLeaderboardEntry(
+                        agent_id=agent_id, agent_name=agent_name, model=model_id or "unknown"
+                    )
+                entry = agent_map[agent_id]
+                entry.games += 1
+                entry.goals_for += score_for
+                entry.goals_against += score_against
+                entry.score_diff += score_for - score_against
+                entry.casualties_caused += casualties
+                entry.blocks_thrown += blocks
+                entry.passes_attempted += passes_att
+                entry.passes_completed += passes_comp
+                entry.pickups_attempted += pickups_att
+                entry.pickups_succeeded += pickups_succ
+                entry.turnovers += turnovers
+                entry.failed_dodges += failed_dodges
+                entry.messages_sent += messages_sent
+                entry.total_message_chars += total_message_chars
+                if outcome == "win":
+                    entry.wins += 1
+                elif outcome == "loss":
+                    entry.losses += 1
+                else:
+                    entry.draws += 1
+
+        # Sort agents by wins desc, score_diff desc
+        by_agent = sorted(agent_map.values(), key=lambda e: (-e.wins, -e.score_diff))
         # Sort by wins desc, score_diff desc
         by_model = sorted(model_map.values(), key=lambda e: (-e.wins, -e.score_diff))
         by_team = sorted(team_map.values(), key=lambda e: (-e.wins, -e.score_diff))
 
         return LeaderboardResponse(
             total_games=len(results),
+            by_agent=by_agent,
             by_model=by_model,
             by_team=by_team,
         )
