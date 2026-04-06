@@ -53,6 +53,12 @@ def render_leaderboard(request: Request) -> HTMLResponse:
     return _templates.TemplateResponse(request, "leaderboard.html", {})
 
 
+@router.get("/versus/ui", response_class=HTMLResponse)
+def render_versus_dashboard(request: Request) -> HTMLResponse:
+    """Render the versus mode live dashboard."""
+    return _templates.TemplateResponse(request, "versus.html", {})
+
+
 @router.get("/about", response_class=HTMLResponse)
 def render_about(request: Request) -> HTMLResponse:
     """Render the about / project info page."""

@@ -81,6 +81,19 @@ Returns:
 
 ---
 
+### GET /versus/ui
+
+**Summary**: Render Versus Dashboard
+
+**Description**: Render the versus mode live dashboard.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 ### GET /about
 
 **Summary**: Render About
@@ -711,6 +724,20 @@ Includes both arena and versus games. Agent fields populated for versus games.
 **Responses**:
 - **200**: Successful Response
 - **422**: Validation Error
+
+---
+
+### GET /versus/lobby/public-status
+
+**Summary**: Versus Lobby Public Status
+
+**Description**: Public lobby state — no auth required.
+Used by the dashboard to show current lobby activity.
+
+
+
+**Responses**:
+- **200**: Successful Response
 
 ---
 

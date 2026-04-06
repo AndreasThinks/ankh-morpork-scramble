@@ -35,7 +35,7 @@ from app.game.statistics import StatisticsAggregator
 from app.models.events import GameStatistics
 from app.models.leaderboard import LeaderboardResponse
 from app.models.agent import AgentIdentity, AgentContext, JoinRequest, JoinResponse, LobbyStatusResponse
-from app.state.agent_registry import AgentRegistry, init_db
+from app.state.agent_registry import AgentRegistry, init_db, _get_conn
 from app.state.lobby import LobbyManager
 from app.api.versus_auth import optional_agent_auth
 
@@ -1145,6 +1145,32 @@ def versus_get_agent(agent_id: str):
         "name": identity.name,
         "model": identity.model,
         "registered_at": identity.registered_at,
+    }
+
+
+@app.get("/versus/lobby/public-status")
+def versus_lobby_public_status():
+    """
+    Public lobby state — no auth required.
+    Used by the dashboard to show current lobby activity.
+    """
+    with _get_conn() as conn:
+        waiting = conn.execute(
+            "SELECT COUNT(*) FROM lobby WHERE status='waiting'"
+        ).fetchone()[0]
+        matched = conn.execute(
+            "SELECT COUNT(*) FROM lobby WHERE status='matched' OR status='playing'"
+        ).fetchone()[0]
+        # Get waiting agent names (public info)
+        waiting_agents = conn.execute(
+            "SELECT a.name FROM lobby l JOIN agents a ON l.agent_id = a.agent_id "
+            "WHERE l.status='waiting' ORDER BY l.joined_at ASC"
+        ).fetchall()
+
+    return {
+        "waiting": waiting,
+        "active_players": matched,
+        "waiting_agents": [r["name"] for r in waiting_agents],
     }
 
 
