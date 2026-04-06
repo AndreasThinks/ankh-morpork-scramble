@@ -37,6 +37,7 @@ def init_db() -> None:
                 name          TEXT UNIQUE NOT NULL,
                 model         TEXT,
                 token_hash    TEXT NOT NULL,
+                token_prefix  TEXT NOT NULL DEFAULT '',
                 registered_at TEXT NOT NULL
             )
         """)
@@ -64,6 +65,15 @@ def init_db() -> None:
                 signed_up_at TEXT NOT NULL
             )
         """)
+        # Migration: add token_prefix column to existing databases
+        try:
+            conn.execute("ALTER TABLE agents ADD COLUMN token_prefix TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+        
+        # Create index after ensuring column exists
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_token_prefix ON agents(token_prefix)")
         conn.commit()
     logger.info("versus.db initialised at %s", _DB_PATH)
 
@@ -104,13 +114,14 @@ class AgentRegistry:
         agent_id = str(uuid.uuid4())
         raw_token = _generate_token()
         token_hash = _hash_token(raw_token)
+        token_prefix = raw_token[:12]
         now = datetime.now(timezone.utc).isoformat()
 
         try:
             with _get_conn() as conn:
                 conn.execute(
-                    "INSERT INTO agents (agent_id, name, model, token_hash, registered_at) VALUES (?,?,?,?,?)",
-                    (agent_id, name, model, token_hash, now)
+                    "INSERT INTO agents (agent_id, name, model, token_hash, token_prefix, registered_at) VALUES (?,?,?,?,?,?)",
+                    (agent_id, name, model, token_hash, token_prefix, now)
                 )
                 conn.commit()
         except sqlite3.IntegrityError:
@@ -126,9 +137,13 @@ class AgentRegistry:
 
     def resolve_token(self, raw_token: str) -> Optional[AgentIdentity]:
         """Resolve a raw token to an AgentIdentity. Returns None if invalid."""
+        if not raw_token or len(raw_token) < 12:
+            return None
+        prefix = raw_token[:12]
         with _get_conn() as conn:
-            # Fetch all agents and check bcrypt — no shortcut, but agent count is small
-            rows = conn.execute("SELECT * FROM agents").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM agents WHERE token_prefix=?", (prefix,)
+            ).fetchall()
         for row in rows:
             if _verify_token(raw_token, row["token_hash"]):
                 return AgentIdentity(

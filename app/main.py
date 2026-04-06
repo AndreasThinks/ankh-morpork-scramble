@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -86,6 +87,54 @@ else:
         interactive_game_id
     )
 
+# Turn timeout watcher helper
+def _versus_get_conn():
+    """Helper to get versus.db connection for timeout watcher."""
+    from app.state.agent_registry import _get_conn
+    return _get_conn()
+
+
+async def _turn_timeout_watcher():
+    """Background task: forfeit versus games where a turn has exceeded 5 minutes."""
+    from datetime import timedelta
+    TIMEOUT_MINUTES = 5
+    CHECK_INTERVAL = 60  # seconds
+
+    while True:
+        await asyncio.sleep(CHECK_INTERVAL)
+        try:
+            now = datetime.now(timezone.utc)
+            for game_id, game_state in list(game_manager.games.items()):
+                # Only check versus games (have agent assignments) that are active
+                if game_state.phase not in ("PLAYING", "KICKOFF"):
+                    continue
+                if not game_state.turn:
+                    continue
+                turn_started = game_state.turn.turn_started_at
+                if not turn_started:
+                    continue
+                # Make timezone-aware if naive
+                if turn_started.tzinfo is None:
+                    turn_started = turn_started.replace(tzinfo=timezone.utc)
+                elapsed = now - turn_started
+                if elapsed > timedelta(minutes=TIMEOUT_MINUTES):
+                    # Check this is a versus game
+                    with _versus_get_conn() as conn:
+                        row = conn.execute(
+                            "SELECT agent_id FROM game_agents WHERE game_id=? LIMIT 1",
+                            (game_id,)
+                        ).fetchone()
+                    if row:
+                        active_team = game_state.turn.active_team_id
+                        logger.warning(
+                            "Turn timeout: game %s team %s exceeded %d minutes",
+                            game_id, active_team, TIMEOUT_MINUTES
+                        )
+                        game_manager.record_forfeit(game_id, active_team)
+        except Exception as exc:
+            logger.error("Turn timeout watcher error: %s", exc)
+
+
 # Simple lifespan for FastAPI
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
@@ -95,8 +144,15 @@ async def app_lifespan(app: FastAPI):
     logger.info("Game manager initialized with %d active games", len(game_manager.games))
     init_db()
     logger.info("versus.db initialised")
+    
+    # Start turn timeout watcher
+    _timeout_task = asyncio.create_task(_turn_timeout_watcher())
+    logger.info("Turn timeout watcher started")
+    
     yield
+    
     # Shutdown
+    _timeout_task.cancel()
     logger.info("FastAPI application shutting down...")
 
 

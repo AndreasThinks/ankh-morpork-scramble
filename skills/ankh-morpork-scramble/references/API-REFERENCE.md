@@ -432,7 +432,7 @@ Returns:
 **Description**: Start the game
 
 **Parameters**:
-- `game_id` (path): string *required*- `team1_model` (query): - `team2_model` (query): 
+- `game_id` (path): string *required*- `team1_model` (query): - `team2_model` (query): - `x-agent-token` (header): 
 
 **Responses**:
 - **200**: Successful Response

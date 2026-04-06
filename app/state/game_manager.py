@@ -2,6 +2,7 @@
 import logging
 import uuid
 from typing import Optional
+from datetime import datetime, timezone
 from app.models.game_state import GameState, TurnState
 from app.models.team import Team, TEAM_ROSTERS
 from app.models.player import Player, PlayerPosition
@@ -218,6 +219,9 @@ class GameManager:
         event_logger.log_turn_end(current_team_id)
 
         game_state.switch_turn()
+
+        # Reset turn timer for the new turn
+        game_state.turn.turn_started_at = datetime.now(timezone.utc)
 
         # Log turn start for new team (if game not ended)
         if game_state.phase not in [GamePhase.CONCLUDED, GamePhase.INTERMISSION]:
@@ -442,6 +446,36 @@ class GameManager:
             budget_status=budget_status,
             message=f"Successfully purchased team reroll. {budget_status.remaining}g remaining."
         )
+
+    def record_forfeit(self, game_id: str, forfeiting_team_id: str) -> None:
+        """Conclude a versus game as a forfeit loss for the specified team."""
+        game_state = self.get_game(game_id)
+        if not game_state:
+            return
+        if game_state.phase == GamePhase.CONCLUDED:
+            return  # already concluded
+
+        # Set the winning team's score to 1 if it's 0-0 (forfeit = loss)
+        if forfeiting_team_id == game_state.team1.id:
+            if game_state.team2.score == 0:
+                game_state.team2.score = 1
+        else:
+            if game_state.team1.score == 0:
+                game_state.team1.score = 1
+
+        # Conclude the game
+        game_state.phase = GamePhase.CONCLUDED
+
+        logger.warning(
+            "Game %s: %s forfeited (turn timeout). Concluding.",
+            game_id, forfeiting_team_id
+        )
+
+        # Save logs and record result
+        if self.auto_save_logs:
+            self._save_game_logs(game_state)
+        else:
+            self._record_result_if_concluded(game_state)
 
     def check_scoring(self, game_id: str) -> Optional[str]:
         """Check if a team has scored and handle it"""

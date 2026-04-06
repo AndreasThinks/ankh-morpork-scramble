@@ -1,6 +1,6 @@
 """Game state model"""
 from typing import Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from pydantic import BaseModel, Field
 from app.models.enums import GamePhase, PlayerState, TeamType
@@ -40,6 +40,9 @@ class TurnState(BaseModel):
     
     # Turnover tracking to prevent double end_turn
     turnover_ended_turn: bool = False
+    
+    # Turn timeout tracking
+    turn_started_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class GameState(BaseModel):
