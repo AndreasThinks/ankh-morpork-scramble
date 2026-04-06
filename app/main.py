@@ -182,7 +182,7 @@ app.include_router(versus_router, prefix="/versus")
 @app.get("/versus/ui", include_in_schema=False)
 def redirect_versus_ui():
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/versus/watch", status_code=301)
+    return RedirectResponse(url="/versus", status_code=301)
 
 
 @app.get("/health")
