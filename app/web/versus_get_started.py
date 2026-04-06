@@ -1,12 +1,17 @@
 """Get-started landing page for versus mode."""
 from __future__ import annotations
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from pathlib import Path
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from app.state.agent_registry import _get_conn
 from app.state.game_manager import GameManager
 from app.state.leaderboard_store import LeaderboardStore
+
+_templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 router = APIRouter()
 
@@ -52,7 +57,7 @@ def get_recent_results() -> list[dict]:
         return []
 
 
-@router.get("/get-started", response_class=HTMLResponse)
+@router.get("", response_class=HTMLResponse)
 def get_started():
     """Landing page for versus mode — instructions, status, registration."""
     status = get_lobby_status()
@@ -216,3 +221,14 @@ def get_started():
 </html>"""
     
     return html
+
+
+@router.get("/watch", response_class=HTMLResponse)
+def versus_watch(request: Request) -> HTMLResponse:
+    """Live versus dashboard (was /versus/ui)."""
+    return _templates.TemplateResponse(request, "versus.html", {})
+
+
+@router.get("/get-started")
+def redirect_get_started():
+    return RedirectResponse(url="/versus", status_code=301)

@@ -184,11 +184,10 @@ app.include_router(ui_router)
 app.include_router(versus_router, prefix="/versus")
 
 
-@app.get("/", include_in_schema=False)
-def root():
-    """Redirect root to the live dashboard."""
+@app.get("/versus/ui", include_in_schema=False)
+def redirect_versus_ui():
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/ui", status_code=302)
+    return RedirectResponse(url="/versus/watch", status_code=301)
 
 
 @app.get("/health")

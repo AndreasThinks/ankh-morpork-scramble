@@ -11,7 +11,7 @@ from app.setup.interactive_game import INTERACTIVE_GAME_ID
 def test_ui_dashboard_renders_default_game_id():
     """Test that UI dashboard renders with default game ID"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     assert "text/html" in response.headers.get("content-type", "")
@@ -30,7 +30,7 @@ def test_ui_dashboard_with_custom_game_id():
     """Test that UI dashboard accepts custom game_id parameter"""
     client = TestClient(app)
     custom_id = "custom-game-123"
-    response = client.get(f"/ui?game_id={custom_id}")
+    response = client.get(f"/model-arena/watch?game_id={custom_id}")
 
     assert response.status_code == 200
     assert "text/html" in response.headers.get("content-type", "")
@@ -40,7 +40,7 @@ def test_ui_dashboard_with_custom_game_id():
 def test_ui_endpoint_headers():
     """Test that UI endpoint returns correct content-type"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     content_type = response.headers.get("content-type", "")
@@ -51,7 +51,7 @@ def test_ui_endpoint_headers():
 def test_ui_renders_core_components():
     """Test that all major UI components are present"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     html = response.text
@@ -69,7 +69,7 @@ def test_ui_renders_core_components():
 def test_ui_includes_javascript():
     """Test that UI includes necessary JavaScript"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     html = response.text
@@ -85,7 +85,7 @@ def test_ui_includes_javascript():
 def test_ui_includes_styling():
     """Test that UI includes CSS styling"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     html = response.text
@@ -102,7 +102,7 @@ def test_ui_includes_styling():
 def test_ui_has_accessibility_features():
     """Test that UI includes basic accessibility features"""
     client = TestClient(app)
-    response = client.get("/ui")
+    response = client.get("/model-arena/watch")
 
     assert response.status_code == 200
     html = response.text
@@ -119,7 +119,7 @@ def test_ui_renders_with_special_characters_in_game_id():
     client = TestClient(app)
     # Test with URL-safe characters
     game_id = "game-with-dashes-123"
-    response = client.get(f"/ui?game_id={game_id}")
+    response = client.get(f"/model-arena/watch?game_id={game_id}")
 
     assert response.status_code == 200
     assert game_id in response.text

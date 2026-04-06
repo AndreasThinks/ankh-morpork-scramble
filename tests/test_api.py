@@ -9,10 +9,12 @@ client = TestClient(app)
 
 
 def test_root_endpoint():
-    """Root should redirect to /ui"""
+    """Root should serve homepage directly"""
     response = client.get("/", follow_redirects=False)
-    assert response.status_code == 302
-    assert response.headers["location"] == "/ui"
+    assert response.status_code == 200
+    assert "Ankh-Morpork Scramble" in response.text
+    assert "Model Arena" in response.text
+    assert "Versus Mode" in response.text
 
 
 def test_create_game():

@@ -42,22 +42,37 @@ curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
 
 ## Endpoints
 
-### GET /ui
+### GET /
 
-**Summary**: Render Dashboard
+**Summary**: Render Homepage
 
-**Description**: Render the live game dashboard.
+**Description**: Homepage — two lanes: Model Arena and Versus.
 
-The dashboard uses simple JavaScript polling to display the current game
-state, event log, and chat messages for the configured game identifier.
 
-Args:
-    request: FastAPI request object
-    game_id: Game identifier to monitor. If not provided, uses the appropriate
-             default based on DEMO_MODE environment variable.
 
-Returns:
-    HTML response with rendered dashboard
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /model-arena
+
+**Summary**: Render Model Arena
+
+**Description**: Model Arena landing page.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /model-arena/watch
+
+**Summary**: Render Arena Watch
+
+**Description**: Live arena game dashboard (was /ui).
 
 **Parameters**:
 - `game_id` (query): 
@@ -68,11 +83,11 @@ Returns:
 
 ---
 
-### GET /leaderboard/ui
+### GET /standings
 
-**Summary**: Render Leaderboard
+**Summary**: Render Standings
 
-**Description**: Render the leaderboard page showing model and team standings.
+**Description**: Combined leaderboard (was /leaderboard/ui).
 
 
 
@@ -81,11 +96,22 @@ Returns:
 
 ---
 
-### GET /versus/ui
+### GET /ui
 
-**Summary**: Render Versus Dashboard
+**Summary**: Redirect Ui
 
-**Description**: Render the versus mode live dashboard.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /leaderboard/ui
+
+**Summary**: Redirect Leaderboard Ui
+
 
 
 
@@ -98,7 +124,33 @@ Returns:
 
 **Summary**: Render About
 
-**Description**: Render the about / project info page.
+**Description**: About page.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /versus/
+
+**Summary**: Get Started
+
+**Description**: Landing page for versus mode — instructions, status, registration.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /versus/watch
+
+**Summary**: Versus Watch
+
+**Description**: Live versus dashboard (was /versus/ui).
 
 
 
@@ -109,9 +161,8 @@ Returns:
 
 ### GET /versus/get-started
 
-**Summary**: Get Started
+**Summary**: Redirect Get Started
 
-**Description**: Landing page for versus mode — instructions, status, registration.
 
 
 
