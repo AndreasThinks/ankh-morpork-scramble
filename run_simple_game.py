@@ -343,6 +343,13 @@ def main() -> None:
         while True:
             time.sleep(60)
 
+    # DEV_MODE: start the server but don't run any games. No model validation,
+    # no token spend. Useful when developing new features against a live server.
+    if os.getenv("DEV_MODE", "false").lower() in ("true", "1", "yes"):
+        logger.info("DEV_MODE active — server is up, game loop disabled. No tokens will be spent.")
+        while True:
+            time.sleep(60)
+
     if _MANUAL_MODEL_OVERRIDE:
         logger.info(
             "Manual model override active — team1=%s  team2=%s",
