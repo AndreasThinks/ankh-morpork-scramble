@@ -107,6 +107,34 @@ Returns:
 
 ---
 
+### GET /service-status
+
+**Summary**: Get Service Status
+
+**Description**: Public endpoint the dashboard polls to show/hide the maintenance banner.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### POST /admin/service-status
+
+**Summary**: Set Service Status
+
+**Description**: Allow the match runner to flip the service status (admin only).
+
+**Parameters**:
+- `status` (query): string *required*- `reason` (query): - `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### GET /admin/logs
 
 **Summary**: List Logs
