@@ -262,6 +262,8 @@ class LeaderboardStore:
                     entry.wins += 1
                 elif outcome == "loss":
                     entry.losses += 1
+                    if r.is_forfeit:
+                        entry.forfeits += 1
                 else:
                     entry.draws += 1
 

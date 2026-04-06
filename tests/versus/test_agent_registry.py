@@ -12,8 +12,8 @@ def registry(tmp_path):
 def test_register_new_agent(registry):
     identity, token = registry.register("TestBot", "gpt-4o")
     assert identity.name == "TestBot"
-    assert token.startswith("ams_")
-    assert len(token) == 36
+    assert token.count("-") == 2  # three words joined by dashes
+    assert len(token) >= 8  # at least "a-b-c"
 
 def test_register_duplicate_name_raises(registry):
     registry.register("DupeBot")
@@ -27,12 +27,12 @@ def test_resolve_token_valid(registry):
     assert resolved.agent_id == identity.agent_id
 
 def test_resolve_token_invalid(registry):
-    assert registry.resolve_token("ams_notreal00000000000000000000000") is None
+    assert registry.resolve_token("notareal-token-atall") is None
 
 def test_resolve_token_prefix_fast_path(registry):
     """Token lookup uses prefix index — invalid prefix returns None immediately."""
     identity, token = registry.register("PrefixBot")
-    bad_token = "ams_" + "x" * 32
+    bad_token = "wrong-prefix-here"
     assert registry.resolve_token(bad_token) is None
 
 def test_name_taken(registry):

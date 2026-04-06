@@ -34,7 +34,7 @@ def test_join_new_agent(versus_client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "Rincewind"
-    assert data["token"].startswith("ams_")
+    assert data["token"].count("-") == 2  # three-word passphrase
     assert data["status"] == "waiting"
     assert data["game_id"] is None
 
@@ -197,4 +197,4 @@ def test_leaderboard_store_respects_data_dir_at_construction(tmp_path):
     custom_dir.mkdir()
     with patch.dict(os.environ, {"DATA_DIR": str(custom_dir)}):
         store = LeaderboardStore()
-    assert store.path == custom_dir / "results.jsonl"
+    assert store.path == custom_dir / "versus.db"

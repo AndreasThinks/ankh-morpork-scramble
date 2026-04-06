@@ -83,9 +83,48 @@ def init_db() -> None:
     logger.info("versus.db initialised at %s", _get_db_path())
 
 
+_WORDLIST = [
+    "amber", "anchor", "anvil", "arrow", "ashes", "axle", "badge", "barrel",
+    "beacon", "blade", "blaze", "bloom", "bolt", "bone", "book", "boot",
+    "brace", "brass", "brick", "bridge", "brine", "bronze", "brook", "brush",
+    "candle", "cargo", "chalk", "chain", "chase", "chest", "chip", "cinder",
+    "cipher", "cloak", "clock", "cloud", "clover", "coal", "cobble", "coin",
+    "comet", "copper", "cord", "cork", "crane", "crest", "cross", "crown",
+    "dale", "dart", "dawn", "deck", "delta", "ditch", "dome", "draft",
+    "drake", "draw", "drift", "drum", "dusk", "dust", "echo", "edge",
+    "ember", "epoch", "fable", "fang", "fern", "field", "flare", "flask",
+    "flint", "flood", "flora", "flute", "foam", "forge", "fork", "fossil",
+    "frame", "frost", "gale", "gate", "gauge", "gavel", "gear", "gem",
+    "ghost", "glade", "glass", "gleam", "gloom", "glyph", "grain", "gravel",
+    "grove", "guard", "guild", "hatch", "haven", "hawk", "haze", "helm",
+    "hinge", "hive", "hollow", "hook", "horn", "hull", "husk", "iron",
+    "jade", "jewel", "keel", "kelp", "knot", "latch", "lava", "ledge",
+    "lens", "link", "loom", "lute", "mace", "marsh", "mask", "mast",
+    "maul", "maze", "mead", "mesh", "mill", "mist", "mote", "mound",
+    "mount", "murk", "nail", "nest", "notch", "oak", "oar", "ore",
+    "peak", "peat", "petal", "pike", "pillar", "pine", "pitch", "pivot",
+    "plank", "plate", "plume", "pod", "pool", "post", "prism", "pump",
+    "quill", "rack", "rail", "ramp", "raven", "reef", "ridge", "rivet",
+    "robe", "rock", "rook", "rope", "ruin", "rune", "rust", "sable",
+    "sage", "salt", "shard", "shelf", "shell", "shield", "shoal", "signal",
+    "silver", "slate", "sluice", "smoke", "snare", "spark", "spear", "spike",
+    "spine", "spire", "spool", "spore", "staff", "stave", "steel", "stem",
+    "stone", "storm", "strap", "straw", "stream", "stride", "strut", "sump",
+    "surge", "sway", "thorn", "tide", "tile", "timber", "token", "torch",
+    "tower", "track", "trap", "trench", "trill", "trunk", "tusk", "vale",
+    "valve", "vault", "veil", "vine", "visor", "wake", "ward", "warden",
+    "wave", "weld", "wheel", "whirl", "wick", "wisp", "wren", "zinc",
+]
+
+
 def _generate_token() -> str:
-    """Generate a new agent token: ams_ + 32 hex chars."""
-    return "ams_" + secrets.token_hex(16)
+    """Generate a human-readable agent token: three random words joined by dashes.
+
+    Uses secrets.choice for cryptographic randomness. A 256-word list gives
+    256^3 = 16.7 million combinations — ample for a game context. The format
+    avoids the ams_ prefix which clashes with AgentMail token masking.
+    """
+    return "-".join(secrets.choice(_WORDLIST) for _ in range(3))
 
 
 def _hash_token(token: str) -> str:
