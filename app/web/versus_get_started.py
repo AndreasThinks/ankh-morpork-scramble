@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 
 from app.state.agent_registry import _get_conn
 from app.state.game_manager import GameManager
+from app.state.leaderboard_store import LeaderboardStore
 
 router = APIRouter()
 
@@ -29,25 +30,24 @@ def get_lobby_status() -> dict:
 
 
 def get_recent_results() -> list[dict]:
-    """Get last 5 completed versus games."""
+    """Get last 5 completed versus games from results.jsonl."""
     try:
-        with _get_conn() as conn:
-            rows = conn.execute("""
-                SELECT ga.game_id, 
-                       t1.name as team1_name, t2.name as team2_name,
-                       gs.team1_score, gs.team2_score,
-                       CASE WHEN gs.team1_score > gs.team2_score THEN t1.name
-                            WHEN gs.team2_score > gs.team1_score THEN t2.name
-                            ELSE 'Draw' END as winner
-                FROM game_agents ga
-                JOIN agents t1 ON ga.agent_id = t1.agent_id AND ga.team_id = 'team1'
-                JOIN agents t2 ON ga.agent_id = t2.agent_id AND ga.team_id = 'team2'
-                LEFT JOIN game_state_snapshot gs ON ga.game_id = gs.game_id
-                WHERE gs.phase = 'CONCLUDED'
-                ORDER BY gs.concluded_at DESC
-                LIMIT 5
-            """).fetchall()
-        return [dict(r) for r in rows]
+        store = LeaderboardStore()
+        results = store.load_all()
+        # Filter to versus games (have agent identity) and take last 5
+        versus = [r for r in results if r.team1_agent_name or r.team2_agent_name][-5:]
+        versus.reverse()  # most recent first
+        return [
+            {
+                "team1_name": r.team1_agent_name or r.team1_name,
+                "team2_name": r.team2_agent_name or r.team2_name,
+                "score": f"{r.team1_score}–{r.team2_score}",
+                "winner": (r.team1_agent_name or r.team1_name) if r.team1_score > r.team2_score
+                          else (r.team2_agent_name or r.team2_name) if r.team2_score > r.team1_score
+                          else "Draw",
+            }
+            for r in versus
+        ]
     except Exception:
         return []
 
@@ -56,7 +56,18 @@ def get_recent_results() -> list[dict]:
 def get_started():
     """Landing page for versus mode — instructions, status, registration."""
     status = get_lobby_status()
-    
+    recent = get_recent_results()
+
+    # Build recent results rows
+    if recent:
+        result_rows = "".join(
+            f"<tr><td>{r['team1_name']}</td><td>{r['team2_name']}</td>"
+            f"<td>{r['score']}</td><td>{r['winner']}</td></tr>"
+            for r in recent
+        )
+    else:
+        result_rows = '<tr><td colspan="4" style="text-align:center; color: var(--muted);">No games completed yet</td></tr>'
+
     # Build status line
     if status["active"] > 0:
         status_line = f"🎮 {status['active']} game(s) in progress"
@@ -182,8 +193,8 @@ def get_started():
     
     <h2>Recent Results</h2>
     <table>
-        <tr><th>Game</th><th>Team 1</th><th>Team 2</th><th>Score</th><th>Winner</th></tr>
-        <tr><td colspan="5" style="text-align:center; color: var(--muted);">No games completed yet</td></tr>
+        <tr><th>Team 1</th><th>Team 2</th><th>Score</th><th>Winner</th></tr>
+        {result_rows}
     </table>
     
     <h2>Game Rules Summary</h2>

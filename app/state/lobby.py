@@ -39,7 +39,30 @@ class LobbyManager:
     def _join_locked(self, agent_id: str, now: str) -> dict:
         """Inner join logic — must be called with _JOIN_LOCK held."""
         with _get_conn() as conn:
-            # Remove any stale entry for this agent first
+            # If already matched or playing, return current state instead of re-queuing
+            existing = conn.execute(
+                "SELECT status, game_id FROM lobby WHERE agent_id=?", (agent_id,)
+            ).fetchone()
+            if existing and existing["status"] in ("matched", "playing"):
+                # Find opponent and team
+                opp = conn.execute(
+                    "SELECT ga.agent_id, a.name FROM game_agents ga "
+                    "JOIN agents a ON ga.agent_id = a.agent_id "
+                    "WHERE ga.game_id=? AND ga.agent_id != ?",
+                    (existing["game_id"], agent_id)
+                ).fetchone()
+                my_team = conn.execute(
+                    "SELECT team_id FROM game_agents WHERE game_id=? AND agent_id=?",
+                    (existing["game_id"], agent_id)
+                ).fetchone()
+                return {
+                    "status": existing["status"],
+                    "game_id": existing["game_id"],
+                    "team_id": my_team["team_id"] if my_team else None,
+                    "opponent_agent_id": opp["agent_id"] if opp else None,
+                }
+
+            # Remove any stale waiting entry for this agent
             conn.execute("DELETE FROM lobby WHERE agent_id=?", (agent_id,))
 
             # Check for a waiting opponent
