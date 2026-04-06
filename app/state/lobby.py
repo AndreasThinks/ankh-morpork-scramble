@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,6 +15,9 @@ logger = logging.getLogger("app.state.lobby")
 # Alternating team assignment: track total completed pairings
 # team1 = City Watch (TeamType.CITY_WATCH), team2 = Unseen University (TeamType.UNSEEN_UNIVERSITY)
 # Alternate so neither faction is always team1
+
+# Module-level lock — prevents concurrent joins from double-pairing the same waiting agent
+_JOIN_LOCK = threading.Lock()
 
 
 class LobbyManager:
@@ -29,6 +33,11 @@ class LobbyManager:
         """
         now = datetime.now(timezone.utc).isoformat()
 
+        with _JOIN_LOCK:
+         return self._join_locked(agent_id, now)
+
+    def _join_locked(self, agent_id: str, now: str) -> dict:
+        """Inner join logic — must be called with _JOIN_LOCK held."""
         with _get_conn() as conn:
             # Remove any stale entry for this agent first
             conn.execute("DELETE FROM lobby WHERE agent_id=?", (agent_id,))

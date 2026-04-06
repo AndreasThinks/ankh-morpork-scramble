@@ -604,6 +604,7 @@ def start_game(
     game_id: str,
     team1_model: Optional[str] = None,
     team2_model: Optional[str] = None,
+    agent_ctx: Optional[AgentContext] = Depends(optional_agent_auth),
 ):
     """Start the game"""
     try:

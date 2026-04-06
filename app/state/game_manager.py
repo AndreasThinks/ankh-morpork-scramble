@@ -597,7 +597,7 @@ class GameManager:
 
         from app.models.leaderboard import GameResult
         result = GameResult(
-            game_id=str(uuid.uuid4()),
+            game_id=game_state.game_id,
             team1_name=game_state.team1.name,
             team1_model=game_state.team1_model or "unknown",
             team1_score=t1_score,
@@ -639,6 +639,18 @@ class GameManager:
         except Exception as e:
             self._recorded_games.discard(game_state.game_id)
             logger.error("Failed to record leaderboard for %s: %s", game_state.game_id, e)
+
+        # Clean up lobby rows for versus games so active_players count stays accurate
+        try:
+            with _get_conn() as conn:
+                conn.execute(
+                    "DELETE FROM lobby WHERE agent_id IN "
+                    "(SELECT agent_id FROM game_agents WHERE game_id=?)",
+                    (game_state.game_id,)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning("Lobby cleanup failed for game %s: %s", game_state.game_id, e)
 
     def _save_game_logs(self, game_state: GameState) -> None:
         """Save game logs to disk (internal helper)."""
