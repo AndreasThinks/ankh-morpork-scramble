@@ -211,7 +211,7 @@
 
         /* ── Portrait orientation: keep header compact ─────────────────────── */
         @media (orientation: portrait) and (max-width: 768px) {
-            .global-ticker { display: none; }
+            .global-ticker { display: flex; }
             header .score-line .team-model { display: none; }
             header .score-line .score-team { gap: 0; }
             header {
@@ -1739,16 +1739,11 @@
             width: 100%;
             order: 10;
             display: flex;
-            align-items: center;
-            height: 24px;
-            overflow: hidden;
+            align-items: flex-start;
             border-top: 1px solid rgba(217, 180, 91, 0.15);
             margin-top: 0.25rem;
             cursor: pointer;
-        }
-
-        .global-ticker:hover .ticker-inner {
-            color: rgba(242, 227, 198, 0.9);
+            padding: 0.3rem 0;
         }
 
         .ticker-badge {
@@ -1760,8 +1755,7 @@
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            padding: 0 0.65rem;
-            height: 100%;
+            padding: 0.3rem 0.65rem;
             display: flex;
             align-items: center;
             white-space: nowrap;
@@ -1769,99 +1763,82 @@
             user-select: none;
         }
 
-        .ticker-track {
+        .ticker-content {
             flex: 1;
-            overflow: hidden;
-            height: 100%;
-            position: relative;
+            min-width: 0;
+            padding: 0 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
         }
 
-        .ticker-inner {
-            display: inline-block;
-            white-space: nowrap;
-            font-size: 0.72rem;
-            font-style: italic;
-            color: rgba(242, 227, 198, 0.65);
+        /* ── Headline line ── */
+        .ticker-headline {
             font-family: "Spectral", Georgia, serif;
-            line-height: 24px;
-            padding-left: 100%;
-            animation: tickerScroll 22s linear infinite;
-            transition: color 0.3s;
-        }
-
-        @keyframes tickerScroll {
-            0%   { transform: translateX(0); }
-            100% { transform: translateX(-100%); }
-        }
-
-        /* Mixed-feed ticker item styles */
-        .ticker-item { display: inline; }
-        .ticker-item--commentary {
-            font-style: italic;
-            color: rgba(217, 180, 91, 0.72);
-        }
-        .ticker-item--event {
-            font-style: normal;
-            color: rgba(242, 227, 198, 0.88);
-        }
-        /* Legacy category tints (kept low-specificity so tier styles win) */
-        .ticker-item--combat  { color: rgba(220, 110, 90, 0.9); }
-        .ticker-item--ball    { color: rgba(100, 185, 230, 0.9); }
-        .ticker-item--turnover { color: rgba(220, 175, 60, 0.95); font-weight: 600; }
-
-        /* Tier-based visual hierarchy (overrides category tints) */
-        .ticker-item.ticker-item--tier-landmark {
             font-size: 0.85rem;
+            color: rgba(242, 227, 198, 0.92);
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @keyframes tickerFadeIn {
+            0%   { opacity: 0; transform: translateY(-4px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .ticker-headline--enter {
+                animation: tickerFadeIn 0.4s ease-out;
+            }
+        }
+
+        /* ── Context trail ── */
+        .ticker-trail {
+            font-family: "Spectral", Georgia, serif;
+            font-size: 0.68rem;
+            color: rgba(242, 227, 198, 0.45);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ticker-trail:empty { display: none; }
+        .ticker-trail-sep {
+            color: rgba(217, 180, 91, 0.3);
+            margin: 0 0.4em;
+        }
+
+        /* ── Headline tier styling ── */
+        .ticker-headline--landmark {
             font-weight: 800;
             font-variant: small-caps;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: var(--accent-gold);
-            background: rgba(217, 180, 91, 0.28);
-            border: 1px solid rgba(217, 180, 91, 0.55);
-            border-radius: 3px;
-            padding: 0 0.5rem;
-            font-style: normal;
         }
-        .ticker-item.ticker-item--tier-dramatic {
-            font-size: 0.78rem;
+        .ticker-headline--dramatic {
             font-weight: 700;
             color: rgba(220, 110, 90, 1);
-            letter-spacing: 0.02em;
-            text-decoration: underline wavy rgba(220, 110, 90, 0.5);
-            font-style: normal;
         }
-        .ticker-item.ticker-item--tier-commentary {
-            font-size: 0.78rem;
+        .ticker-headline--commentary {
             font-style: italic;
             color: rgba(217, 180, 91, 0.95);
         }
-        .ticker-item.ticker-item--tier-commentary::before { content: "« "; opacity: 0.7; }
-        .ticker-item.ticker-item--tier-commentary::after  { content: " »"; opacity: 0.7; }
-        .ticker-item.ticker-item--tier-action {
-            font-size: 0.72rem;
-            color: rgba(242, 227, 198, 0.88);
-            font-style: normal;
-        }
-        .ticker-item.ticker-item--tier-quiet {
-            font-size: 0.7rem;
-            color: rgba(242, 227, 198, 0.5);
-            font-style: normal;
-        }
+        .ticker-headline--commentary::before { content: "« "; opacity: 0.7; }
+        .ticker-headline--commentary::after  { content: " »"; opacity: 0.7; }
 
-        /* One-shot highlight pulse when a top-tier item first appears */
+        /* ── Headline category tints ── */
+        .ticker-headline--combat  { color: rgba(220, 110, 90, 0.95); }
+        .ticker-headline--ball    { color: rgba(100, 185, 230, 0.95); }
+
+        /* One-shot highlight pulse for landmark/dramatic */
         @keyframes tickerFlash {
             0%   { background-color: rgba(217, 180, 91, 0.55); box-shadow: 0 0 8px rgba(217, 180, 91, 0.5); }
             100% { background-color: transparent; box-shadow: none; }
         }
         @media (prefers-reduced-motion: no-preference) {
-            .ticker-item--flash { animation: tickerFlash 1.8s ease-out 1; }
-        }
-
-        .ticker-sep {
-            color: rgba(217, 180, 91, 0.25);
-            font-style: normal;
-            user-select: none;
+            .ticker-headline--flash { animation: tickerFlash 1.8s ease-out 1; border-radius: 3px; padding: 0 0.3rem; }
         }
 
         /* ── Mobile layout (≤768px) ──────────────────────────────────────── */
@@ -2003,7 +1980,10 @@
             /* On mobile show the ticker in a compact band */
             .global-ticker {
                 display: flex;
-                max-height: 40vh;
+            }
+            .ticker-headline {
+                font-size: 0.8rem;
+                white-space: normal;
             }
         }
 
@@ -2067,8 +2047,9 @@
     <div class="meta" id="game-meta" style="display:none;"></div>
     <div class="global-ticker" id="commentary-ticker" role="status" aria-live="polite">
         <span class="ticker-badge">📡 Live</span>
-        <div class="ticker-track">
-            <span class="ticker-inner" id="ticker-text">Dibbler is working his way round the crowd. Remarks forthcoming.</span>
+        <div class="ticker-content">
+            <div class="ticker-headline" id="ticker-headline">Dibbler is working his way round the crowd. Remarks forthcoming.</div>
+            <div class="ticker-trail" id="ticker-trail"></div>
         </div>
     </div>
 </header>
@@ -4044,11 +4025,14 @@
     let lastInjectedCommentaryText = '';  // prevents duplicate injection
     let tokenElements = new Map();   // playerId -> SVG <g> element
     let ballElement = null;          // the loose ball <circle>
-    let tickerQueue = [];            // mixed-feed ticker items
-    const TICKER_MAX = 20;
-    let tickerRunning = false;       // true once the scroll animation has started
+    // ── Headline + Trail ticker ───────────────────────────────────────
+    let tickerHeadline = null;       // current headline item
+    let tickerTrail = [];            // recent action+ items for context
+    let headlineTimestamp = 0;       // when the current headline was set
+    const TRAIL_MAX = 3;
+    const HEADLINE_HOLD_MS = 5000;   // how long landmark/dramatic holds the slot
+    const HEADLINE_PRIORITY = { landmark: 4, dramatic: 3, commentary: 2, action: 1, quiet: 0 };
 
-    // Text prefixes for the biggest moments — readable even mid-scroll.
     const TICKER_PREFIX = {
         touchdown: '‼ TOUCHDOWN ',
         casualty:  '☠ ',
@@ -4058,74 +4042,87 @@
         half_end:  '🏁 ',
     };
 
-    // ── Mixed-feed ticker ──────────────────────────────────────────────
     function pushToTicker(type, icon, text, category, tier, eventType) {
         const t = tier || (type === 'commentary' ? 'commentary' : 'action');
-        const flash = (t === 'landmark' || t === 'dramatic' || t === 'commentary');
+        const priority = HEADLINE_PRIORITY[t] || 0;
 
-        // When a headline arrives, demote any quiet-tier items already queued
-        // so the big moment reaches the visible track sooner.
-        if (t === 'landmark' || t === 'dramatic') {
-            tickerQueue = tickerQueue.filter(item => item.tier !== 'quiet');
-        }
+        // Skip quiet events entirely — they add noise without value
+        if (t === 'quiet') return;
 
-        tickerQueue.push({
+        const item = {
             type, icon, text,
             category: category || '',
             tier: t,
             eventType: eventType || '',
-            flash,
-        });
-        if (tickerQueue.length > TICKER_MAX) tickerQueue.shift();
+            priority,
+        };
+
+        const now = Date.now();
+        const currentPriority = tickerHeadline ? (HEADLINE_PRIORITY[tickerHeadline.tier] || 0) : -1;
+        const holdExpired = (now - headlineTimestamp) >= HEADLINE_HOLD_MS;
+
+        // Promote to headline if higher/equal priority or current headline expired
+        if (priority >= currentPriority || holdExpired || !tickerHeadline) {
+            // Demote current headline to trail
+            if (tickerHeadline) {
+                tickerTrail.unshift(tickerHeadline);
+                if (tickerTrail.length > TRAIL_MAX) tickerTrail.pop();
+            }
+            tickerHeadline = item;
+            headlineTimestamp = now;
+        } else {
+            // Not important enough to headline — just add to trail
+            tickerTrail.unshift(item);
+            if (tickerTrail.length > TRAIL_MAX) tickerTrail.pop();
+        }
+
         refreshTicker();
     }
 
-    function tickerDuration() {
-        const totalChars = tickerQueue.reduce((n, item) => n + item.text.length + 5, 0);
-        return Math.min(60, Math.max(15, Math.round(totalChars * 0.25)));
-    }
-
     function refreshTicker() {
-        const inner = document.getElementById('ticker-text');
-        if (!inner || tickerQueue.length === 0) return;
+        const headlineEl = document.getElementById('ticker-headline');
+        const trailEl = document.getElementById('ticker-trail');
+        if (!headlineEl) return;
 
-        // Rebuild content in place — animation keeps running from its current position
-        const frag = document.createDocumentFragment();
-        tickerQueue.forEach((item, i) => {
-            if (i > 0) {
-                const sep = document.createElement('span');
-                sep.className = 'ticker-sep';
-                sep.textContent = '  ·  ';
-                frag.appendChild(sep);
+        if (tickerHeadline) {
+            const prefix = TICKER_PREFIX[tickerHeadline.eventType] || '';
+            headlineEl.textContent = `${tickerHeadline.icon} ${prefix}${tickerHeadline.text}`;
+
+            // Apply tier + category classes
+            headlineEl.className = 'ticker-headline ticker-headline--enter';
+            if (tickerHeadline.tier) headlineEl.classList.add(`ticker-headline--${tickerHeadline.tier}`);
+            if (tickerHeadline.category) headlineEl.classList.add(`ticker-headline--${tickerHeadline.category}`);
+            if (tickerHeadline.tier === 'landmark' || tickerHeadline.tier === 'dramatic') {
+                headlineEl.classList.add('ticker-headline--flash');
             }
-            const span = document.createElement('span');
-            const catClass = item.category ? ` ticker-item--${item.category}` : '';
-            const tierClass = item.tier ? ` ticker-item--tier-${item.tier}` : '';
-            const flashClass = item.flash ? ' ticker-item--flash' : '';
-            span.className = `ticker-item ticker-item--${item.type}${catClass}${tierClass}${flashClass}`;
-            const prefix = TICKER_PREFIX[item.eventType] || '';
-            span.textContent = `${item.icon} ${prefix}${item.text}`;
-            frag.appendChild(span);
-            // Clear the flash flag so rebuilds don't re-trigger the animation
-            item.flash = false;
-        });
-        inner.innerHTML = '';
-        inner.appendChild(frag);
 
-        if (!tickerRunning) {
-            // First item — start the animation fresh
-            const dur = tickerDuration();
-            inner.style.animation = 'none';
-            void inner.offsetWidth; // force reflow
-            inner.style.animation = `tickerScroll ${dur}s linear infinite`;
-            tickerRunning = true;
-
-            // After each full scroll cycle, update duration for whatever's in the queue
-            inner.addEventListener('animationiteration', () => {
-                inner.style.animationDuration = `${tickerDuration()}s`;
-            });
+            // Remove enter class after animation to allow re-triggering
+            headlineEl.addEventListener('animationend', () => {
+                headlineEl.classList.remove('ticker-headline--enter');
+            }, { once: true });
         }
-        // If already running: content updated in-place, scroll continues uninterrupted
+
+        if (trailEl) {
+            if (tickerTrail.length === 0) {
+                trailEl.innerHTML = '';
+            } else {
+                const frag = document.createDocumentFragment();
+                tickerTrail.forEach((item, i) => {
+                    if (i > 0) {
+                        const sep = document.createElement('span');
+                        sep.className = 'ticker-trail-sep';
+                        sep.textContent = '·';
+                        frag.appendChild(sep);
+                    }
+                    const span = document.createElement('span');
+                    const prefix = TICKER_PREFIX[item.eventType] || '';
+                    span.textContent = `${item.icon} ${prefix}${item.text}`;
+                    frag.appendChild(span);
+                });
+                trailEl.innerHTML = '';
+                trailEl.appendChild(frag);
+            }
+        }
     }
 
     async function fetchState() {
