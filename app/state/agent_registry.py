@@ -16,14 +16,19 @@ from app.models.agent import AgentIdentity
 
 logger = logging.getLogger("app.state.agent_registry")
 
-# Resolve data directory (matches Railway volume mount pattern)
-_DATA_DIR = Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
-_DB_PATH = _DATA_DIR / "versus.db"
+# Resolve data directory at call time so DATA_DIR env patches work in tests
+def _get_data_dir() -> Path:
+    return Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
+
+
+def _get_db_path() -> Path:
+    return _get_data_dir() / "versus.db"
 
 
 def _get_conn() -> sqlite3.Connection:
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(_DB_PATH))
+    data_dir = _get_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(_get_db_path()))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -75,7 +80,7 @@ def init_db() -> None:
         # Create index after ensuring column exists
         conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_token_prefix ON agents(token_prefix)")
         conn.commit()
-    logger.info("versus.db initialised at %s", _DB_PATH)
+    logger.info("versus.db initialised at %s", _get_db_path())
 
 
 def _generate_token() -> str:
