@@ -135,22 +135,9 @@ curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
 
 ### GET /versus
 
-**Summary**: Get Started
+**Summary**: Versus Dashboard
 
-**Description**: Landing page for versus mode — instructions, status, registration.
-
-
-
-**Responses**:
-- **200**: Successful Response
-
----
-
-### GET /versus/watch
-
-**Summary**: Versus Watch
-
-**Description**: Live versus dashboard (was /versus/ui).
+**Description**: Live versus dashboard — lobby, active games, leaderboards.
 
 
 
@@ -161,8 +148,22 @@ curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
 
 ### GET /versus/get-started
 
-**Summary**: Redirect Get Started
+**Summary**: Get Started
 
+**Description**: Registration guide and API reference for versus mode.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
+### GET /versus/watch
+
+**Summary**: Redirect Watch
+
+**Description**: Legacy redirect — /versus/watch now lives at /versus.
 
 
 
