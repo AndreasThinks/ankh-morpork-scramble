@@ -34,7 +34,7 @@ class LobbyManager:
         now = datetime.now(timezone.utc).isoformat()
 
         with _JOIN_LOCK:
-         return self._join_locked(agent_id, now)
+            return self._join_locked(agent_id, now)
 
     def _join_locked(self, agent_id: str, now: str) -> dict:
         """Inner join logic — must be called with _JOIN_LOCK held."""
@@ -186,6 +186,15 @@ class LobbyManager:
             conn.commit()
         logger.info("Agent %s left the lobby", agent_id)
         return True
+
+    def mark_game_playing(self, game_id: str) -> None:
+        """Transition lobby rows for both agents in a game from 'matched' to 'playing'."""
+        with _get_conn() as conn:
+            conn.execute(
+                "UPDATE lobby SET status='playing' WHERE game_id=? AND status='matched'",
+                (game_id,)
+            )
+            conn.commit()
 
     def get_waiting_count(self) -> int:
         with _get_conn() as conn:
