@@ -528,9 +528,12 @@ def test_ko_player_removed_from_pitch():
         "ball at that square becomes permanently unreachable"
     )
 
-    # Ball should still be on the pitch at the defender's old position
-    assert game_state.pitch.ball_position == def_pos
+    # Ball should have scattered away from the defender's old position (rules.md §7:
+    # "If ball is dropped or missed, scatter one square for drop")
     assert game_state.pitch.ball_carrier is None
+    assert game_state.pitch.ball_position != def_pos, (
+        "Ball should have scattered away from the KO'd carrier's position"
+    )
 
     # That square must now be passable
     assert not game_state.pitch.is_occupied(def_pos), (
