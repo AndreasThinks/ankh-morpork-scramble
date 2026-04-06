@@ -551,7 +551,30 @@ def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> s
          bx, by = bpos.get("x", "?"), bpos.get("y", "?")
          lines.append(f"Ball: carried by {ownership} [{ball_carrier}] {bc_role} at ({bx},{by})")
      elif ball_on_ground and ball_pos:
-         lines.append(f"Ball: loose on ground at ({ball_pos.get('x','?')},{ball_pos.get('y','?')}) — move a player there to pick it up")
+         bx, by = ball_pos.get('x', '?'), ball_pos.get('y', '?')
+         # Check if the ball square is blocked by a prone player
+         blocking_pid = None
+         blocking_team = None
+         for pid, pdata in players.items():
+             ppos = player_positions.get(pid) or {}
+             if ppos.get('x') == ball_pos.get('x') and ppos.get('y') == ball_pos.get('y'):
+                 if pdata.get('state') == 'prone':
+                     blocking_pid = pid
+                     blocking_team = pdata.get('team_id')
+                     break
+         if blocking_pid:
+             owner = "YOUR" if blocking_team == team_id else "OPPONENT'S"
+             action_hint = (
+                 "Stand them up first (stand_up action, costs 3 MA)."
+                 if blocking_team == team_id else
+                 "Block/scuffle them off that square first, then move onto the ball."
+             )
+             lines.append(
+                 f"Ball: loose on ground at ({bx},{by}) — WARNING: {owner} player [{blocking_pid}] "
+                 f"is PRONE on that square. You CANNOT move there yet. {action_hint}"
+             )
+         else:
+             lines.append(f"Ball: loose on ground at ({bx},{by}) — move a player there to pick it up")
      else:
          lines.append("Ball: not yet in play")
 

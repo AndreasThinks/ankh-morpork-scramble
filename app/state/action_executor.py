@@ -331,6 +331,7 @@ class ActionExecutor:
         if defender_down and game_state.pitch.ball_carrier == defender.id:
             drop_pos = defender_pos
             game_state.pitch.drop_ball()
+            self.ball.scatter_ball(game_state)
             result.ball_dropped = True
             result.message += " - Ball carrier knocked down!"
             if drop_pos:
@@ -339,6 +340,7 @@ class ActionExecutor:
         if attacker_down and game_state.pitch.ball_carrier == attacker.id:
             drop_pos = attacker_pos
             game_state.pitch.drop_ball()
+            self.ball.scatter_ball(game_state)
             result.turnover = True
             result.ball_dropped = True
             result.message += " - Attacker knocked down with ball!"
