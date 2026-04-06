@@ -473,9 +473,9 @@ class GameManager:
 
         # Save logs and record result
         if self.auto_save_logs:
-            self._save_game_logs(game_state)
+            self._save_game_logs(game_state, is_forfeit=True)
         else:
-            self._record_result_if_concluded(game_state)
+            self._record_result_if_concluded(game_state, is_forfeit=True)
 
     def check_scoring(self, game_id: str) -> Optional[str]:
         """Check if a team has scored and handle it"""
@@ -538,7 +538,7 @@ class GameManager:
 
         return None
 
-    def _record_result_if_concluded(self, game_state: GameState) -> None:
+    def _record_result_if_concluded(self, game_state: GameState, is_forfeit: bool = False) -> None:
         """Record a completed game to the leaderboard (idempotent)."""
         if game_state.phase != GamePhase.CONCLUDED:
             return
@@ -664,6 +664,7 @@ class GameManager:
             team1_agent_name=team1_agent_name,
             team2_agent_id=team2_agent_id,
             team2_agent_name=team2_agent_name,
+            is_forfeit=is_forfeit,
         )
         
         try:
@@ -686,17 +687,17 @@ class GameManager:
         except Exception as e:
             logger.warning("Lobby cleanup failed for game %s: %s", game_state.game_id, e)
 
-    def _save_game_logs(self, game_state: GameState) -> None:
+    def _save_game_logs(self, game_state: GameState, is_forfeit: bool = False) -> None:
         """Save game logs to disk (internal helper)."""
         try:
             self.log_saver.save_game_log(game_state)
             logger.debug("Saved logs for game %s", game_state.game_id)
         except Exception as e:
             logger.error("Failed to save logs for game %s: %s", game_state.game_id, e)
-        
+
         # Record result if game is concluded
         try:
-            self._record_result_if_concluded(game_state)
+            self._record_result_if_concluded(game_state, is_forfeit=is_forfeit)
         except Exception as e:
             logger.error("Leaderboard recording failed in _save_game_logs for %s: %s", game_state.game_id, e)
 

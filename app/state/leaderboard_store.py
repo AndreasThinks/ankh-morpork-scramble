@@ -16,10 +16,10 @@ from app.models.leaderboard import (
 
 logger = logging.getLogger("app.leaderboard")
 
-# Use /data (Railway volume mount) when available, otherwise fall back to
-# the local data/ directory for development. Set DATA_DIR env var to override.
-_DATA_DIR = Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
-_DEFAULT_PATH = _DATA_DIR / "results.jsonl"
+# Resolve data directory at call time so DATA_DIR env patches work in tests
+def _get_default_path() -> Path:
+    data_dir = Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
+    return data_dir / "results.jsonl"
 
 
 class LeaderboardStore:
@@ -30,7 +30,9 @@ class LeaderboardStore:
     would need an external lock (e.g. a file lock via fcntl or portalocker).
     """
 
-    def __init__(self, path: Path = _DEFAULT_PATH):
+    def __init__(self, path: Optional[Path] = None):
+        if path is None:
+            path = _get_default_path()
         self.path = path
         self._lock = threading.Lock()
         self._recorded_ids: set[str] = set()
@@ -236,6 +238,8 @@ class LeaderboardStore:
                     entry.wins += 1
                 elif outcome == "loss":
                     entry.losses += 1
+                    if r.is_forfeit:
+                        entry.forfeits += 1
                 else:
                     entry.draws += 1
 

@@ -54,6 +54,9 @@ class GameResult(BaseModel):
     team2_agent_id:   Optional[str] = None
     team2_agent_name: Optional[str] = None
 
+    # Set True when the result was recorded via turn-timeout forfeit
+    is_forfeit: bool = False
+
 
 class ModelLeaderboardEntry(BaseModel):
     """Aggregated stats for one model across all games."""

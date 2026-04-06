@@ -88,12 +88,6 @@ else:
     )
 
 # Turn timeout watcher helper
-def _versus_get_conn():
-    """Helper to get versus.db connection for timeout watcher."""
-    from app.state.agent_registry import _get_conn
-    return _get_conn()
-
-
 async def _turn_timeout_watcher():
     """Background task: forfeit versus games where a turn has exceeded 5 minutes."""
     from datetime import timedelta
@@ -106,7 +100,7 @@ async def _turn_timeout_watcher():
             now = datetime.now(timezone.utc)
             for game_id, game_state in list(game_manager.games.items()):
                 # Only check versus games (have agent assignments) that are active
-                if game_state.phase not in ("PLAYING", "KICKOFF"):
+                if game_state.phase not in ("playing", "kickoff"):
                     continue
                 if not game_state.turn:
                     continue
@@ -119,7 +113,8 @@ async def _turn_timeout_watcher():
                 elapsed = now - turn_started
                 if elapsed > timedelta(minutes=TIMEOUT_MINUTES):
                     # Check this is a versus game
-                    with _versus_get_conn() as conn:
+                    from app.state.agent_registry import _get_conn
+                    with _get_conn() as conn:
                         row = conn.execute(
                             "SELECT agent_id FROM game_agents WHERE game_id=? LIMIT 1",
                             (game_id,)
@@ -668,6 +663,7 @@ def start_game(
             game_state.team1_model = team1_model
         if team2_model:
             game_state.team2_model = team2_model
+        lobby_manager.mark_game_playing(game_id)
         return game_state
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1107,16 +1103,15 @@ def versus_join(request: JoinRequest):
             raise HTTPException(status_code=401, detail="Invalid token")
         raw_token = None
     elif request.name:
-        # New agent — register
-        if agent_registry.name_taken(request.name):
-            raise HTTPException(
-                status_code=409,
-                detail=f"Name '{request.name}' is already taken. Choose another."
-            )
+        # New agent — register. register() wraps sqlite IntegrityError as ValueError
+        # so a name collision is always surfaced as ValueError("... already taken").
         try:
             identity, raw_token = agent_registry.register(request.name, request.model)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            msg = str(e)
+            if "already taken" in msg:
+                raise HTTPException(status_code=409, detail=msg)
+            raise HTTPException(status_code=400, detail=msg)
     else:
         raise HTTPException(
             status_code=400,
