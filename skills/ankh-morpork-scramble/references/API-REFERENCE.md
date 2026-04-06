@@ -94,6 +94,19 @@ Returns:
 
 ---
 
+### GET /versus/get-started
+
+**Summary**: Get Started
+
+**Description**: Landing page for versus mode — instructions, status, registration.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 ### GET /health
 
 **Summary**: Health Check

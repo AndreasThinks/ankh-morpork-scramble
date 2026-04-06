@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.logging_utils import configure_root_logger
 from app.web import router as ui_router
+from app.web.versus_get_started import router as versus_router
 from app.api.middleware import rate_limiter, sanitize_id
 
 from app.models.game_state import GameState
@@ -124,6 +125,7 @@ app.middleware("http")(rate_limiter)
 
 # Expose the lightweight monitoring dashboard
 app.include_router(ui_router)
+app.include_router(versus_router, prefix="/versus")
 
 
 @app.get("/", include_in_schema=False)
