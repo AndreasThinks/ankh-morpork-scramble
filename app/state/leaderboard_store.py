@@ -1,11 +1,11 @@
-"""Persistent leaderboard — append-only JSONL + in-memory aggregation."""
+"""Persistent leaderboard — SQLite-backed, in-memory aggregation."""
 from __future__ import annotations
 
-import json
 import logging
 import os
+import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -16,91 +16,115 @@ from app.models.leaderboard import (
 
 logger = logging.getLogger("app.leaderboard")
 
-# Resolve data directory at call time so DATA_DIR env patches work in tests
-def _get_default_path() -> Path:
-    data_dir = Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
-    return data_dir / "results.jsonl"
+
+def _get_data_dir() -> Path:
+    return Path(os.getenv("DATA_DIR", "/data" if Path("/data").is_mount() else "data"))
+
+
+def _default_db_path() -> Path:
+    return _get_data_dir() / "versus.db"
 
 
 class LeaderboardStore:
-    """
-    Thread-safe append-only JSONL store.
+    """Thread-safe SQLite leaderboard store.
 
-    Gotcha: safe for single-process uvicorn only. Multi-worker deployments
-    would need an external lock (e.g. a file lock via fcntl or portalocker).
+    Results are written to a ``results`` table in the shared ``versus.db``
+    database alongside agents, lobby, and game_agents tables.
+
+    Pass ``path=Path(":memory:")`` for an isolated in-memory database (tests).
+    Pass any other ``Path`` to use a file-backed SQLite database.
     """
 
-    def __init__(self, path: Optional[Path] = None):
+    def __init__(self, path: Path = None):
         if path is None:
-            path = _get_default_path()
+            path = _default_db_path()
         self.path = path
         self._lock = threading.Lock()
-        self._recorded_ids: set[str] = set()
-        self._load_recorded_ids()
+        self._is_memory = str(path) == ":memory:"
+        # In-memory databases need a single persistent connection — each new
+        # connect(":memory:") creates an entirely separate empty database.
+        self._mem_conn: Optional[sqlite3.Connection] = None
+        if self._is_memory:
+            self._mem_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self._mem_conn.row_factory = sqlite3.Row
+        self._init_db()
+
+    # ------------------------------------------------------------------
+    # Connection helpers
+    # ------------------------------------------------------------------
+
+    def _get_conn(self) -> tuple[sqlite3.Connection, bool]:
+        """Return (conn, owned). If owned=True, caller must close it."""
+        if self._is_memory:
+            return self._mem_conn, False
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn, True
+
+    def _init_db(self) -> None:
+        conn, owned = self._get_conn()
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS results (
+                    game_id   TEXT PRIMARY KEY,
+                    played_at TEXT NOT NULL,
+                    data      TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+        finally:
+            if owned:
+                conn.close()
+        logger.debug("results table ready in %s", self.path)
 
     # ------------------------------------------------------------------
     # Write
     # ------------------------------------------------------------------
 
     def record(self, result: GameResult) -> None:
-        """Append one GameResult to the JSONL file. Idempotent on duplicate game_id."""
+        """Store one GameResult. Idempotent on duplicate game_id."""
         with self._lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            # Idempotency guard: skip if this game_id is already present
-            if self._is_recorded(result.game_id):
+            conn, owned = self._get_conn()
+            try:
+                conn.execute(
+                    "INSERT INTO results (game_id, played_at, data) VALUES (?, ?, ?)",
+                    (result.game_id, result.played_at.isoformat(), result.model_dump_json())
+                )
+                conn.commit()
+            except sqlite3.IntegrityError:
                 logger.debug("Game %s already recorded — skipping.", result.game_id)
                 return
-            line = result.model_dump_json() + "\n"
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(line)
-            # Add to cache after successful write
-            self._recorded_ids.add(result.game_id)
-            logger.info(
-                "Recorded result: %s %d-%d %s (models: %s vs %s)",
-                result.team1_name, result.team1_score,
-                result.team2_score, result.team2_name,
-                result.team1_model, result.team2_model,
-            )
-
-    def _load_recorded_ids(self) -> None:
-        """Load all game IDs from disk into memory cache (called once at init)."""
-        if not self.path.exists():
-            return
-        with self.path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                    game_id = obj.get("game_id")
-                    if game_id:
-                        self._recorded_ids.add(game_id)
-                except json.JSONDecodeError:
-                    continue
-
-    def _is_recorded(self, game_id: str) -> bool:
-        """Check if a game_id already exists (O(1) lookup in memory cache)."""
-        return game_id in self._recorded_ids
+            finally:
+                if owned:
+                    conn.close()
+        logger.info(
+            "Recorded result: %s %d-%d %s (models: %s vs %s)",
+            result.team1_name, result.team1_score,
+            result.team2_score, result.team2_name,
+            result.team1_model, result.team2_model,
+        )
 
     # ------------------------------------------------------------------
     # Read / aggregate
     # ------------------------------------------------------------------
 
     def load_all(self) -> list[GameResult]:
-        """Load all results from disk."""
-        if not self.path.exists():
-            return []
+        """Load all results from the database."""
+        conn, owned = self._get_conn()
+        try:
+            rows = conn.execute(
+                "SELECT data FROM results ORDER BY played_at ASC"
+            ).fetchall()
+        finally:
+            if owned:
+                conn.close()
         results = []
-        with self.path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    results.append(GameResult.model_validate_json(line))
-                except Exception as exc:
-                    logger.warning("Skipping malformed leaderboard line: %s", exc)
+        for row in rows:
+            try:
+                results.append(GameResult.model_validate_json(row["data"]))
+            except Exception as exc:
+                logger.warning("Skipping malformed result row: %s", exc)
         return results
 
     def get_leaderboard(self) -> LeaderboardResponse:
@@ -238,14 +262,10 @@ class LeaderboardStore:
                     entry.wins += 1
                 elif outcome == "loss":
                     entry.losses += 1
-                    if r.is_forfeit:
-                        entry.forfeits += 1
                 else:
                     entry.draws += 1
 
-        # Sort agents by wins desc, score_diff desc
         by_agent = sorted(agent_map.values(), key=lambda e: (-e.wins, -e.score_diff))
-        # Sort by wins desc, score_diff desc
         by_model = sorted(model_map.values(), key=lambda e: (-e.wins, -e.score_diff))
         by_team = sorted(team_map.values(), key=lambda e: (-e.wins, -e.score_diff))
 

@@ -133,7 +133,7 @@ curl -X POST "http://localhost:8000/game/{game_id}/join?team_id={your_team_id}"
 
 ---
 
-### GET /versus/
+### GET /versus
 
 **Summary**: Get Started
 

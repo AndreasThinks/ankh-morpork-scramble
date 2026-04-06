@@ -162,17 +162,12 @@ def test_leaderboard_sorted_by_wins_then_score_diff(tmp_path):
     assert ids[0] == "model-a"  # 2 wins
 
 
-def test_malformed_jsonl_line_skipped(tmp_path):
-    """A corrupt line in the JSONL file should be skipped, not crash."""
-    path = tmp_path / "results.jsonl"
-    path.write_text(
-        '{"game_id": "g1", "not": "a valid GameResult"}\n'
-        + make_result(game_id="g2").model_dump_json() + "\n"
-    )
-    store = LeaderboardStore(path=path)
-    lb = store.get_leaderboard()
-    # g1 is malformed and skipped; g2 is valid
-    assert lb.total_games == 1
+def test_duplicate_game_id_rejected(tmp_path):
+    """Recording the same game_id twice must store only one row (SQLite PK constraint)."""
+    store = LeaderboardStore(path=tmp_path / "results.db")
+    store.record(make_result(game_id="g1"))
+    store.record(make_result(game_id="g1"))  # duplicate — silently skipped
+    assert len(store.load_all()) == 1
 
 
 # ---------------------------------------------------------------------------
