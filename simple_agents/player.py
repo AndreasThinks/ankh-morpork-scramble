@@ -209,6 +209,29 @@ def _format_position_for_llm(p: dict) -> str:
 
 # ── setup ──────────────────────────────────────────────────────────────────
 
+# Mapping of generic Blood Bowl terms to team-specific position keys.
+# LLMs often hallucinate standard BB position names instead of using the
+# Discworld-flavoured keys, so we remap the most common ones.
+_GENERIC_KEY_MAP = {
+    "team1": {
+        "lineman": "constable", "linemen": "constable",
+        "thrower": "clerk_runner", "passer": "clerk_runner",
+        "runner": "fleet_recruit", "catcher": "fleet_recruit",
+        "blitzer": "watch_sergeant", "blocker": "watch_sergeant",
+        "sergeant": "watch_sergeant",
+        "big_guy": "troll_constable", "troll": "troll_constable",
+        "captain": "captain_carrot",
+    },
+    "team2": {
+        "lineman": "apprentice_wizard", "linemen": "apprentice_wizard",
+        "thrower": "divination_wizard", "passer": "divination_wizard",
+        "runner": "haste_mage", "catcher": "haste_mage",
+        "blitzer": "senior_wizard", "blocker": "senior_wizard",
+        "big_guy": "animated_gargoyle", "wizard": "apprentice_wizard",
+    },
+}
+
+
 def setup_team(game_id: str, team_id: str, team_name: str,
                model: str = None, base_url: str = "http://localhost:8000") -> None:
     """Buy roster, auto-place, mark ready."""
@@ -221,6 +244,9 @@ def setup_team(game_id: str, team_id: str, team_name: str,
     budget = budget_data.get("budget_remaining", 1_000_000)
     available = positions_data.get("positions") or []
 
+    valid_keys = [p["position_key"] for p in available]
+    valid_keys_str = ", ".join(valid_keys)
+
     roster_prompt = (
         f"You are building a roster for {team_name} in Ankh-Morpork Scramble (Blood Bowl rules).\n"
         f"Budget: {budget:,}g.  Rerolls cost {positions_data.get('reroll_cost', 60000):,}g each (max {positions_data.get('rerolls_max', 8)}).\n\n"
@@ -231,6 +257,8 @@ def setup_team(game_id: str, team_id: str, team_name: str,
         + "Aim for: a core of cheap linemen, 1-2 fast runners (high MA) for ball carrying, "
         + "1 dedicated passer/ball-handler (good PA or Sure Hands), and 1-2 strong blockers (high ST).\n"
         + "★ = star player (unique, max 1, expensive — only buy if budget allows after filling the core).\n\n"
+        + f"IMPORTANT: You MUST use ONLY these exact position keys in the 'players' array: {valid_keys_str}\n"
+        + "Do NOT use generic Blood Bowl names like 'lineman' or 'thrower' — they will be rejected.\n\n"
         + 'Return ONLY a JSON object: {"players": ["key","key",...], "rerolls": N}'
     )
 
@@ -256,14 +284,45 @@ def setup_team(game_id: str, team_id: str, team_name: str,
                 "rerolls": 2,
             }
 
+    # Remap generic Blood Bowl terms to valid team-specific keys
+    key_map = _GENERIC_KEY_MAP.get(team_id, {})
+    valid_key_set = set(valid_keys)
+    remapped_players = []
+    for pk in roster.get("players", []):
+        pk_lower = pk.lower().strip()
+        if pk_lower in valid_key_set:
+            remapped_players.append(pk_lower)
+        elif pk_lower in key_map:
+            mapped = key_map[pk_lower]
+            logger.info(f"[{team_name}] Remapped generic key '{pk}' → '{mapped}'")
+            remapped_players.append(mapped)
+        else:
+            logger.warning(f"[{team_name}] Unknown position key '{pk}', skipping.")
+    roster["players"] = remapped_players
+
     # Buy players
+    bought_count = 0
     for position_key in roster.get("players", []):
         r = requests.post(f"{base_url}/game/{game_id}/team/{team_id}/buy-player",
                           params={"position_key": position_key})
         if r.status_code == 200:
+            bought_count += 1
             logger.info(f"[{team_name}] Bought {position_key}")
         else:
             logger.warning(f"[{team_name}] Failed to buy {position_key}: {r.text[:80]}")
+
+    # If no players were successfully purchased, use the fallback roster
+    if bought_count == 0:
+        logger.warning(f"[{team_name}] Zero players purchased — falling back to default roster.")
+        if team_id == "team1":
+            fallback = ["constable"]*5 + ["fleet_recruit"]*2 + ["watch_sergeant"]
+        else:
+            fallback = ["apprentice_wizard"]*4 + ["haste_mage"]*2 + ["divination_wizard"]*2 + ["senior_wizard"]
+        for position_key in fallback:
+            r = requests.post(f"{base_url}/game/{game_id}/team/{team_id}/buy-player",
+                              params={"position_key": position_key})
+            if r.status_code == 200:
+                logger.info(f"[{team_name}] Fallback bought {position_key}")
 
     # Buy rerolls
     for _ in range(roster.get("rerolls", 0)):
@@ -312,10 +371,18 @@ def _post_message(base_url: str, game_id: str, team_id: str, team_name: str, con
         pass  # non-critical
 
 
-def _parse_step(text: str) -> tuple[str, dict | None]:
+# Sentinel returned by _parse_step when the LLM output is not valid JSON,
+# distinct from action=None which means "intentionally end turn".
+_PARSE_FAILED = object()
+
+
+def _parse_step(text: str) -> tuple[str, dict | None | object]:
     """Parse a single-action LLM response into (thought, action).
 
-    Returns (thought, None) to signal end-of-turn.
+    Returns:
+      (thought, action_dict) — a valid action to execute.
+      (thought, None)        — model intentionally ended its turn.
+      ("", _PARSE_FAILED)    — response could not be parsed as JSON.
     """
     text = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`").strip()
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -326,8 +393,10 @@ def _parse_step(text: str) -> tuple[str, dict | None]:
             action = obj.get("action")  # None means end turn
             return thought, action
         except json.JSONDecodeError:
-            pass
-    return "", None
+            logger.warning("JSON decode failed on extracted object: %s", match.group()[:200])
+    else:
+        logger.warning("No JSON object found in LLM response: %s", text[:200])
+    return "", _PARSE_FAILED
 
 
 def _describe_valid_actions(valid_actions: dict, state: dict, team_id: str) -> str:
@@ -587,13 +656,25 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
     sys_prompt = sys_prompt.replace("{my_end_zone}", str(my_end_zone)).replace("{opp_end_zone}", str(opp_end_zone))
 
     actions_taken = 0
+    total_iterations = 0
+    parse_failures = 0
+    consecutive_failures = 0
+    last_failed_sig: str | None = None
+    consecutive_same_failures = 0
     last_failure: str | None = None
     last_action: dict | None = None
     llm_ever_succeeded = False
     permanent_failure = False
     failure_reason: str | None = None
 
-    while actions_taken < MAX_ACTIONS_PER_TURN:
+    MAX_TOTAL_ITERATIONS = 30   # absolute cap including failures
+    MAX_PARSE_FAILURES = 3      # consecutive parse failures before giving up
+    MAX_CONSECUTIVE_FAILURES = 5  # any consecutive failures → force end turn
+    MAX_SAME_ACTION_FAILURES = 3  # same action failing repeatedly → force end turn
+
+    while actions_taken < MAX_ACTIONS_PER_TURN and total_iterations < MAX_TOTAL_ITERATIONS:
+        total_iterations += 1
+
         # Refresh state before each action
         try:
             state = requests.get(f"{base_url}/game/{game_id}", timeout=5).json()
@@ -641,6 +722,23 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
             logger.error(f"[{team_name}] LLM error: {e}")
             break
 
+        # Handle JSON parse failures — retry with feedback instead of ending turn
+        if action is _PARSE_FAILED:
+            parse_failures += 1
+            logger.warning(f"[{team_name}] Parse failure {parse_failures}/{MAX_PARSE_FAILURES}")
+            if parse_failures >= MAX_PARSE_FAILURES:
+                logger.warning(f"[{team_name}] {MAX_PARSE_FAILURES} consecutive parse failures — ending turn.")
+                break
+            last_failure = (
+                "Your response was not valid JSON. You MUST return a JSON object like: "
+                '{\"thought\": \"...\", \"action\": {...}} or {\"thought\": \"...\", \"action\": null} to end turn.'
+            )
+            last_action = None
+            continue
+
+        # Reset parse failure counter on successful parse
+        parse_failures = 0
+
         # Post thought as coach message if present
         if thought:
             logger.info(f"[{team_name}] 💬 {thought}")
@@ -672,18 +770,40 @@ def play_turn(game_id: str, team_id: str, team_name: str, state: dict,
                     last_failure = None
                     last_action = None
                     actions_taken += 1
+                    consecutive_failures = 0
+                    last_failed_sig = None
+                    consecutive_same_failures = 0
                     break
                 else:
                     last_failure = msg
                     last_action = action
+                    consecutive_failures += 1
+
+                    # Track repeated identical failures
+                    sig = f"{action.get('action_type')}|{action.get('player_id')}|{action.get('target_player_id')}"
+                    if sig == last_failed_sig:
+                        consecutive_same_failures += 1
+                    else:
+                        last_failed_sig = sig
+                        consecutive_same_failures = 1
+
                     if attempt < MAX_RETRIES_PER_ACTION - 1:
                         # Ask LLM for a different action on next loop iteration
                         break
             except Exception as e:
                 last_failure = str(e)
                 last_action = action
+                consecutive_failures += 1
                 logger.warning(f"[{team_name}] Action error: {e}")
                 break
+
+        # Check repetition guards
+        if consecutive_same_failures >= MAX_SAME_ACTION_FAILURES:
+            logger.warning(f"[{team_name}] Same action failed {consecutive_same_failures} times — forcing end turn.")
+            break
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            logger.warning(f"[{team_name}] {consecutive_failures} consecutive failures — forcing end turn.")
+            break
 
     # End turn explicitly
     r = requests.post(f"{base_url}/game/{game_id}/end-turn", params={"team_id": team_id}, timeout=5)

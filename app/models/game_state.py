@@ -233,7 +233,7 @@ class GameState(BaseModel):
             event_logger.log_half_end(1)
 
             self.turn.half = 2
-            self.turn.team_turn = 0
+            self.turn.team_turn = 1
             self.phase = GamePhase.INTERMISSION
             self.add_event("Intermission!")
 
