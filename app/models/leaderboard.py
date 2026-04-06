@@ -48,6 +48,12 @@ class GameResult(BaseModel):
     team1_total_message_chars: int = 0
     team2_total_message_chars: int = 0
 
+    # Agent identity — populated for versus games, None for arena games
+    team1_agent_id:   Optional[str] = None
+    team1_agent_name: Optional[str] = None
+    team2_agent_id:   Optional[str] = None
+    team2_agent_name: Optional[str] = None
+
 
 class ModelLeaderboardEntry(BaseModel):
     """Aggregated stats for one model across all games."""

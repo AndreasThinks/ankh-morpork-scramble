@@ -17,6 +17,7 @@ from app.state.action_executor import ActionExecutor
 from app.game.event_logger import EventLogger
 from app.game.log_saver import LogSaver
 from app.state.leaderboard_store import LeaderboardStore
+from app.state.agent_registry import _get_conn, AgentRegistry
 
 
 logger = logging.getLogger("app.game.manager")
@@ -571,6 +572,29 @@ class GameManager:
             winner_model = game_state.team2_model
             winner_team = game_state.team2.name
 
+        # Look up agent assignments for versus games (None for arena games)
+        team1_agent_id = team1_agent_name = None
+        team2_agent_id = team2_agent_name = None
+        try:
+            with _get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT ga.team_id, ga.agent_id, a.name "
+                    "FROM game_agents ga "
+                    "JOIN agents a ON ga.agent_id = a.agent_id "
+                    "WHERE ga.game_id = ?",
+                    (game_state.game_id,)
+                ).fetchall()
+            for row in rows:
+                if row["team_id"] == "team1":
+                    team1_agent_id = row["agent_id"]
+                    team1_agent_name = row["name"]
+                elif row["team_id"] == "team2":
+                    team2_agent_id = row["agent_id"]
+                    team2_agent_name = row["name"]
+        except Exception as exc:
+            logger.warning("Could not look up agent assignments for game %s: %s",
+                           game_state.game_id, exc)
+
         from app.models.leaderboard import GameResult
         result = GameResult(
             game_id=str(uuid.uuid4()),
@@ -602,6 +626,10 @@ class GameManager:
             team2_messages_sent=t2_messages_sent,
             team1_total_message_chars=t1_total_message_chars,
             team2_total_message_chars=t2_total_message_chars,
+            team1_agent_id=team1_agent_id,
+            team1_agent_name=team1_agent_name,
+            team2_agent_id=team2_agent_id,
+            team2_agent_name=team2_agent_name,
         )
         
         try:
