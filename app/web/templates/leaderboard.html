@@ -333,7 +333,13 @@
     </style>
 </head>
 <body>
-    <nav><a href="/ui">← Back to Match</a></nav>
+    <nav>
+        <a href="/">← Home</a>
+        <a href="/model-arena">▸ Model Arena</a>
+        <a href="/versus">▸ Versus</a>
+        <a href="/standings" style="color:var(--accent-orange)">▸ Standings</a>
+        <a href="/docs">▸ API</a>
+    </nav>
 
     <header>
         <h1>Season Standings</h1>
@@ -357,6 +363,16 @@
                 <div class="table-scroll">
                     <div class="loading">Loading model data…</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Agent table section -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Agent Standings</h2>
+            </div>
+            <div class="table-scroll" id="agent-table-container">
+                <div class="loading">Loading agent data…</div>
             </div>
         </div>
 
@@ -544,6 +560,43 @@
             renderTable(allModels);
         }
 
+        function renderAgentTable(agents) {
+            const container = document.getElementById('agent-table-container');
+            if (!agents.length) {
+                container.innerHTML = '<div class="empty">No versus games recorded yet.</div>';
+                return;
+            }
+            const rows = agents.map(a => {
+                const diffSign  = a.score_diff > 0 ? '+' : '';
+                const diffClass = a.score_diff > 0 ? 'positive' : (a.score_diff < 0 ? 'negative' : '');
+                return `<tr>
+                    <td class="model-name-cell">${escapeHtml(a.agent_name)}</td>
+                    <td>${escapeHtml(a.model || '—')}</td>
+                    <td>${a.games}</td>
+                    <td class="positive">${a.wins}</td>
+                    <td class="negative">${a.losses}</td>
+                    <td>${a.draws}</td>
+                    <td>${a.goals_for}</td>
+                    <td>${a.goals_against}</td>
+                    <td class="${diffClass}">${diffSign}${a.score_diff}</td>
+                    <td>${(a.win_pct * 100).toFixed(1)}%</td>
+                    <td>${a.aggression}</td>
+                    <td>${a.recklessness}</td>
+                </tr>`;
+            }).join('');
+            container.innerHTML = `
+                <table>
+                    <thead><tr>
+                        <th>Agent</th><th>Model</th><th>GP</th>
+                        <th>W</th><th>L</th><th>D</th>
+                        <th>GF</th><th>GA</th><th>+/-</th>
+                        <th>Win%</th>
+                        <th>💥/G</th><th>🎲/G</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
         function renderTeamTable(teams) {
             const container = document.getElementById('team-table-container');
             if (!teams.length) {
@@ -588,6 +641,7 @@
                 allModels = data.by_model || [];
                 renderCards(allModels);
                 renderTable(allModels);
+                renderAgentTable(data.by_agent || []);
                 renderTeamTable(data.by_team || []);
 
             } catch (err) {

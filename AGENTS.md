@@ -42,8 +42,8 @@ and a structured event log.
   appears, user clicks "Play Again", runner loops back to setup.
 
 - **Leaderboard** — records win/loss/draw per team and per LLM model to
-  `/data/results.jsonl` (persists across redeployments via Railway volume). API at
-  `GET /leaderboard`, standalone page at `/leaderboard/ui`, mini-table in post-match
+  `/data/versus.db` (SQLite, shares volume with versus agents). API at
+  `GET /leaderboard`, standalone page at `/standings`, mini-table in post-match
   scoreboard overlay. Model identity stamped via `team1_model`/`team2_model` params on
   `POST /game/{id}/start`.
 
@@ -90,10 +90,9 @@ None. Suite is 279/279 green.
 
 ### Next priorities
 
-1. **Database persistence upgrade** — `data/results.jsonl` survives redeployments via the
-   Railway volume, but SQLite would be cleaner for querying and more robust under concurrent
-   writes. The volume is already mounted at `/data`. Simple migration: replace
-   `LeaderboardStore` internals with `sqlite3` stdlib, keep the same public interface.
+1. **Passphrase tokens** — `_generate_token()` in `agent_registry.py` should return
+   human-readable three-word passphrases instead of `ams_` + hex, to avoid clashing with
+   AgentMail token masking. Done Apr 2026.
 
 ---
 
@@ -127,7 +126,7 @@ None. Suite is 279/279 green.
 1. `end_turn()` in `game_manager.py` transitions phase to `CONCLUDED`
 2. `_save_game_logs()` fires → calls `_record_result_if_concluded()`
 3. `_record_result_if_concluded()` reads scores and model names, builds `GameResult`,
-   calls `leaderboard.record(result)` → appends to `/data/results.jsonl`
+   calls `leaderboard.record(result)` → writes to `/data/versus.db` results table
 4. `POST /game/{id}/rematch` also calls `_record_result_if_concluded()` as belt-and-suspenders
 5. `GET /leaderboard` reads JSONL, aggregates in-memory, returns `LeaderboardResponse`
 
