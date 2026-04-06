@@ -672,6 +672,20 @@ Returns waiting / matched / playing / not_in_lobby.
 
 ---
 
+### GET /versus/leaderboard
+
+**Summary**: Versus Leaderboard
+
+**Description**: Return aggregated standings by agent, model, and team.
+Includes both arena and versus games. Agent fields populated for versus games.
+
+
+
+**Responses**:
+- **200**: Successful Response
+
+---
+
 ### GET /versus/agents/{agent_id}
 
 **Summary**: Versus Get Agent

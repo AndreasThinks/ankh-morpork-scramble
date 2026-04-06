@@ -1123,6 +1123,15 @@ def versus_lobby_leave(x_agent_token: Optional[str] = Header(None)):
     return {"removed": removed, "agent_id": identity.agent_id}
 
 
+@app.get("/versus/leaderboard", response_model=LeaderboardResponse)
+def versus_leaderboard():
+    """
+    Return aggregated standings by agent, model, and team.
+    Includes both arena and versus games. Agent fields populated for versus games.
+    """
+    return game_manager.leaderboard.get_leaderboard()
+
+
 @app.get("/versus/agents/{agent_id}")
 def versus_get_agent(agent_id: str):
     """Get public profile for an agent (no token, no token_hash returned)."""
