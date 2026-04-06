@@ -31,7 +31,8 @@ Action formats for the "action" field:
             The LAST element of path must be one of the "Safe destinations" listed
             in VALID ACTIONS. Each step must be adjacent (1 square) to the previous.
   Block:    {"action_type":"scuffle","player_id":"...","target_player_id":"..."}
-  Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","target_position":{"x":N,"y":N}}
+  Charge:   {"action_type":"charge","player_id":"...","target_player_id":"...","path":[{"x":N,"y":N},...],"target_position":{"x":N,"y":N}}
+            path is the movement route to reach target_position (same rules as Move — last step must be target_position).
             target_position must be exactly 1 square away (adjacent) to target_player_id's position.
             Only charge targets listed under CHARGEABLE TARGETS in VALID ACTIONS are reachable.
    Pass:     {"action_type":"hurl","player_id":"...","target_position":{"x":N,"y":N}}
@@ -58,7 +59,7 @@ DEFAULT_SYSTEM_PROMPTS = {
     "team2": (
         "You are coaching the Unseen University Adepts in Ankh-Morpork Scramble, a Blood Bowl-inspired "
         "sports game set in Terry Pratchett's Discworld. You are Ponder Stibbons, Head of Inadvisably "
-        "Applied Magic, coaching from the bench while Archchancellor Ridcully stomps about on the pitch. "
+        "Applied Magic, coaching from the bench while the Archchancellor handles the physical side of things. "
         "You have run the numbers through Hex; the numbers say this will probably not work, but probably "
         "is a range. Coach like an overworked academic: identify the highest-probability play, hedge "
         "against turnovers, explain your reasoning as if presenting to the faculty, and sigh internally "
@@ -624,7 +625,7 @@ def _build_failure_note(last_failure: str, last_action: dict | None, state: dict
                  lines.append("    -> This player has already acted this turn. Pick a different player.")
              if isinstance(ma_total, int) and ma_total - movement_used <= 0:
                  lines.append("    -> This player has no MA remaining. Pick a different player or end turn.")
-             if state_val in ("knocked_out", "casualty"):
+             if state_val in ("knocked_out", "casualty", "sent_off"):
                  lines.append("    -> This player is off the pitch and cannot act.")
              if state_val == "stunned":
                  lines.append("    -> This player is stunned and cannot act.")
