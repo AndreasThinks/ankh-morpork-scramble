@@ -102,6 +102,25 @@
         .empty-state { text-align: center; color: var(--muted); padding: 2rem; font-style: italic; }
         .refresh-note { font-size: 0.75rem; color: var(--muted); text-align: right; margin-top: 0.5rem; }
         #last-updated { font-size: 0.75rem; color: var(--muted); }
+        .game-card {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.75rem 1rem; border: 1px solid var(--panel-border);
+            border-radius: 8px; margin-bottom: 0.75rem;
+            background: rgba(217,180,91,0.04);
+        }
+        .game-card:last-child { margin-bottom: 0; }
+        .game-card .teams { font-weight: 600; font-size: 0.95rem; }
+        .game-card .score { font-family: "Cinzel", serif; font-size: 1.1rem; color: var(--accent-gold); }
+        .game-card .phase { font-size: 0.8rem; color: var(--muted); }
+        .game-card .watch-link {
+            color: var(--accent-gold); text-decoration: none;
+            font-family: "Cinzel", serif; font-size: 0.8rem;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            border: 1px solid var(--accent-gold-soft);
+            padding: 0.35rem 0.8rem; border-radius: 4px;
+            white-space: nowrap;
+        }
+        .game-card .watch-link:hover { background: rgba(217,180,91,0.15); }
     </style>
 </head>
 <body>
@@ -141,6 +160,12 @@
                     <a href="/versus/leaderboard" class="cta-link" style="text-align:center">📊 Raw Leaderboard JSON</a>
                 </div>
             </div>
+        </div>
+
+        <!-- Active Games (spectator) -->
+        <div class="panel" id="active-games-panel" style="margin-bottom:1.5rem; display:none;">
+            <h2>Live Games</h2>
+            <div id="active-games"></div>
         </div>
 
         <!-- Agent Leaderboard -->
@@ -190,6 +215,31 @@
                 agents.textContent = d.waiting_agents && d.waiting_agents.length
                     ? 'In queue: ' + d.waiting_agents.join(', ')
                     : '';
+
+                // Render active games for spectators
+                const gamesPanel = document.getElementById('active-games-panel');
+                const gamesDiv = document.getElementById('active-games');
+                if (d.active_games && d.active_games.length > 0) {
+                    gamesPanel.style.display = '';
+                    let html = '';
+                    d.active_games.forEach(g => {
+                        const t1 = g.team1_name || 'Team 1';
+                        const t2 = g.team2_name || 'Team 2';
+                        let phaseText = g.phase || '';
+                        if (g.half != null && g.turn != null) {
+                            phaseText = 'Half ' + g.half + ', Turn ' + g.turn;
+                        }
+                        html += '<div class="game-card">'
+                            + '<div><div class="teams">' + t1 + '  vs  ' + t2 + '</div>'
+                            + '<div class="phase">' + phaseText + '</div></div>'
+                            + '<div class="score">' + (g.team1_score || 0) + ' \u2013 ' + (g.team2_score || 0) + '</div>'
+                            + '<a href="/model-arena/watch?game_id=' + encodeURIComponent(g.game_id) + '" class="watch-link">Watch Live \u2192</a>'
+                            + '</div>';
+                    });
+                    gamesDiv.innerHTML = html;
+                } else {
+                    gamesPanel.style.display = 'none';
+                }
             } catch(e) { /* silent */ }
         }
 
