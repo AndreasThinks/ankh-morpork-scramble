@@ -436,6 +436,45 @@ def test_foul_without_target_fails():
         )
 
 
+def test_move_auto_corrects_path_through_occupied_square():
+    """When the LLM sends a path through an occupied intermediate square but the
+    destination is genuinely reachable, the executor should transparently reroute
+    and the move should succeed.
+
+    Reproduces the "Position is occupied / game stuck" bug where the agent planned
+    a straight-east path that passed through another player.
+    """
+    executor = ActionExecutor(DiceRoller(seed=42))
+    game_state = create_test_game_state()
+
+    # p1 at (10,7), blocker at (11,7) — blocker is prone so no tackle zone,
+    # the only purpose is to occupy the square and force path rerouting.
+    p1 = create_test_player("p1", "team1", ma=6)
+    blocker = create_test_player("blocker", "team2", ma=6)
+    blocker.knock_down()  # prone: occupies square but no tackle zone
+    game_state.players["p1"] = p1
+    game_state.players["blocker"] = blocker
+    game_state.pitch.player_positions["p1"] = Position(x=10, y=7)
+    game_state.pitch.player_positions["blocker"] = Position(x=11, y=7)
+
+    target = Position(x=12, y=7)
+    # Naïve "straight east" path — goes through the occupied square
+    action = ActionRequest(
+        action_type=ActionType.MOVE,
+        player_id="p1",
+        target_position=target,
+        path=[Position(x=11, y=7), target],
+    )
+
+    result = executor.execute_action(game_state, action)
+
+    assert result.success, (
+        "Move to a reachable destination should succeed even when the provided "
+        f"path is blocked: {result.message}"
+    )
+    assert game_state.pitch.player_positions["p1"] == target
+
+
 def test_ko_player_removed_from_pitch():
     """Regression: KO'd/casualty players must be removed from player_positions.
 
