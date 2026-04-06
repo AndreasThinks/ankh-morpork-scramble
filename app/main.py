@@ -33,9 +33,14 @@ from app.state.game_manager import GameManager
 from app.game.statistics import StatisticsAggregator
 from app.models.events import GameStatistics
 from app.models.leaderboard import LeaderboardResponse
+from app.models.agent import AgentIdentity, AgentContext, JoinRequest, JoinResponse, LobbyStatusResponse
+from app.state.agent_registry import AgentRegistry, init_db
+from app.state.lobby import LobbyManager
 
 # Global game manager instance
 game_manager = GameManager()
+agent_registry = AgentRegistry()
+lobby_manager = LobbyManager(game_manager)
 
 # Configure logging early so startup hooks can log useful information
 _LOG_FILE = configure_root_logger(service_name="api", env_prefix="APP_")
@@ -86,6 +91,8 @@ async def app_lifespan(app: FastAPI):
     # Startup
     logger.info("FastAPI application starting up...")
     logger.info("Game manager initialized with %d active games", len(game_manager.games))
+    init_db()
+    logger.info("versus.db initialised")
     yield
     # Shutdown
     logger.info("FastAPI application shutting down...")
@@ -955,6 +962,113 @@ def rematch_game(game_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── versus mode endpoints ────────────────────────────────────────────────────
+
+@app.post("/versus/join", response_model=JoinResponse)
+def versus_join(request: JoinRequest):
+    """
+    Register a new agent or authenticate a returning one, then join the lobby.
+
+    New agent: provide { name, model (optional) }
+    Returning agent: provide { token }
+
+    Token is returned ONLY on first registration. Save it — it is never shown again.
+    """
+    if request.token:
+        # Returning agent
+        identity = agent_registry.resolve_token(request.token)
+        if not identity:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        raw_token = None
+    elif request.name:
+        # New agent — register
+        if agent_registry.name_taken(request.name):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Name '{request.name}' is already taken. Choose another."
+            )
+        try:
+            identity, raw_token = agent_registry.register(request.name, request.model)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either 'token' (returning agent) or 'name' (new agent)"
+        )
+
+    # Join the lobby
+    result = lobby_manager.join(identity.agent_id)
+
+    # Resolve opponent name if matched
+    opponent_name = None
+    if result.get("opponent_agent_id"):
+        opp = agent_registry.get_by_id(result["opponent_agent_id"])
+        if opp:
+            opponent_name = opp.name
+
+    return JoinResponse(
+        agent_id=identity.agent_id,
+        name=identity.name,
+        token=raw_token,
+        status=result["status"],
+        game_id=result.get("game_id"),
+        team_id=result.get("team_id"),
+        opponent_name=opponent_name,
+    )
+
+
+@app.get("/versus/lobby/status", response_model=LobbyStatusResponse)
+def versus_lobby_status(x_agent_token: Optional[str] = Header(None)):
+    """
+    Poll lobby status for the authenticated agent.
+    Returns waiting / matched / playing / not_in_lobby.
+    """
+    if not x_agent_token:
+        raise HTTPException(status_code=401, detail="X-Agent-Token header required")
+    identity = agent_registry.resolve_token(x_agent_token)
+    if not identity:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    status = lobby_manager.get_status(identity.agent_id)
+
+    return LobbyStatusResponse(
+        agent_id=identity.agent_id,
+        name=identity.name,
+        status=status["status"],
+        game_id=status.get("game_id"),
+        team_id=status.get("team_id"),
+        opponent_name=status.get("opponent_name"),
+    )
+
+
+@app.delete("/versus/lobby/leave")
+def versus_lobby_leave(x_agent_token: Optional[str] = Header(None)):
+    """Remove the authenticated agent from the lobby if waiting."""
+    if not x_agent_token:
+        raise HTTPException(status_code=401, detail="X-Agent-Token header required")
+    identity = agent_registry.resolve_token(x_agent_token)
+    if not identity:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    removed = lobby_manager.leave(identity.agent_id)
+    return {"removed": removed, "agent_id": identity.agent_id}
+
+
+@app.get("/versus/agents/{agent_id}")
+def versus_get_agent(agent_id: str):
+    """Get public profile for an agent (no token, no token_hash returned)."""
+    identity = agent_registry.get_by_id(agent_id)
+    if not identity:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {
+        "agent_id": identity.agent_id,
+        "name": identity.name,
+        "model": identity.model,
+        "registered_at": identity.registered_at,
+    }
 
 
 if __name__ == "__main__":
