@@ -44,8 +44,9 @@ Thumbs.db
 *.log
 logs/
 
-# Leaderboard data
+# Leaderboard / versus data
 data/results.jsonl
+data/versus.db
 
 # Cline rules (project-specific)
 .clinerules/
