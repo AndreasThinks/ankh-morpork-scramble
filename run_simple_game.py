@@ -316,6 +316,37 @@ def wait_for_rematch() -> None:
         iterations += 1
         time.sleep(5)
 
+# ── resume detection ─────────────────────────────────────────────────────────
+
+def _detect_resumed_game() -> bool:
+    """Return True if the game is already in a restorable phase (restored from DB).
+
+    When True, the caller should skip run_setup() and go straight to run_game(),
+    syncing model configs from the restored state first.
+    """
+    RESUMABLE = {"kickoff", "playing", "half_time"}
+    try:
+        resp = requests.get(f"{SERVER_URL}/game/{GAME_ID}", timeout=5)
+        if resp.status_code == 200:
+            st = resp.json()
+            phase = (st.get("phase") or "").lower()
+            if phase in RESUMABLE:
+                logger.info(
+                    "Detected restored game '%s' in phase '%s' — skipping setup",
+                    GAME_ID, phase,
+                )
+                # Sync model identities from restored state so the runner
+                # uses the right models for commentary and swap logic
+                if st.get("team1_model"):
+                    TEAM_CONFIGS["team1"]["model"] = st["team1_model"]
+                if st.get("team2_model"):
+                    TEAM_CONFIGS["team2"]["model"] = st["team2_model"]
+                return True
+    except Exception as exc:
+        logger.warning("Could not check for resumed game: %s", exc)
+    return False
+
+
 # ── entrypoint ──────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -370,14 +401,19 @@ def main() -> None:
             "(OPENROUTER_MODELS=%s)", os.getenv("OPENROUTER_MODELS", "<default pool>")
         )
 
+    is_resumed = _detect_resumed_game()
+
     while True:
-        if not _MANUAL_MODEL_OVERRIDE:
-            from simple_agents.model_picker import pick_models
-            m1, m2 = pick_models(SERVER_URL)
-            TEAM_CONFIGS["team1"]["model"] = m1
-            TEAM_CONFIGS["team2"]["model"] = m2
-            logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
-        run_setup()
+        if not is_resumed:
+            if not _MANUAL_MODEL_OVERRIDE:
+                from simple_agents.model_picker import pick_models
+                m1, m2 = pick_models(SERVER_URL)
+                TEAM_CONFIGS["team1"]["model"] = m1
+                TEAM_CONFIGS["team2"]["model"] = m2
+                logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
+            run_setup()
+
+        is_resumed = False  # Only skip setup on first (restored) iteration
         run_game()
         trigger_rematch()
         wait_for_rematch()

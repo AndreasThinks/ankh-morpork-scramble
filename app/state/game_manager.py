@@ -194,6 +194,7 @@ class GameManager:
             game_state.team2.name,
         )
 
+        self._persist_game(game_state)
         return game_state
     
     def end_turn(self, game_id: str) -> GameState:
@@ -241,9 +242,10 @@ class GameManager:
             game_state.turn.team_turn,
         )
 
-        # Auto-save logs after each turn
+        # Auto-save logs and persist state after each turn
         if self.auto_save_logs:
             self._save_game_logs(game_state)
+        self._persist_game(game_state)
 
         return game_state
     
@@ -476,6 +478,7 @@ class GameManager:
             self._save_game_logs(game_state, is_forfeit=True)
         else:
             self._record_result_if_concluded(game_state, is_forfeit=True)
+        self._persist_game(game_state)
 
     def check_scoring(self, game_id: str) -> Optional[str]:
         """Check if a team has scored and handle it"""
@@ -671,6 +674,7 @@ class GameManager:
             self.leaderboard.record(result)
             self._recorded_games.add(game_state.game_id)
             logger.info("Leaderboard updated for game %s", game_state.game_id)
+            self._delete_game_snapshot(game_state.game_id)
         except Exception as e:
             self._recorded_games.discard(game_state.game_id)
             logger.error("Failed to record leaderboard for %s: %s", game_state.game_id, e)
@@ -700,6 +704,91 @@ class GameManager:
             self._record_result_if_concluded(game_state, is_forfeit=is_forfeit)
         except Exception as e:
             logger.error("Leaderboard recording failed in _save_game_logs for %s: %s", game_state.game_id, e)
+
+    # ── Persistence ──────────────────────────────────────────────────────────
+
+    def _persist_game(self, game_state: GameState) -> None:
+        """Write the current game state to versus.db. Overwrites any existing row.
+
+        Failures are logged but never propagate — persistence must not crash the game loop.
+        """
+        from app.state.agent_registry import _get_conn as _get_db_conn
+        try:
+            with _get_db_conn() as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO game_snapshots
+                        (game_id, phase, state_json, saved_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        game_state.game_id,
+                        str(game_state.phase.value if hasattr(game_state.phase, "value") else game_state.phase),
+                        game_state.model_dump_json(),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
+                conn.commit()
+            logger.debug("Persisted game %s (phase=%s)", game_state.game_id, game_state.phase)
+        except Exception as exc:
+            logger.error("Failed to persist game %s: %s", game_state.game_id, exc)
+
+    def _delete_game_snapshot(self, game_id: str) -> None:
+        """Remove a concluded game from the snapshots table."""
+        from app.state.agent_registry import _get_conn as _get_db_conn
+        try:
+            with _get_db_conn() as conn:
+                conn.execute("DELETE FROM game_snapshots WHERE game_id = ?", (game_id,))
+                conn.commit()
+            logger.debug("Deleted snapshot for concluded game %s", game_id)
+        except Exception as exc:
+            logger.error("Failed to delete snapshot for game %s: %s", game_id, exc)
+
+    def restore_active_games(self) -> int:
+        """Load in-progress game snapshots from versus.db into self.games.
+
+        Only restores games in KICKOFF, PLAYING, or HALF_TIME phase.
+        SETUP and CONCLUDED games are skipped intentionally.
+
+        Resets turn_started_at on each restored game so the timeout watcher
+        doesn't immediately forfeit a game for a stale clock.
+
+        Returns the number of games successfully restored.
+        """
+        from app.state.agent_registry import _get_conn as _get_db_conn
+        RESTORABLE_PHASES = ("kickoff", "playing", "half_time")
+
+        try:
+            with _get_db_conn() as conn:
+                rows = conn.execute(
+                    "SELECT game_id, state_json FROM game_snapshots WHERE phase IN (?, ?, ?)",
+                    RESTORABLE_PHASES,
+                ).fetchall()
+        except Exception as exc:
+            logger.error("restore_active_games: DB error: %s", exc)
+            return 0
+
+        count = 0
+        for row in rows:
+            try:
+                state = GameState.model_validate_json(row["state_json"])
+                # Reset turn clock so the timeout watcher doesn't fire immediately
+                if state.turn:
+                    state.turn.turn_started_at = datetime.now(timezone.utc)
+                self.games[state.game_id] = state
+                logger.info(
+                    "Restored game %s (phase=%s, turn=%s)",
+                    state.game_id,
+                    state.phase,
+                    state.turn.team_turn if state.turn else "N/A",
+                )
+                count += 1
+            except Exception as exc:
+                logger.error("Failed to restore game %s: %s", row["game_id"], exc)
+
+        if count:
+            logger.info("Restored %d active game(s) from versus.db", count)
+        return count
 
     def export_game_log(self, game_id: str, format: str = "markdown") -> Optional[str]:
         """

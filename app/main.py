@@ -55,37 +55,11 @@ if _LOG_FILE:
 # DEMO_MODE=true: Pre-configured demo game ready to play
 # DEMO_MODE=false (default): Interactive setup where agents must buy and place players
 demo_mode = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
-
-if demo_mode:
-    # Demo mode: Create pre-configured game ready to play
-    default_demo_game_id = os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID)
-    demo_game_state = bootstrap_default_game(
-        game_manager,
-        game_id=default_demo_game_id,
-        logger=logger
-    )
-    logger.info(
-        "Demo game '%s' is ready with %d players",
-        default_demo_game_id,
-        len(demo_game_state.players)
-    )
-else:
-    # Interactive mode: Create empty game requiring setup
-    default_demo_game_id = None
-    interactive_game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
-    team1_name = os.getenv("TEAM1_NAME", "City Watch Constables")
-    team2_name = os.getenv("TEAM2_NAME", "Unseen University Adepts")
-    demo_game_state = bootstrap_interactive_game(
-        game_manager,
-        game_id=interactive_game_id,
-        team1_name=team1_name,
-        team2_name=team2_name,
-        logger=logger
-    )
-    logger.info(
-        "Interactive game '%s' created in DEPLOYMENT phase. Agents must purchase and place players.",
-        interactive_game_id
-    )
+# Computed at module level so endpoint handlers can reference it, but the actual
+# bootstrap (game creation) is deferred to app_lifespan so restore runs first.
+default_demo_game_id: Optional[str] = (
+    os.getenv("DEFAULT_GAME_ID", DEFAULT_GAME_ID) if demo_mode else None
+)
 
 # Turn timeout watcher helper
 async def _check_timeouts(now: datetime) -> None:
@@ -196,19 +170,50 @@ async def _turn_timeout_watcher():
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
     """FastAPI application lifespan."""
-    # Startup
     logger.info("FastAPI application starting up...")
-    logger.info("Game manager initialized with %d active games", len(game_manager.games))
+
+    # 1. Initialise DB schema / run migrations
     init_db()
     logger.info("versus.db initialised")
-    
-    # Start turn timeout watcher
+
+    # 2. Restore any in-progress games from the previous run
+    restored = game_manager.restore_active_games()
+    if restored:
+        logger.info("Restored %d active game(s) from previous run", restored)
+
+    # 3. Bootstrap default/interactive game — idempotent, no-ops if already restored
+    if demo_mode:
+        demo_game_state = bootstrap_default_game(
+            game_manager,
+            game_id=default_demo_game_id,
+            logger=logger,
+        )
+        logger.info(
+            "Demo game '%s' is ready with %d players",
+            default_demo_game_id,
+            len(demo_game_state.players),
+        )
+    else:
+        interactive_game_id = os.getenv("INTERACTIVE_GAME_ID", INTERACTIVE_GAME_ID)
+        bootstrap_interactive_game(
+            game_manager,
+            game_id=interactive_game_id,
+            team1_name=os.getenv("TEAM1_NAME", "City Watch Constables"),
+            team2_name=os.getenv("TEAM2_NAME", "Unseen University Adepts"),
+            logger=logger,
+        )
+        logger.info(
+            "Interactive game '%s' ready (%d active game(s) total)",
+            interactive_game_id,
+            len(game_manager.games),
+        )
+
+    # 4. Start turn timeout watcher
     _timeout_task = asyncio.create_task(_turn_timeout_watcher())
     logger.info("Turn timeout watcher started")
-    
+
     yield
-    
-    # Shutdown
+
     _timeout_task.cancel()
     logger.info("FastAPI application shutting down...")
 

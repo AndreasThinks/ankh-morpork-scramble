@@ -70,6 +70,14 @@ def init_db() -> None:
                 signed_up_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS game_snapshots (
+                game_id    TEXT PRIMARY KEY,
+                phase      TEXT NOT NULL,
+                state_json TEXT NOT NULL,
+                saved_at   TEXT NOT NULL
+            )
+        """)
         # Migration: add token_prefix column to existing databases
         try:
             conn.execute("ALTER TABLE agents ADD COLUMN token_prefix TEXT NOT NULL DEFAULT ''")
