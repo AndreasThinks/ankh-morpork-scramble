@@ -283,8 +283,11 @@ class GameState(BaseModel):
         # Clear pitch
         self.pitch = Pitch()
 
-        # Clear players
+        # Clear players — must also clear team player_id lists so buy_player
+        # doesn't try to look up stale IDs from the previous game
         self.players = {}
+        self.team1.player_ids = []
+        self.team2.player_ids = []
 
         # Reset phase
         self.phase = GamePhase.SETUP
