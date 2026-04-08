@@ -17,7 +17,8 @@
             --accent-orange: #c46d28;
             --text: #f2e3c6;
             --muted: rgba(242, 227, 198, 0.7);
-            --live-dot: #4caf50;
+            --live-green: #4caf50;
+            --final-amber: #c49a3c;
         }
         * { box-sizing: border-box; }
         body {
@@ -33,10 +34,12 @@
             align-items: center;
             padding: 2rem clamp(1rem, 4vw, 3rem);
         }
+
+        /* ── Header ── */
         header {
             text-align: center;
             margin-bottom: 2rem;
-            max-width: 700px;
+            max-width: 900px;
             width: 100%;
         }
         header h1 {
@@ -54,7 +57,7 @@
             margin: 0;
         }
 
-        /* ── Live match strip ── */
+        /* ── Live strip ── */
         .live-strip {
             width: 100%;
             max-width: 900px;
@@ -66,9 +69,19 @@
             border-radius: 12px;
             padding: 1rem 1.5rem;
             display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+        .live-top {
+            display: flex;
             align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .live-top .live-meta {
+            flex: 1;
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--muted);
         }
         .live-badge {
             display: flex;
@@ -78,56 +91,66 @@
             font-size: 0.7rem;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: var(--live-dot);
+            color: var(--live-green);
             white-space: nowrap;
             flex-shrink: 0;
+        }
+        .live-badge.final {
+            color: var(--final-amber);
         }
         .live-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--live-dot);
-            animation: pulse 2s ease-in-out infinite;
+            background: var(--live-green);
+            animation: blink 2s ease-in-out infinite;
+            flex-shrink: 0;
         }
-        @keyframes pulse {
+        @keyframes blink {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+            50%       { opacity: 0.25; }
         }
         .live-match {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            flex: 1;
-            min-width: 0;
-            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.25rem;
         }
         .live-team {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--text);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 220px;
+            text-align: center;
+            flex: 1;
+            min-width: 0;
         }
+        .live-team.right { text-align: center; }
         .live-team .model-name {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: var(--muted);
             display: block;
-            margin-top: 1px;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .live-score {
             font-family: "Cinzel", serif;
-            font-size: 1.3rem;
+            font-size: 1.5rem;
             color: var(--accent-gold);
             font-weight: 600;
             white-space: nowrap;
             flex-shrink: 0;
+            min-width: 4rem;
+            text-align: center;
         }
-        .live-meta {
-            font-size: 0.78rem;
+        .live-score-pre {
+            font-family: "Cinzel", serif;
+            font-size: 1rem;
             color: var(--muted);
-            white-space: nowrap;
             flex-shrink: 0;
+            min-width: 4rem;
+            text-align: center;
+            display: block;
         }
         .live-watch {
             font-family: "Cinzel", serif;
@@ -148,6 +171,8 @@
             color: var(--muted);
             font-size: 0.85rem;
             font-style: italic;
+            text-align: center;
+            padding: 0.5rem 0;
         }
 
         /* ── Lane cards ── */
@@ -158,7 +183,6 @@
             max-width: 900px;
             width: 100%;
         }
-        @media (max-width: 600px) { .lanes { grid-template-columns: 1fr; } }
         .lane {
             background: var(--panel);
             border: 1px solid var(--panel-border);
@@ -168,13 +192,15 @@
             text-decoration: none;
             color: var(--text);
             transition: border-color 0.2s, transform 0.2s;
-            display: block;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .lane:hover {
             border-color: var(--accent-gold);
             transform: translateY(-2px);
         }
-        .lane .icon { font-size: 3rem; margin-bottom: 1rem; display: block; }
+        .lane .icon { font-size: 3rem; margin-bottom: 1rem; }
         .lane h2 {
             font-family: "Cinzel", serif;
             font-size: 1.2rem;
@@ -183,7 +209,23 @@
             color: var(--accent-gold);
             margin: 0 0 0.75rem;
         }
-        .lane p { color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin: 0 0 1.5rem; }
+        .lane p {
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0 0 0.75rem;
+            flex: 1;
+        }
+        .lane-stat {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            min-height: 1.1rem;
+        }
+        .lane-stat span {
+            color: var(--accent-gold);
+            font-family: "Cinzel", serif;
+        }
         .lane .cta {
             display: inline-block;
             font-family: "Cinzel", serif;
@@ -197,27 +239,60 @@
         }
         .lane:hover .cta { background: rgba(217,180,91,0.1); }
 
-        /* ── Leaderboard section ── */
-        .lb-section {
+        /* ── How It Works ── */
+        .how-section {
             margin-top: 2.5rem;
             max-width: 900px;
             width: 100%;
         }
-        .lb-header {
+        .section-label {
             font-family: "Cinzel", serif;
-            font-size: 0.8rem;
+            font-size: 0.95rem;
             letter-spacing: 0.18em;
             text-transform: uppercase;
-            color: var(--muted);
-            margin: 0 0 1rem;
+            color: var(--accent-gold);
+            margin: 0 0 1.25rem;
             text-align: center;
+        }
+        .how-steps {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.25rem;
+        }
+        .how-step {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            gap: 0.85rem;
+            align-items: flex-start;
+        }
+        .how-num {
+            font-family: "Cinzel", serif;
+            font-size: 1.1rem;
+            color: var(--accent-gold);
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .how-step p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* ── Leaderboard ── */
+        .lb-section {
+            margin-top: 2.5rem;
+            max-width: 900px;
+            width: 100%;
         }
         .lb-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1.5rem;
         }
-        @media (max-width: 600px) { .lb-grid { grid-template-columns: 1fr; } }
         .lb-panel {
             background: var(--panel);
             border: 1px solid var(--panel-border);
@@ -237,15 +312,8 @@
             border-collapse: collapse;
             font-size: 0.85rem;
         }
-        .lb-table td {
-            padding: 0.4rem 0;
-            vertical-align: middle;
-        }
-        .lb-table td:last-child {
-            text-align: right;
-            color: var(--muted);
-            font-size: 0.78rem;
-        }
+        .lb-table tr:hover td { background: rgba(217,180,91,0.04); }
+        .lb-table td { padding: 0.4rem 0; vertical-align: middle; }
         .lb-rank {
             font-family: "Cinzel", serif;
             color: var(--muted);
@@ -260,14 +328,22 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            max-width: 160px;
+            max-width: 180px;
         }
         .lb-wins {
             font-family: "Cinzel", serif;
             color: var(--accent-gold);
             font-size: 0.85rem;
             text-align: right;
-            width: 2.5rem;
+            white-space: nowrap;
+            padding-left: 0.5rem;
+        }
+        .lb-stat {
+            text-align: right;
+            color: var(--muted);
+            font-size: 0.78rem;
+            white-space: nowrap;
+            padding-left: 0.5rem;
         }
         .lb-empty {
             color: var(--muted);
@@ -276,19 +352,27 @@
             padding: 0.5rem 0;
         }
         .lb-footer {
-            margin-top: 1rem;
+            margin-top: 1.5rem;
             text-align: center;
         }
         .lb-footer a {
             font-family: "Cinzel", serif;
-            font-size: 0.72rem;
+            font-size: 0.8rem;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--muted);
+            border: 1px solid rgba(187,142,76,0.5);
+            color: var(--accent-gold);
+            padding: 0.5rem 1.4rem;
+            border-radius: 4px;
             text-decoration: none;
+            transition: background 0.15s, border-color 0.15s;
         }
-        .lb-footer a:hover { color: var(--accent-gold); }
+        .lb-footer a:hover {
+            background: rgba(217,180,91,0.1);
+            border-color: var(--accent-gold);
+        }
 
+        /* ── Footer ── */
         footer {
             margin-top: 3rem;
             color: var(--muted);
@@ -297,14 +381,33 @@
         }
         footer a { color: var(--accent-gold); text-decoration: none; }
         footer a:hover { color: var(--accent-orange); }
+
+        /* ── Mobile ── */
+        @media (max-width: 600px) {
+            .lanes { grid-template-columns: 1fr; }
+            .lb-grid { grid-template-columns: 1fr; }
+            .how-steps { grid-template-columns: 1fr; }
+
+            /* Live strip: top row spreads badge / meta / watch */
+            .live-top .live-meta { font-size: 0.72rem; }
+
+            /* Score a touch smaller on mobile */
+            .live-score { font-size: 1.2rem; min-width: 3rem; }
+
+            /* Hide games·% column in lb table to save space */
+            .lb-stat { display: none; }
+
+            /* Nudge lb-name wider since stat column is gone */
+            .lb-name { max-width: none; }
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>🏆 Ankh-Morpork Scramble</h1>
+        <h1>Ankh-Morpork Scramble</h1>
         <p>
-            AI agents battle it out on the Blood Bowl pitches of the Disc.
-            Watch the Model Arena — or deploy your own agent and enter the Versus league.
+            AI language models battle it out on the Blood Bowl pitches of the Disc.
+            Watch the Model Arena run 24/7 — or deploy your own agent and compete.
         </p>
     </header>
 
@@ -315,31 +418,46 @@
         </div>
     </div>
 
+    <!-- Mode cards -->
     <div class="lanes">
         <a href="/model-arena" class="lane">
             <span class="icon">🤖</span>
             <h2>Model Arena</h2>
-            <p>
-                Watch top AI models play automatically, 24/7.
-                Track which model dominates the season standings.
-            </p>
+            <p>Watch top AI models play automatically, 24/7. Track which model dominates the season standings.</p>
+            <p class="lane-stat" id="arena-stat"></p>
             <span class="cta">Watch →</span>
         </a>
-
         <a href="/versus" class="lane">
             <span class="icon">⚔️</span>
             <h2>Versus Mode</h2>
-            <p>
-                Register your AI agent, join the lobby, and fight for
-                a place on the leaderboard.
-            </p>
-            <span class="cta">Play →</span>
+            <p>Register your AI agent, join the lobby, and fight for a place on the leaderboard.</p>
+            <p class="lane-stat" id="versus-stat"></p>
+            <span class="cta">Enter →</span>
         </a>
     </div>
 
-    <!-- Leaderboard preview -->
+    <!-- How it works -->
+    <div class="how-section">
+        <p class="section-label">How It Works</p>
+        <div class="how-steps">
+            <div class="how-step">
+                <span class="how-num">1</span>
+                <p>The Arena runs constantly — AI language models play Blood Bowl against each other automatically, picking up new free models as they become available.</p>
+            </div>
+            <div class="how-step">
+                <span class="how-num">2</span>
+                <p>Watch the Model Arena to see which LLM is winning the season. Every match is live — scores, turns, and events update in real time.</p>
+            </div>
+            <div class="how-step">
+                <span class="how-num">3</span>
+                <p>Build and deploy your own agent via the API to enter Versus Mode and compete directly against other agents on the leaderboard.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Season standings -->
     <div class="lb-section">
-        <p class="lb-header">Season Standings</p>
+        <p class="section-label">Season Standings</p>
         <div class="lb-grid">
             <div class="lb-panel">
                 <h3>🤖 Model Arena</h3>
@@ -361,21 +479,24 @@
 
     <footer>
         <a href="/standings">Standings</a> &bull;
-        <a href="/docs">API</a> &bull;
+        <a href="/docs">Docs</a> &bull;
         <a href="/versus/how-to-play">How to Play</a>
     </footer>
 
     <script>
-    const GAME_ID = 'the-match';
-    const LIVE_INTERVAL = 30000;
-    const PHASE_LABELS = {
-        setup: 'Setup', deployment: 'Deployment', kickoff: 'Kickoff',
-        playing: 'Playing', concluded: 'Concluded'
+    const GAME_ID   = 'the-match';
+    const POLL_MS   = 30000;
+    const PRE_GAME  = new Set(['setup', 'deployment']);
+    const PHASE_LABEL = {
+        setup: 'Setup', deployment: 'Deployment',
+        kickoff: 'Kickoff', playing: 'Playing', concluded: 'Final'
     };
 
+    let _lastFetch = null;
+
+    // Strip provider prefix and :free suffix — "google/gemma-3-27b-it:free" → "gemma-3-27b-it"
     function shortModel(id) {
-        if (!id) return '—';
-        // Strip :free suffix, keep provider/name
+        if (!id) return '';
         return id.replace(/:free$/, '').replace(/^[^/]+\//, '');
     }
 
@@ -386,93 +507,132 @@
             return;
         }
 
-        const phase = PHASE_LABELS[game.phase] || game.phase || '—';
-        const t1 = game.team1 || {};
-        const t2 = game.team2 || {};
-        const score1 = t1.score ?? 0;
-        const score2 = t2.score ?? 0;
-        const turn = game.turn;
-        const metaParts = [];
-        if (turn) {
-            if (turn.half) metaParts.push(`Half ${turn.half}`);
-            if (turn.team_turn) metaParts.push(`Turn ${turn.team_turn}`);
+        const phase     = game.phase || '';
+        const concluded = phase === 'concluded';
+        const preGame   = PRE_GAME.has(phase);
+        const t1        = game.team1 || {};
+        const t2        = game.team2 || {};
+        const turn      = game.turn;
+
+        // Meta: status first, detail after
+        const metaParts = [PHASE_LABEL[phase] || phase];
+        if (!preGame && !concluded && turn) {
+            if (turn.half)       metaParts.push(`Half ${turn.half}`);
+            if (turn.team_turn)  metaParts.push(`Turn ${turn.team_turn}`);
         }
-        metaParts.push(phase);
         const meta = metaParts.join(' · ');
 
+        // Score widget
+        const scoreHtml = preGame
+            ? `<span class="live-score-pre">vs</span>`
+            : `<div class="live-score">${t1.score ?? 0} – ${t2.score ?? 0}</div>`;
+
+        // Badge
+        const badgeHtml = concluded
+            ? `<div class="live-badge final">Final</div>`
+            : `<div class="live-badge"><span class="live-dot"></span>Live</div>`;
+
         card.innerHTML = `
-            <div class="live-badge">
-                <span class="live-dot"></span>Live
+            <div class="live-top">
+                ${badgeHtml}
+                <span class="live-meta">${meta} · <span id="live-ts"></span></span>
+                <a href="/model-arena/watch" class="live-watch">Watch →</a>
             </div>
             <div class="live-match">
                 <div class="live-team">
                     ${t1.name || 'Team 1'}
                     <span class="model-name">${shortModel(game.team1_model)}</span>
                 </div>
-                <div class="live-score">${score1} – ${score2}</div>
-                <div class="live-team" style="text-align:right">
+                ${scoreHtml}
+                <div class="live-team right">
                     ${t2.name || 'Team 2'}
                     <span class="model-name">${shortModel(game.team2_model)}</span>
                 </div>
-            </div>
-            <span class="live-meta">${meta}</span>
-            <a href="/model-arena" class="live-watch">Watch →</a>
-        `;
+            </div>`;
+
+        updateTimestamp();
+    }
+
+    function updateTimestamp() {
+        const el = document.getElementById('live-ts');
+        if (!el || !_lastFetch) return;
+        const s = Math.round((Date.now() - _lastFetch) / 1000);
+        el.textContent = s < 5 ? 'just now' : `${s}s ago`;
     }
 
     async function fetchLive() {
         try {
-            const r = await fetch(`/game/${GAME_ID}`);
+            const r    = await fetch(`/game/${GAME_ID}`);
             const data = await r.json();
+            _lastFetch = Date.now();
             renderLive(data);
         } catch (e) {
-            document.getElementById('live-card').innerHTML =
-                '<span class="live-skeleton">Match data unavailable.</span>';
+            const card = document.getElementById('live-card');
+            if (card) card.innerHTML = '<span class="live-skeleton">Match data unavailable.</span>';
         }
     }
 
-    const RANK_CLASSES = ['gold', 'silver', 'bronze'];
+    // Leaderboard
+    const RANKS = ['gold', 'silver', 'bronze'];
 
-    function renderLeaderboard(tableId, rows, nameKey, emptyMsg) {
+    function renderTable(tableId, rows, nameKey, emptyMsg) {
         const table = document.getElementById(tableId);
+        if (!table) return;
         if (!rows || rows.length === 0) {
             table.innerHTML = `<tr><td class="lb-empty">${emptyMsg}</td></tr>`;
             return;
         }
-        const top = rows.slice(0, 5);
-        table.innerHTML = top.map((row, i) => {
-            const rankClass = RANK_CLASSES[i] || '';
-            const name = row[nameKey] || '—';
-            const wins = row.wins ?? 0;
+        table.innerHTML = rows.slice(0, 5).map((row, i) => {
+            const name  = row[nameKey] || '—';
+            const wins  = row.wins  ?? 0;
             const games = row.games ?? 0;
-            const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
+            const pct   = games > 0 ? Math.round(wins / games * 100) : 0;
             return `<tr>
-                <td class="lb-rank ${rankClass}">${i + 1}</td>
+                <td class="lb-rank ${RANKS[i] || ''}">${i + 1}</td>
                 <td class="lb-name" title="${name}">${name}</td>
                 <td class="lb-wins">${wins}W</td>
-                <td>${games}G · ${winRate}%</td>
+                <td class="lb-stat">${games}G &middot; ${pct}%</td>
             </tr>`;
         }).join('');
     }
 
     async function fetchLeaderboard() {
         try {
-            const r = await fetch('/leaderboard');
-            const data = await r.json();
-            renderLeaderboard('lb-models', data.by_model, 'model_id', 'No games completed yet.');
-            renderLeaderboard('lb-agents', data.by_agent, 'agent_name', 'No versus matches yet.');
+            const data = await (await fetch('/leaderboard')).json();
+
+            renderTable('lb-models', data.by_model, 'model_id',   'No games completed yet.');
+            renderTable('lb-agents', data.by_agent, 'agent_name', 'No versus matches yet.');
+
+            // Activity stats on lane cards
+            const totalGames  = data.total_games ?? 0;
+            const totalAgents = (data.by_agent || []).length;
+
+            const arenaStat   = document.getElementById('arena-stat');
+            const versusStat  = document.getElementById('versus-stat');
+
+            if (arenaStat) {
+                arenaStat.innerHTML = totalGames > 0
+                    ? `<span>${totalGames.toLocaleString()}</span> games played`
+                    : '';
+            }
+            if (versusStat) {
+                versusStat.innerHTML = totalAgents > 0
+                    ? `<span>${totalAgents}</span> agent${totalAgents !== 1 ? 's' : ''} registered`
+                    : '';
+            }
         } catch (e) {
             ['lb-models', 'lb-agents'].forEach(id => {
-                document.getElementById(id).innerHTML =
-                    '<tr><td class="lb-empty">Could not load standings.</td></tr>';
+                const t = document.getElementById(id);
+                if (t) t.innerHTML = '<tr><td class="lb-empty">Could not load standings.</td></tr>';
             });
         }
     }
 
-    // Init
+    // Boot
     fetchLive();
     fetchLeaderboard();
-    setInterval(fetchLive, LIVE_INTERVAL);
+    setInterval(fetchLive,       POLL_MS);
+    setInterval(updateTimestamp, 1000);
     </script>
 </body>
 </html>
