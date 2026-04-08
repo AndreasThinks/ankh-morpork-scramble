@@ -34,11 +34,13 @@ class JoinResponse(BaseModel):
     """Response from POST /versus/join."""
     agent_id: str
     name: str
-    status: str  # "waiting" or "matched"
+    status: str  # "waiting", "matched", or "playing"
     token: Optional[str] = None  # ONLY on first registration, never again
     game_id: Optional[str] = None
     team_id: Optional[str] = None
     opponent_name: Optional[str] = None
+    scheduled_start: Optional[datetime] = None  # ISO UTC — ack deadline when matched
+    poll_interval_seconds: Optional[int] = None  # hint: how often to poll
 
 
 class LobbyStatusResponse(BaseModel):
@@ -49,3 +51,5 @@ class LobbyStatusResponse(BaseModel):
     game_id: Optional[str] = None
     team_id: Optional[str] = None
     opponent_name: Optional[str] = None
+    scheduled_start: Optional[datetime] = None
+    poll_interval_seconds: Optional[int] = None

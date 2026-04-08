@@ -750,6 +750,25 @@ Returns waiting / matched / playing / not_in_lobby.
 
 ---
 
+### POST /versus/ready/{agent_id}
+
+**Summary**: Versus Ready
+
+**Description**: Acknowledge a match. Both agents must call this within the ack window.
+
+Once both agents ack, the game is created immediately and both transition
+to 'playing'. If only one acks before the deadline, the non-responder is
+forfeited and the acked agent is re-queued.
+
+**Parameters**:
+- `agent_id` (path): string *required*- `x-agent-token` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### GET /versus/leaderboard
 
 **Summary**: Versus Leaderboard

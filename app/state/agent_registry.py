@@ -76,6 +76,14 @@ def init_db() -> None:
             conn.commit()
         except Exception:
             pass  # column already exists
+
+        # Migration: add lobby columns for async match flow
+        for col in ("scheduled_start TEXT", "acked_at TEXT", "paired_with TEXT"):
+            try:
+                conn.execute(f"ALTER TABLE lobby ADD COLUMN {col}")
+                conn.commit()
+            except Exception:
+                pass  # column already exists
         
         # Create index after ensuring column exists
         conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_token_prefix ON agents(token_prefix)")
