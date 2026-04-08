@@ -1,10 +1,19 @@
 """Weighted random model selection for the tournament pool.
 
-Each game, two distinct models are picked from MODEL_POOL.
+Each game, two distinct models are picked from the pool.
 Models with fewer recorded games get higher weight (1 / (games + 1)),
 so the leaderboard fills in evenly over time.
 
-Override the pool with OPENROUTER_MODELS env var (comma-separated model IDs).
+The pool is built dynamically at startup by querying the OpenRouter API for all
+currently available free text-generation models. Filters applied:
+  - Pricing: prompt + completion both '0'
+  - Output: text only (no audio/image output models)
+  - Context: >= _MIN_CONTEXT_LENGTH (excludes toy/nano models)
+
+OPENROUTER_MODELS env var (comma-separated) is additive: any IDs listed there
+are merged into the auto-discovered pool. Useful for pinning specific paid or
+preview models alongside the free tier. If the API fetch fails, MODEL_POOL
+is used as a static fallback.
 """
 import concurrent.futures
 import logging
@@ -23,25 +32,82 @@ _validated_pool: Optional[list[str]] = None
 _dead_models: set[str] = set()
 _service_status: str = "ok"  # one of: "ok", "out_of_credits", "no_models"
 
+# Static fallback if the OpenRouter API is unreachable at startup
 MODEL_POOL = [
     "google/gemma-3-12b-it:free",
     "google/gemma-3-27b-it:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen3-14b:free",
-    "qwen/qwen3-8b:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "mistralai/mistral-nemo:free",
-    "microsoft/phi-4:free",
-    "deepseek/deepseek-r1-0528:free",
-    "deepseek/deepseek-chat-v3-5:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "minimax/minimax-m2.5:free",
 ]
+
+_OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+_MIN_CONTEXT_LENGTH = 32768
+_EXCLUDED_IDS = {"openrouter/free"}
+
+
+def _fetch_free_models() -> list[str]:
+    """Query OpenRouter for all available free text-generation models.
+
+    Filters:
+    - Free pricing (prompt + completion both '0')
+    - Text-only output (output_modalities == ['text'])
+    - context_length >= _MIN_CONTEXT_LENGTH
+    - Not in _EXCLUDED_IDS
+
+    Returns a sorted list of model IDs, or [] on any fetch error.
+    """
+    try:
+        r = requests.get(_OPENROUTER_MODELS_URL, timeout=10)
+        r.raise_for_status()
+        models = r.json().get("data", [])
+    except Exception as exc:
+        logger.warning("_fetch_free_models: failed to fetch model list: %s", exc)
+        return []
+
+    result = []
+    for m in models:
+        mid = m.get("id", "")
+        if mid in _EXCLUDED_IDS:
+            continue
+        pricing = m.get("pricing", {})
+        if str(pricing.get("prompt", "1")) != "0" or str(pricing.get("completion", "1")) != "0":
+            continue
+        arch = m.get("architecture", {})
+        if arch.get("output_modalities") != ["text"]:
+            continue
+        if m.get("context_length", 0) < _MIN_CONTEXT_LENGTH:
+            continue
+        result.append(mid)
+
+    logger.info("_fetch_free_models: %d eligible free models found", len(result))
+    return sorted(result)
 
 
 def _get_pool() -> list[str]:
-    override = os.getenv("OPENROUTER_MODELS", "").strip()
-    if override:
-        return [m.strip() for m in override.split(",") if m.strip()]
-    return list(MODEL_POOL)
+    """Build the candidate pool.
+
+    Base: auto-discovered free models from the OpenRouter API.
+    Additive: OPENROUTER_MODELS env var merged in (deduped, order preserved).
+    Fallback: MODEL_POOL if the API fetch returns nothing.
+    """
+    auto = _fetch_free_models()
+    extras = [m.strip() for m in os.getenv("OPENROUTER_MODELS", "").split(",") if m.strip()]
+
+    seen: set[str] = set(auto)
+    pool = list(auto)
+    for m in extras:
+        if m not in seen:
+            pool.append(m)
+            seen.add(m)
+
+    if not pool:
+        logger.warning("_get_pool: API fetch returned nothing, falling back to MODEL_POOL")
+        return list(MODEL_POOL)
+
+    return pool
 
 
 def _active_pool() -> list[str]:
