@@ -7,6 +7,7 @@ any auth check. Versus games require X-Agent-Token to match an assigned agent.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from typing import Optional
 
 from fastapi import Header, HTTPException
@@ -34,12 +35,17 @@ async def optional_agent_auth(
         - Token valid but agent not in this game → 403
         - Token valid and agent assigned → returns AgentContext with team_id set
     """
-    # Check if this game has agent assignments
-    with _get_conn() as conn:
-        rows = conn.execute(
-            "SELECT team_id, agent_id FROM game_agents WHERE game_id=?",
-            (game_id,)
-        ).fetchall()
+    # Check if this game has agent assignments.
+    # Catch OperationalError in case versus tables haven't been initialised yet
+    # (e.g. arena-only deployments or test environments that don't call init_db).
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                "SELECT team_id, agent_id FROM game_agents WHERE game_id=?",
+                (game_id,)
+            ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
 
     if not rows:
         # No assignments = arena game, pass through

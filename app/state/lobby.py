@@ -285,12 +285,15 @@ class LobbyManager:
 
     def mark_game_playing(self, game_id: str) -> None:
         """Transition lobby rows for both agents in a game from 'matched' to 'playing'."""
-        with _get_conn() as conn:
-            conn.execute(
-                "UPDATE lobby SET status='playing' WHERE game_id=? AND status='matched'",
-                (game_id,)
-            )
-            conn.commit()
+        try:
+            with _get_conn() as conn:
+                conn.execute(
+                    "UPDATE lobby SET status='playing' WHERE game_id=? AND status='matched'",
+                    (game_id,)
+                )
+                conn.commit()
+        except sqlite3.OperationalError:
+            pass  # lobby table not initialised — no rows to update
 
     def get_waiting_count(self) -> int:
         with _get_conn() as conn:

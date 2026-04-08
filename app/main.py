@@ -88,97 +88,106 @@ else:
     )
 
 # Turn timeout watcher helper
-async def _turn_timeout_watcher():
-    """Background task: forfeit versus games where a turn has exceeded 5 minutes."""
+async def _check_timeouts(now: datetime) -> None:
+    """Check all active games for turn timeouts and expired ack deadlines.
+
+    Extracted for testability — called by _turn_timeout_watcher each cycle.
+    """
     from datetime import timedelta
+    from app.state.agent_registry import _get_conn
     TIMEOUT_MINUTES = 5
+
+    for game_id, game_state in list(game_manager.games.items()):
+        # Only check versus games (have agent assignments) that are active
+        if game_state.phase not in ("playing", "kickoff"):
+            continue
+        if not game_state.turn:
+            continue
+        turn_started = game_state.turn.turn_started_at
+        if not turn_started:
+            continue
+        # Make timezone-aware if naive
+        if turn_started.tzinfo is None:
+            turn_started = turn_started.replace(tzinfo=timezone.utc)
+        elapsed = now - turn_started
+        if elapsed > timedelta(minutes=TIMEOUT_MINUTES):
+            # Check this is a versus game
+            with _get_conn() as conn:
+                row = conn.execute(
+                    "SELECT agent_id FROM game_agents WHERE game_id=? LIMIT 1",
+                    (game_id,)
+                ).fetchone()
+            if row:
+                active_team = game_state.turn.active_team_id
+                logger.warning(
+                    "Turn timeout: game %s team %s exceeded %d minutes",
+                    game_id, active_team, TIMEOUT_MINUTES
+                )
+                game_manager.record_forfeit(game_id, active_team)
+
+    # ── Ack deadline checks for matched pairs ──
+    # Case A: ack deadline expired
+    with _get_conn() as conn:
+        matched_rows = conn.execute(
+            "SELECT agent_id, paired_with, scheduled_start FROM lobby WHERE status='matched' AND paired_with IS NOT NULL"
+        ).fetchall()
+    # Deduplicate pairs (each pair appears twice)
+    seen_pairs: set[tuple[str, str]] = set()
+    for row in matched_rows:
+        pair_key = tuple(sorted([row["agent_id"], row["paired_with"]]))
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
+        if not row["scheduled_start"]:
+            continue
+        deadline = datetime.fromisoformat(row["scheduled_start"])
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        if now > deadline:
+            with _get_conn() as conn:
+                both = conn.execute(
+                    "SELECT agent_id, acked_at FROM lobby WHERE agent_id IN (?,?)",
+                    (row["agent_id"], row["paired_with"])
+                ).fetchall()
+            unacked = [r["agent_id"] for r in both if not r["acked_at"]]
+            acked = [r["agent_id"] for r in both if r["acked_at"]]
+            if len(unacked) == 2:
+                lobby_manager.cancel_match(row["agent_id"], row["paired_with"])
+            elif len(unacked) == 1:
+                lobby_manager.forfeit_unacked(unacked[0], acked[0])
+            # If both acked, game should already be live — skip
+
+    # Case B: both acked but game not created yet (belt-and-braces)
+    with _get_conn() as conn:
+        both_acked = conn.execute(
+            "SELECT agent_id, paired_with FROM lobby "
+            "WHERE status='matched' AND acked_at IS NOT NULL AND game_id IS NULL AND paired_with IS NOT NULL"
+        ).fetchall()
+    seen_pairs_b: set[tuple[str, str]] = set()
+    for row in both_acked:
+        pair_key = tuple(sorted([row["agent_id"], row["paired_with"]]))
+        if pair_key in seen_pairs_b:
+            continue
+        seen_pairs_b.add(pair_key)
+        # Verify opponent also acked
+        with _get_conn() as conn:
+            opp = conn.execute(
+                "SELECT acked_at FROM lobby WHERE agent_id=?",
+                (row["paired_with"],)
+            ).fetchone()
+        if opp and opp["acked_at"]:
+            lobby_manager._create_game_for_pair(row["agent_id"], row["paired_with"])
+
+
+async def _turn_timeout_watcher():
+    """Background task: run _check_timeouts every 60 seconds."""
     CHECK_INTERVAL = 60  # seconds
 
     while True:
         await asyncio.sleep(CHECK_INTERVAL)
         try:
             now = datetime.now(timezone.utc)
-            for game_id, game_state in list(game_manager.games.items()):
-                # Only check versus games (have agent assignments) that are active
-                if game_state.phase not in ("playing", "kickoff"):
-                    continue
-                if not game_state.turn:
-                    continue
-                turn_started = game_state.turn.turn_started_at
-                if not turn_started:
-                    continue
-                # Make timezone-aware if naive
-                if turn_started.tzinfo is None:
-                    turn_started = turn_started.replace(tzinfo=timezone.utc)
-                elapsed = now - turn_started
-                if elapsed > timedelta(minutes=TIMEOUT_MINUTES):
-                    # Check this is a versus game
-                    from app.state.agent_registry import _get_conn
-                    with _get_conn() as conn:
-                        row = conn.execute(
-                            "SELECT agent_id FROM game_agents WHERE game_id=? LIMIT 1",
-                            (game_id,)
-                        ).fetchone()
-                    if row:
-                        active_team = game_state.turn.active_team_id
-                        logger.warning(
-                            "Turn timeout: game %s team %s exceeded %d minutes",
-                            game_id, active_team, TIMEOUT_MINUTES
-                        )
-                        game_manager.record_forfeit(game_id, active_team)
-            # ── Ack deadline checks for matched pairs ──
-            # Case A: ack deadline expired
-            with _get_conn() as conn:
-                matched_rows = conn.execute(
-                    "SELECT agent_id, paired_with, scheduled_start FROM lobby WHERE status='matched' AND paired_with IS NOT NULL"
-                ).fetchall()
-            # Deduplicate pairs (each pair appears twice)
-            seen_pairs: set[tuple[str, str]] = set()
-            for row in matched_rows:
-                pair_key = tuple(sorted([row["agent_id"], row["paired_with"]]))
-                if pair_key in seen_pairs:
-                    continue
-                seen_pairs.add(pair_key)
-                if not row["scheduled_start"]:
-                    continue
-                deadline = datetime.fromisoformat(row["scheduled_start"])
-                if deadline.tzinfo is None:
-                    deadline = deadline.replace(tzinfo=timezone.utc)
-                if now > deadline:
-                    with _get_conn() as conn:
-                        both = conn.execute(
-                            "SELECT agent_id, acked_at FROM lobby WHERE agent_id IN (?,?)",
-                            (row["agent_id"], row["paired_with"])
-                        ).fetchall()
-                    unacked = [r["agent_id"] for r in both if not r["acked_at"]]
-                    acked = [r["agent_id"] for r in both if r["acked_at"]]
-                    if len(unacked) == 2:
-                        lobby_manager.cancel_match(row["agent_id"], row["paired_with"])
-                    elif len(unacked) == 1:
-                        lobby_manager.forfeit_unacked(unacked[0], acked[0])
-                    # If both acked, game should already be live — skip
-
-            # Case B: both acked but game not created yet (belt-and-braces)
-            with _get_conn() as conn:
-                both_acked = conn.execute(
-                    "SELECT agent_id, paired_with FROM lobby "
-                    "WHERE status='matched' AND acked_at IS NOT NULL AND game_id IS NULL AND paired_with IS NOT NULL"
-                ).fetchall()
-            seen_pairs_b: set[tuple[str, str]] = set()
-            for row in both_acked:
-                pair_key = tuple(sorted([row["agent_id"], row["paired_with"]]))
-                if pair_key in seen_pairs_b:
-                    continue
-                seen_pairs_b.add(pair_key)
-                # Verify opponent also acked
-                with _get_conn() as conn:
-                    opp = conn.execute(
-                        "SELECT acked_at FROM lobby WHERE agent_id=?",
-                        (row["paired_with"],)
-                    ).fetchone()
-                if opp and opp["acked_at"]:
-                    lobby_manager._create_game_for_pair(row["agent_id"], row["paired_with"])
-
+            await _check_timeouts(now)
         except Exception as exc:
             logger.error("Turn timeout watcher error: %s", exc)
 
