@@ -19,6 +19,7 @@ import concurrent.futures
 import logging
 import os
 import random
+import time
 from typing import Optional
 
 import requests
@@ -176,7 +177,10 @@ def validate_pool(force: bool = False) -> list[str]:
     alive: list[str] = []
     out_of_credits = False
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    # Use 2 workers to avoid saturating free-tier OpenRouter RPM at startup.
+    # A burst of 5 concurrent probes on 24 models was causing 429s that bled
+    # into the first game turns.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = {executor.submit(validate_model, m): m for m in pool}
         for future in concurrent.futures.as_completed(futures):
             model = futures[future]
@@ -190,6 +194,8 @@ def validate_pool(force: bool = False) -> list[str]:
                 out_of_credits = True
             if ok:
                 alive.append(model)
+            # Small delay between probes so requests don't pile up in the same second
+            time.sleep(0.5)
 
     if out_of_credits:
         _service_status = "out_of_credits"

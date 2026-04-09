@@ -375,6 +375,13 @@ def main() -> None:
     validate_pool()
     status = get_service_status()
     _publish_service_status(status)
+
+    # Cool down after probing so the RPM window resets before the game loop
+    # starts making real LLM calls. Without this, validate_pool and play_turn
+    # race against the same free-tier rate limit.
+    logger.info("Startup probe complete — cooling down 5s before game loop.")
+    time.sleep(5)
+
     if status != "ok":
         logger.error(
             "Startup model validation failed (status=%s) — entering maintenance mode.", status,
@@ -404,19 +411,30 @@ def main() -> None:
     is_resumed = _detect_resumed_game()
 
     while True:
-        if not is_resumed:
-            if not _MANUAL_MODEL_OVERRIDE:
-                from simple_agents.model_picker import pick_models
-                m1, m2 = pick_models(SERVER_URL)
-                TEAM_CONFIGS["team1"]["model"] = m1
-                TEAM_CONFIGS["team2"]["model"] = m2
-                logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
-            run_setup()
+        try:
+            if not is_resumed:
+                if not _MANUAL_MODEL_OVERRIDE:
+                    from simple_agents.model_picker import pick_models
+                    m1, m2 = pick_models(SERVER_URL)
+                    TEAM_CONFIGS["team1"]["model"] = m1
+                    TEAM_CONFIGS["team2"]["model"] = m2
+                    logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
+                run_setup()
 
-        is_resumed = False  # Only skip setup on first (restored) iteration
-        run_game()
-        trigger_rematch()
-        wait_for_rematch()
+            is_resumed = False  # Only skip setup on first (restored) iteration
+            run_game()
+            trigger_rematch()
+            wait_for_rematch()
+        except Exception as exc:
+            # If the game loop crashes (e.g. LLM 429 storm, network blip),
+            # log it and re-enter the loop.  _detect_resumed_game() will
+            # check the server state: if the game is still resumable it
+            # picks up where we left off, otherwise run_setup() starts fresh.
+            logger.error("Game loop iteration failed: %s", exc, exc_info=True)
+            is_resumed = _detect_resumed_game()
+            if not is_resumed:
+                logger.info("Game not resumable after crash — will start fresh setup.")
+            time.sleep(3)
 
 
 if __name__ == "__main__":
