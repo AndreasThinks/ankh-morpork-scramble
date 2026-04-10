@@ -299,6 +299,16 @@ class GameState(BaseModel):
         # Reset scores
         self.team1.score = 0
         self.team2.score = 0
+
+        # Reset treasury for the new match
+        self.team1.budget_spent = 0
+        self.team1.purchase_history = []
+        self.team1.rerolls_total = 0
+        self.team1.rerolls_used = 0
+        self.team2.budget_spent = 0
+        self.team2.purchase_history = []
+        self.team2.rerolls_total = 0
+        self.team2.rerolls_used = 0
         
         # Clear model identity so stale model names don't bleed into next game
         self.team1_model = None

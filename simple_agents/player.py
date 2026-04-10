@@ -315,15 +315,35 @@ def setup_team(game_id: str, team_id: str, team_name: str,
     # If no players were successfully purchased, use the fallback roster
     if bought_count == 0:
         logger.warning(f"[{team_name}] Zero players purchased — falling back to default roster.")
+        # Check current treasury so we only buy what we can afford
+        try:
+            team_state = requests.get(f"{base_url}/game/{game_id}", timeout=5).json()
+            team_key = "team1" if team_id == "team1" else "team2"
+            budget_left = (team_state.get(team_key) or {}).get("budget_initial", 1_000_000)
+            budget_spent = (team_state.get(team_key) or {}).get("budget_spent", 0)
+            budget = max(0, budget_left - budget_spent)
+        except Exception:
+            budget = 1_000_000
+
+        # Cheapest positions first — buy as many as budget allows
         if team_id == "team1":
-            fallback = ["constable"]*5 + ["fleet_recruit"]*2 + ["watch_sergeant"]
+            # constable=50k, street_veteran=50k, fleet_recruit=65k, clerk_runner=80k, watch_sergeant=85k
+            fallback_pool = [("constable", 50000)] * 16
         else:
-            fallback = ["apprentice_wizard"]*4 + ["haste_mage"]*2 + ["divination_wizard"]*2 + ["senior_wizard"]
-        for position_key in fallback:
+            # apprentice_wizard=45k, haste_mage=75k, divination_wizard=85k, senior_wizard=90k
+            fallback_pool = [("apprentice_wizard", 45000)] * 12
+
+        for position_key, cost in fallback_pool:
+            if budget < cost:
+                logger.warning(f"[{team_name}] Fallback can't afford {position_key} ({cost}g), budget={budget}g")
+                break
             r = requests.post(f"{base_url}/game/{game_id}/team/{team_id}/buy-player",
                               params={"position_key": position_key})
             if r.status_code == 200:
                 logger.info(f"[{team_name}] Fallback bought {position_key}")
+                budget -= cost
+            else:
+                logger.warning(f"[{team_name}] Fallback failed to buy {position_key}: {r.text[:80]}")
 
     # Buy rerolls
     for _ in range(roster.get("rerolls", 0)):
@@ -392,6 +412,19 @@ def _parse_step(text: str) -> tuple[str, dict | None | object]:
             obj = json.loads(match.group())
             thought = obj.get("thought", "")
             action = obj.get("action")  # None means end turn
+
+            # Reject string actions (e.g. "move" instead of {"action_type":"move",...})
+            if isinstance(action, str):
+                logger.warning("Action is a string, not a dict: %s", action[:100])
+                return "", _PARSE_FAILED
+
+            # Unwrap nested format: {"move": {"action_type":"move", ...}}
+            if isinstance(action, dict) and "action_type" not in action:
+                keys = [k for k in action if isinstance(action[k], dict)]
+                if len(keys) == 1 and "action_type" in action[keys[0]]:
+                    logger.info("Unwrapping nested action key '%s'", keys[0])
+                    action = action[keys[0]]
+
             return thought, action
         except json.JSONDecodeError:
             logger.warning("JSON decode failed on extracted object: %s", match.group()[:200])
@@ -593,7 +626,7 @@ def _build_failure_note(last_failure: str, last_action: dict | None, state: dict
      lines = ["PREVIOUS ACTION FAILED — choose a different valid action."]
      lines.append(f"  Error: {last_failure}")
 
-     if last_action:
+     if last_action and isinstance(last_action, dict):
          action_type = last_action.get("action_type", "unknown")
          player_id = last_action.get("player_id")
          lines.append(f"  Failed action: {action_type}" + (f" by player [{player_id}]" if player_id else ""))
