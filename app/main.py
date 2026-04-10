@@ -1145,6 +1145,7 @@ def rematch_game(game_id: str):
         # Fallback for interactive/custom games: reset to setup and let clients configure
         game_state.reset_to_setup()
         game_manager._recorded_games.discard(game_id)
+        game_manager._persist_game(game_state)
         return game_state
 
     except Exception as e:
