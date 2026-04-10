@@ -172,7 +172,7 @@ def run_setup() -> None:
 def run_game() -> None:
     from simple_agents.player import play_turn
     from simple_agents.commentator import comment, final_comment, set_commentator_model
-    from simple_agents.model_picker import get_fallback_model, mark_model_dead, get_service_status
+    from simple_agents.model_picker import get_fallback_model, mark_model_dead, get_service_status, validate_pool
 
     # Initialise the commentator's live model for this match so it can swap internally.
     set_commentator_model(COMMENTATOR_MODEL)
@@ -201,6 +201,17 @@ def run_game() -> None:
         if phase in ("setup",):
             time.sleep(1)
             continue
+
+        # If credits ran out mid-game, periodically re-probe instead of dying permanently.
+        if get_service_status() == "out_of_credits":
+            logger.info("Game loop: out_of_credits — re-validating pool in 60s...")
+            time.sleep(60)
+            validate_pool(force=True)
+            new_status = get_service_status()
+            _publish_service_status(new_status)
+            if new_status != "ok":
+                continue  # Still dead, keep waiting
+            logger.info("Game loop: credits restored — resuming play.")
 
         turn = state.get("turn") or {}
         active_team_id = turn.get("active_team_id")
@@ -387,8 +398,16 @@ def main() -> None:
             "Startup model validation failed (status=%s) — entering maintenance mode.", status,
         )
         # Keep the API up so the UI shows the maintenance screen, but don't launch matches.
+        # Periodically re-probe so we recover when credits are added.
         while True:
             time.sleep(60)
+            logger.info("Maintenance mode: re-validating pool...")
+            validate_pool(force=True)
+            status = get_service_status()
+            _publish_service_status(status)
+            if status == "ok":
+                logger.info("Pool restored after maintenance — resuming normal startup.")
+                break
 
     # DEV_MODE: start the server but don't run any games. No model validation,
     # no token spend. Useful when developing new features against a live server.
