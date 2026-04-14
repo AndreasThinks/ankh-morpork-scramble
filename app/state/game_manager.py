@@ -634,7 +634,7 @@ class GameManager:
 
         from app.models.leaderboard import GameResult
         result = GameResult(
-            game_id=game_state.game_id,
+            game_id=str(uuid.uuid4()),
             team1_name=game_state.team1.name,
             team1_model=game_state.team1_model or "unknown",
             team1_score=t1_score,
