@@ -484,6 +484,11 @@ def main() -> None:
             logger.info("=== GAME ITERATION %d: game complete, triggering rematch ===", game_iteration)
             trigger_rematch()
             wait_for_rematch()
+            # Re-probe the model pool after every match so newly available free
+            # models are picked up without requiring a redeploy.
+            from simple_agents.model_picker import validate_pool
+            logger.info("Re-validating model pool after match completion...")
+            validate_pool(force=True)
         except Exception as exc:
             # If the game loop crashes (e.g. LLM 429 storm, network blip),
             # log it and re-enter the loop.  _detect_resumed_game() will
