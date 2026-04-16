@@ -17,6 +17,7 @@ Usage:
 
 Watch at: http://192.168.4.57:8000/ui
 """
+import concurrent.futures
 import logging
 import os
 import signal
@@ -133,9 +134,16 @@ def wait_for_server(timeout: float = 60.0) -> None:
         time.sleep(1)
     raise RuntimeError("Server did not become ready in time.")
 
+# Maximum time allowed for the entire setup phase (buy + place + ready + start).
+# If setup stalls beyond this — e.g. call_llm burning retries while rate-limited —
+# the outer loop catches the TimeoutError and restarts cleanly.
+SETUP_TIMEOUT_SECONDS = 8 * 60  # 8 minutes
+
+
 # ── setup phase ─────────────────────────────────────────────────────────────
 
-def run_setup() -> None:
+def _run_setup_inner() -> None:
+    """Core setup logic — buy rosters, place players, start game."""
     from simple_agents.player import setup_team
 
     logger.info("=== SETUP PHASE ===")
@@ -166,6 +174,31 @@ def run_setup() -> None:
                 return
         time.sleep(2)
     raise RuntimeError("Teams never became ready — check server logs.")
+
+
+def run_setup() -> None:
+    """Run setup with a hard wall-clock timeout.
+
+    Wraps _run_setup_inner() in a thread so that if setup stalls — e.g. because
+    call_llm is burning retry backoff while the rate limit is saturated — we
+    surface a TimeoutError after SETUP_TIMEOUT_SECONDS instead of hanging
+    indefinitely and going silent.  Models still get their full retry budget;
+    the timeout only fires if the *entire* setup phase can't complete in time.
+    """
+    logger.info(
+        "Starting setup (timeout=%ds / %.0fmin).",
+        SETUP_TIMEOUT_SECONDS, SETUP_TIMEOUT_SECONDS / 60,
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_run_setup_inner)
+        try:
+            future.result(timeout=SETUP_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(
+                f"run_setup() exceeded {SETUP_TIMEOUT_SECONDS}s — "
+                "likely stalled on LLM retries during roster build. "
+                "Outer loop will restart."
+            )
 
 # ── main game loop ──────────────────────────────────────────────────────────
 
@@ -428,8 +461,10 @@ def main() -> None:
         )
 
     is_resumed = _detect_resumed_game()
+    game_iteration = 0
 
     while True:
+        game_iteration += 1
         try:
             if not is_resumed:
                 if not _MANUAL_MODEL_OVERRIDE:
@@ -438,10 +473,15 @@ def main() -> None:
                     TEAM_CONFIGS["team1"]["model"] = m1
                     TEAM_CONFIGS["team2"]["model"] = m2
                     logger.info("Tournament pick: team1=%s  team2=%s", m1, m2)
+                logger.info("=== GAME ITERATION %d: entering setup ===", game_iteration)
                 run_setup()
+                logger.info("=== GAME ITERATION %d: setup complete, starting game ===", game_iteration)
+            else:
+                logger.info("=== GAME ITERATION %d: resuming in-progress game ===", game_iteration)
 
             is_resumed = False  # Only skip setup on first (restored) iteration
             run_game()
+            logger.info("=== GAME ITERATION %d: game complete, triggering rematch ===", game_iteration)
             trigger_rematch()
             wait_for_rematch()
         except Exception as exc:
@@ -449,7 +489,10 @@ def main() -> None:
             # log it and re-enter the loop.  _detect_resumed_game() will
             # check the server state: if the game is still resumable it
             # picks up where we left off, otherwise run_setup() starts fresh.
-            logger.error("Game loop iteration failed: %s", exc, exc_info=True)
+            logger.error(
+                "=== GAME ITERATION %d FAILED: %s — restarting in 3s ===",
+                game_iteration, exc, exc_info=True,
+            )
             is_resumed = _detect_resumed_game()
             if not is_resumed:
                 logger.info("Game not resumable after crash — will start fresh setup.")
