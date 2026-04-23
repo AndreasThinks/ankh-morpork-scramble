@@ -318,13 +318,29 @@ class GameState(BaseModel):
         self.team1_ready = False
         self.team2_ready = False
 
-        # Keep join status and messages (preserve history)
+        # Clear accumulated history so state doesn't bloat across rematches
+        self.events = []
+        self.event_log = []
+        self.messages = []
+
         self.add_event("Game reset to setup phase")
     
     def start_game(self) -> None:
         """Start the game"""
         if not self.players_ready:
             raise ValueError("Both teams must join before starting")
+
+        min_players = 3
+        if len(self.team1.player_ids) < min_players:
+            raise ValueError(
+                f"Team 1 must have at least {min_players} players to start "
+                f"(has {len(self.team1.player_ids)})"
+            )
+        if len(self.team2.player_ids) < min_players:
+            raise ValueError(
+                f"Team 2 must have at least {min_players} players to start "
+                f"(has {len(self.team2.player_ids)})"
+            )
 
         self.phase = GamePhase.KICKOFF
         self.game_started = True

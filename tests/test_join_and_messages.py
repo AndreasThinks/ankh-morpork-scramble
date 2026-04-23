@@ -281,11 +281,10 @@ def test_reset_game():
     assert data["team1_joined"] == True
     assert data["team2_joined"] == True
     
-    # Verify messages preserved
+    # Verify messages cleared (prevents state bloat across rematches)
     response = client.get(f"/game/{game_id}/messages")
     messages_data = response.json()
-    assert messages_data["count"] >= 1
-    assert any(m["content"] == "Before reset" for m in messages_data["messages"])
+    assert messages_data["count"] == 0
 
 
 def test_invalid_team_join():

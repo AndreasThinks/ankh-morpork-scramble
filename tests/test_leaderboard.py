@@ -331,6 +331,18 @@ def test_start_endpoint_stamps_model_params(tmp_path):
     game_id = "test-model-stamp"
     game_manager.create_game(game_id)
     
+    # Setup teams with minimum players
+    client.post(
+        f"/game/{game_id}/setup-team",
+        params={"team_id": "team1", "team_type": "city_watch"},
+        json={"constable": "3"}
+    )
+    client.post(
+        f"/game/{game_id}/setup-team",
+        params={"team_id": "team2", "team_type": "unseen_university"},
+        json={"apprentice_wizard": "3"}
+    )
+    
     # Mark teams as joined
     game_state = game_manager.get_game(game_id)
     game_state.team1_joined = True

@@ -96,6 +96,10 @@ def test_start_game_transitions_phase():
     
     assert game.phase == GamePhase.DEPLOYMENT
     
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
+    
     # Mark teams as joined
     game.team1_joined = True
     game.team2_joined = True
@@ -114,6 +118,10 @@ def test_start_game_places_ball():
     manager = GameManager()
     game = manager.create_game("test_game")
     
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
+    
     # Mark teams as joined
     game.team1_joined = True
     game.team2_joined = True
@@ -129,6 +137,10 @@ def test_cannot_start_game_twice():
     """Test cannot start game that's already started"""
     manager = GameManager()
     game = manager.create_game("test_game")
+    
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True
@@ -146,6 +158,10 @@ def test_end_turn_switches_teams():
     """Test ending turn switches active team"""
     manager = GameManager()
     game = manager.create_game("test_game")
+    
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True
@@ -172,8 +188,9 @@ def test_check_scoring_team1_endzone():
     manager = GameManager()
     game = manager.create_game("test_game")
     
-    # Setup team 1 with a player
-    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True
@@ -198,8 +215,9 @@ def test_check_scoring_team2_endzone():
     manager = GameManager()
     game = manager.create_game("test_game")
     
-    # Setup team 2 with a player
-    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "1"})
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True
@@ -225,7 +243,8 @@ def test_scoring_resets_ball_position():
     game = manager.create_game("test_game")
     
     # Setup and start
-    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True
@@ -252,8 +271,8 @@ def test_touchdown_ends_turn_and_restores_formation():
     manager = GameManager()
     game = manager.create_game("test_game")
 
-    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "2"})
-    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "2"})
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
 
     game.team1_joined = True
     game.team2_joined = True
@@ -263,13 +282,15 @@ def test_touchdown_ends_turn_and_restores_formation():
     t2_ids = game.team2.player_ids
     game.pitch.player_positions[t1_ids[0]] = Position(x=5, y=6)
     game.pitch.player_positions[t1_ids[1]] = Position(x=5, y=8)
+    game.pitch.player_positions[t1_ids[2]] = Position(x=6, y=7)
     game.pitch.player_positions[t2_ids[0]] = Position(x=20, y=6)
     game.pitch.player_positions[t2_ids[1]] = Position(x=20, y=8)
+    game.pitch.player_positions[t2_ids[2]] = Position(x=19, y=7)
 
     manager.start_game("test_game")
     assert game.turn.active_team_id == game.team1.id
     initial_snapshot = dict(game.pitch.initial_positions)
-    assert len(initial_snapshot) == 4
+    assert len(initial_snapshot) == 6
 
     # Team 1 ball carrier walks into team1's endzone
     carrier = t1_ids[0]
@@ -301,8 +322,8 @@ def test_touchdown_on_final_turn_concludes_game():
     manager = GameManager()
     game = manager.create_game("test_game")
 
-    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
-    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "1"})
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
 
     game.team1_joined = True
     game.team2_joined = True
@@ -334,8 +355,9 @@ def test_no_scoring_in_wrong_endzone():
     manager = GameManager()
     game = manager.create_game("test_game")
     
-    # Setup
-    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "1"})
+    # Setup teams with minimum players
+    manager.setup_team("test_game", "team1", TeamType.CITY_WATCH, {"constable": "3"})
+    manager.setup_team("test_game", "team2", TeamType.UNSEEN_UNIVERSITY, {"apprentice_wizard": "3"})
     
     # Mark teams as joined
     game.team1_joined = True

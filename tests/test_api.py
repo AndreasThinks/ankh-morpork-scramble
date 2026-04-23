@@ -254,12 +254,12 @@ def test_action_wrong_team_turn():
     client.post(
         f"/game/{game_id}/setup-team",
         params={"team_id": "team1", "team_type": "city_watch"},
-        json={"constable": "2"}
+        json={"constable": "3"}
     )
     client.post(
         f"/game/{game_id}/setup-team",
         params={"team_id": "team2", "team_type": "unseen_university"},
-        json={"apprentice_wizard": "2"}
+        json={"apprentice_wizard": "3"}
     )
 
     # Join teams
@@ -273,7 +273,8 @@ def test_action_wrong_team_turn():
             "team_id": "team1",
             "positions": {
                 "team1_player_0": {"x": 5, "y": 7},
-                "team1_player_1": {"x": 6, "y": 7}
+                "team1_player_1": {"x": 6, "y": 7},
+                "team1_player_2": {"x": 5, "y": 8}
             }
         }
     )
@@ -283,7 +284,8 @@ def test_action_wrong_team_turn():
             "team_id": "team2",
             "positions": {
                 "team2_player_0": {"x": 20, "y": 7},
-                "team2_player_1": {"x": 19, "y": 7}
+                "team2_player_1": {"x": 19, "y": 7},
+                "team2_player_2": {"x": 20, "y": 8}
             }
         }
     )
@@ -438,12 +440,12 @@ def test_valid_actions_endpoint():
     client.post(
         f"/game/{game_id}/setup-team",
         params={"team_id": "team1", "team_type": "city_watch"},
-        json={"constable": "2"}
+        json={"constable": "3"}
     )
     client.post(
         f"/game/{game_id}/setup-team",
         params={"team_id": "team2", "team_type": "unseen_university"},
-        json={"apprentice_wizard": "2"}
+        json={"apprentice_wizard": "3"}
     )
 
     # Join teams
@@ -457,7 +459,8 @@ def test_valid_actions_endpoint():
             "team_id": "team1",
             "positions": {
                 "team1_player_0": {"x": 5, "y": 7},
-                "team1_player_1": {"x": 6, "y": 7}
+                "team1_player_1": {"x": 6, "y": 7},
+                "team1_player_2": {"x": 5, "y": 8}
             }
         }
     )
@@ -467,7 +470,8 @@ def test_valid_actions_endpoint():
             "team_id": "team2",
             "positions": {
                 "team2_player_0": {"x": 20, "y": 7},
-                "team2_player_1": {"x": 19, "y": 7}
+                "team2_player_1": {"x": 19, "y": 7},
+                "team2_player_2": {"x": 20, "y": 8}
             }
         }
     )
