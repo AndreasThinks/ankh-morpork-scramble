@@ -232,8 +232,9 @@ def run_game() -> None:
             break
 
         if phase in ("setup",):
-            time.sleep(1)
-            continue
+            # Game was reset externally (e.g. rematch) while we were mid-loop.
+            # Bail so the outer loop can re-run setup from scratch.
+            raise RuntimeError("Game reset to setup mid-match — restarting loop.")
 
         # If credits ran out mid-game, periodically re-probe instead of dying permanently.
         if get_service_status() == "out_of_credits":
