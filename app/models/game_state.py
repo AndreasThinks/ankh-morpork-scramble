@@ -2,7 +2,7 @@
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 import logging
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 from app.models.enums import GamePhase, PlayerState, TeamType
 from app.models.pitch import Pitch, Position
 from app.models.player import Player
@@ -170,18 +170,17 @@ class GameState(BaseModel):
         if removed:
             self.add_event(f"Repaired occupancy: removed {len(removed)} ejected player(s) from pitch")
 
-    def model_dump(self, **kwargs):
-        data = super().model_dump(**kwargs)
-        # Inject live spatial fields into each player dict so consumers
-        # (dashboard, LLM state summary) don't need a second lookup table.
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        """Inject live spatial fields into each player dict so consumers
+        (dashboard, LLM state summary) don't need a second lookup table.
+        """
+        data = handler(self)
         pitch_positions = data.get("pitch", {}).get("player_positions", {})
         for pid, player in data.get("players", {}).items():
             pos = pitch_positions.get(pid)
             if pos is not None:
-                if hasattr(pos, "model_dump"):
-                    player["field_position"] = pos.model_dump()
-                else:
-                    player["field_position"] = pos
+                player["field_position"] = pos
                 player["on_pitch"] = True
             else:
                 player["field_position"] = None
