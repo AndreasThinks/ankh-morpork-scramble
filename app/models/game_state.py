@@ -153,11 +153,49 @@ class GameState(BaseModel):
             event,
         )
     
+    def repair_occupancy(self) -> None:
+        """Remove KO'd, casualty, and sent-off players from pitch.player_positions.
+
+        Safety net: call at the start of each turn so ghost entries can never
+        block squares indefinitely.
+        """
+        from app.models.enums import PlayerState
+        ejected = {PlayerState.KNOCKED_OUT, PlayerState.CASUALTY, PlayerState.SENT_OFF}
+        removed = []
+        for player_id in list(self.pitch.player_positions.keys()):
+            player = self.players.get(player_id)
+            if player and player.state in ejected:
+                del self.pitch.player_positions[player_id]
+                removed.append(player_id)
+        if removed:
+            self.add_event(f"Repaired occupancy: removed {len(removed)} ejected player(s) from pitch")
+
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        # Inject live spatial fields into each player dict so consumers
+        # (dashboard, LLM state summary) don't need a second lookup table.
+        pitch_positions = data.get("pitch", {}).get("player_positions", {})
+        for pid, player in data.get("players", {}).items():
+            pos = pitch_positions.get(pid)
+            if pos is not None:
+                if hasattr(pos, "model_dump"):
+                    player["field_position"] = pos.model_dump()
+                else:
+                    player["field_position"] = pos
+                player["on_pitch"] = True
+            else:
+                player["field_position"] = None
+                player["on_pitch"] = False
+        return data
+
     def switch_turn(self) -> None:
         """Switch to the other team's turn"""
         if not self.turn:
             raise ValueError("No active turn")
-        
+
+        # Safety net: purge any ghosts before the new turn begins
+        self.repair_occupancy()
+
         # Reset turnover flag at the start
         self.turn.turnover_ended_turn = False
         

@@ -1,10 +1,13 @@
 """Ball handling - pickup, pass, catch, scatter"""
+import uuid
+from datetime import datetime
 from typing import Optional
 from app.models.game_state import GameState
 from app.models.player import Player
 from app.models.pitch import Position
 from app.models.enums import SkillType, PassResult
 from app.models.actions import DiceRoll
+from app.models.events import GameEvent, EventType, EventResult
 from app.game.dice import DiceRoller
 
 
@@ -112,6 +115,23 @@ class BallHandler:
         
         game_state.pitch.place_ball(new_pos)
         game_state.add_event(f"Ball scattered from ({old_pos.x},{old_pos.y}) to ({new_x},{new_y})")
+
+        # Structured event so the LLM can see scatters in recent actions
+        turn = game_state.turn
+        event = GameEvent(
+            event_id=str(uuid.uuid4()),
+            timestamp=datetime.now(),
+            game_id=game_state.game_id,
+            half=turn.half if turn else 1,
+            turn_number=turn.team_turn if turn else 0,
+            active_team_id=turn.active_team_id if turn else "",
+            event_type=EventType.SCATTER,
+            result=EventResult.NEUTRAL,
+            from_position=old_pos,
+            to_position=new_pos,
+            description=f"Ball scattered from ({old_pos.x},{old_pos.y}) to ({new_x},{new_y})",
+        )
+        game_state.events.append(event)
         
         return new_pos
     

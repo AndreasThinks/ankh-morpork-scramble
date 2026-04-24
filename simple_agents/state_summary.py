@@ -42,6 +42,21 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
         )
     elif ball_pos:
         lines.append(f"Ball: loose at ({ball_pos.get('x','?')},{ball_pos.get('y','?')})")
+        # Warn if a player is physically on the ball square without possession
+        occupant_id = None
+        occupant = None
+        for pid, pos in player_positions.items():
+            if pos.get("x") == ball_pos.get("x") and pos.get("y") == ball_pos.get("y"):
+                occupant_id = pid
+                occupant = players.get(pid)
+                break
+        if occupant:
+            occ_team = "YOUR" if occupant.get("team_id") == my_team_id else "OPPONENT'S"
+            occ_role = (occupant.get("position") or {}).get("role", "player")
+            lines.append(
+                f"WARNING: {occ_team} {occ_role} [{occupant_id}] is on the ball square "
+                f"but does NOT have the ball. You cannot move another player onto that square."
+            )
     else:
         lines.append("Ball: not yet in play")
 
@@ -88,6 +103,8 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
                 my_players_unacted += 1
         if pid == ball_carrier_id:
             flags.append("BALL")
+        elif ball_pos and pos.get("x") == ball_pos.get("x") and pos.get("y") == ball_pos.get("y"):
+            flags.append("ON_BALL_SQUARE")
 
         skills = p.get("skills") or []
         skill_str = f" [{','.join(skills[:3])}]" if skills else ""
@@ -138,7 +155,7 @@ def summarize_for_player(state: dict, my_team_id: str) -> tuple[str, int]:
                 lines.append(f"  - {desc}")
 
         # Last turn's events (non-move, non-bookkeeping) for immediate context
-        _NOISE = {"move", "stand_up", "turn_start", "turn_end", "scatter", "armor_break"}
+        _NOISE = {"move", "stand_up", "turn_start", "turn_end", "armor_break"}
         recent = [
             e for e in events[-20:]
             if isinstance(e, dict) and e.get("event_type") not in _NOISE
