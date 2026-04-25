@@ -189,16 +189,18 @@ def run_setup() -> None:
         "Starting setup (timeout=%ds / %.0fmin).",
         SETUP_TIMEOUT_SECONDS, SETUP_TIMEOUT_SECONDS / 60,
     )
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_run_setup_inner)
-        try:
-            future.result(timeout=SETUP_TIMEOUT_SECONDS)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(
-                f"run_setup() exceeded {SETUP_TIMEOUT_SECONDS}s — "
-                "likely stalled on LLM retries during roster build. "
-                "Outer loop will restart."
-            )
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_run_setup_inner)
+    try:
+        future.result(timeout=SETUP_TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(
+            f"run_setup() exceeded {SETUP_TIMEOUT_SECONDS}s — "
+            "likely stalled on LLM retries during roster build. "
+            "Outer loop will restart."
+        )
+    finally:
+        executor.shutdown(wait=False)
 
 # ── main game loop ──────────────────────────────────────────────────────────
 
