@@ -50,6 +50,8 @@ def _extract_error_text(response) -> str:
 def _looks_like_out_of_credits(status: int, err_text: str) -> bool:
     if status == 402:
         return True
+    if status == 404:
+        return False
     lowered = (err_text or "").lower()
     return any(marker in lowered for marker in _CREDIT_MARKERS)
 

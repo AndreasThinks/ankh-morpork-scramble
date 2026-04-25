@@ -168,9 +168,16 @@ def validate_pool(force: bool = False) -> list[str]:
     (benefit of the doubt). If the validated pool ends up empty, the service
     status flips to ``"no_models"``.
     """
-    global _validated_pool, _service_status
+    global _validated_pool, _service_status, _dead_models
     if _validated_pool is not None and not force:
         return list(_validated_pool)
+
+    if force:
+        # Start completely fresh: previously-dead models may have come back,
+        # and new free models may have appeared on OpenRouter.
+        _dead_models.clear()
+        _validated_pool = None
+        logger.info("validate_pool: force=True — cleared dead-model cache, re-discovering...")
 
     pool = _get_pool()
     logger.info("validate_pool: probing %d model(s)...", len(pool))
