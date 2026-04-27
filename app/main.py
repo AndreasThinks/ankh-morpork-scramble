@@ -535,6 +535,29 @@ def view_log(
         raise HTTPException(status_code=500, detail=f"Error reading log file: {str(e)}")
 
 
+@app.get("/admin/lobby/waiting")
+def admin_list_waiting(x_admin_key: Optional[str] = Header(None)):
+    """List all waiting agents with their join time (admin only)."""
+    verify_admin_key(x_admin_key)
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT l.agent_id, a.name, l.joined_at FROM lobby l "
+            "JOIN agents a ON l.agent_id = a.agent_id "
+            "WHERE l.status='waiting' ORDER BY l.joined_at ASC"
+        ).fetchall()
+    return {"waiting": [{"agent_id": r["agent_id"], "name": r["name"], "joined_at": r["joined_at"]} for r in rows]}
+
+
+@app.delete("/admin/lobby/waiting/{agent_id}")
+def admin_kick_waiting(agent_id: str, x_admin_key: Optional[str] = Header(None)):
+    """Remove a waiting agent from the lobby (admin only)."""
+    verify_admin_key(x_admin_key)
+    removed = lobby_manager.leave(agent_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Agent not found or not in waiting status")
+    return {"removed": True, "agent_id": agent_id}
+
+
 @app.post("/game", response_model=GameState)
 def create_game(game_id: Optional[str] = None):
     """Create a new game"""

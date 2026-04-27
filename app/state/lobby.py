@@ -23,6 +23,9 @@ _JOIN_LOCK = threading.Lock()
 # Ack window: agents have this many minutes to call /versus/ready after being matched
 ACK_DEADLINE_MINUTES = 10
 
+# Waiting timeout: agents are kicked from the lobby after this many hours
+WAITING_TIMEOUT_HOURS = 48
+
 
 class LobbyManager:
     """Manages the waiting queue and pairs agents into games."""
@@ -37,6 +40,8 @@ class LobbyManager:
         opponent_agent_id (optional), scheduled_start (optional), poll_interval_seconds.
         """
         now = datetime.now(timezone.utc).isoformat()
+
+        self.prune_stale_waiting()
 
         with _JOIN_LOCK:
             return self._join_locked(agent_id, now)
@@ -225,6 +230,7 @@ class LobbyManager:
 
     def get_status(self, agent_id: str) -> dict:
         """Get current lobby status for an agent."""
+        self.prune_stale_waiting()
         with _get_conn() as conn:
             row = conn.execute(
                 "SELECT * FROM lobby WHERE agent_id=?", (agent_id,)
@@ -299,3 +305,21 @@ class LobbyManager:
         with _get_conn() as conn:
             row = conn.execute("SELECT COUNT(*) FROM lobby WHERE status='waiting'").fetchone()
         return row[0] if row else 0
+
+    def prune_stale_waiting(self) -> list[str]:
+        """Remove waiting agents older than WAITING_TIMEOUT_HOURS. Returns kicked agent_ids."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=WAITING_TIMEOUT_HOURS)).isoformat()
+        with _get_conn() as conn:
+            stale = conn.execute(
+                "SELECT agent_id FROM lobby WHERE status='waiting' AND joined_at < ?",
+                (cutoff,)
+            ).fetchall()
+            if stale:
+                ids = [r["agent_id"] for r in stale]
+                placeholders = ",".join("?" * len(ids))
+                conn.execute(f"DELETE FROM lobby WHERE agent_id IN ({placeholders})", ids)
+                conn.commit()
+                for aid in ids:
+                    logger.info("Pruned stale waiting agent %s (joined before %s)", aid, cutoff)
+                return ids
+        return []

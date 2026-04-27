@@ -5,7 +5,7 @@ Starts the FastAPI game server, then dispatches:
   - Two player agents (City Watch vs Unseen University)
   - One referee/commentator agent
 
-Commentary appears in the web UI at http://192.168.4.57:8000/ui
+Commentary appears in the web UI at http://192.168.1.122:8000/ui
 
 Usage:
     cd ~/projects/ankh-morpork-scramble
@@ -194,8 +194,8 @@ def main() -> None:
     server_proc = start_server()
     wait_for_server()
 
-    print(f"\nWeb UI: http://192.168.4.57:{SERVER_PORT}/ui")
-    print(f"API docs: http://192.168.4.57:{SERVER_PORT}/docs\n")
+    print(f"\nWeb UI: http://192.168.1.122:{SERVER_PORT}/ui")
+    print(f"API docs: http://192.168.1.122:{SERVER_PORT}/docs\n")
 
     # Dispatch agents
     agent_procs = dispatch_hermes_agents()

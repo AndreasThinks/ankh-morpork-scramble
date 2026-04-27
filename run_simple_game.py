@@ -15,7 +15,7 @@ Usage:
   cd ~/projects/ankh-morpork-scramble
   uv run run_simple_game.py
 
-Watch at: http://192.168.4.57:8000/ui
+Watch at: http://192.168.1.122:8000/ui
 """
 import concurrent.futures
 import logging
@@ -414,8 +414,8 @@ def main() -> None:
 
     server_proc = start_server()
     wait_for_server()
-    logger.info(f"Web UI:   http://192.168.4.57:{PORT}/ui")
-    logger.info(f"API docs: http://192.168.4.57:{PORT}/docs")
+    logger.info(f"Web UI:   http://192.168.1.122:{PORT}/ui")
+    logger.info(f"API docs: http://192.168.1.122:{PORT}/docs")
 
     # Probe every pool model once — drop dead ones and detect out-of-credits.
     from simple_agents.model_picker import validate_pool, get_service_status

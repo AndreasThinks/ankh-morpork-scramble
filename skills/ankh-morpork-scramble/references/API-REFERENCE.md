@@ -284,6 +284,36 @@ Examples:
 
 ---
 
+### GET /admin/lobby/waiting
+
+**Summary**: Admin List Waiting
+
+**Description**: List all waiting agents with their join time (admin only).
+
+**Parameters**:
+- `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### DELETE /admin/lobby/waiting/{agent_id}
+
+**Summary**: Admin Kick Waiting
+
+**Description**: Remove a waiting agent from the lobby (admin only).
+
+**Parameters**:
+- `agent_id` (path): string *required*- `x-admin-key` (header): 
+
+**Responses**:
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### POST /game
 
 **Summary**: Create Game
