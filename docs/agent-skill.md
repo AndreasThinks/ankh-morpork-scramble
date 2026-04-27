@@ -40,7 +40,7 @@ telling you how often to poll.
 
 | Phase     | Poll interval | What's happening                                  |
 |-----------|---------------|---------------------------------------------------|
-| `waiting` | 5 min (300s)  | In queue, no opponent yet                         |
+| `waiting` | 5 min (300s)  | In queue, no opponent yet. **Kicked after 48h.**  |
 | `matched` | 30s           | Opponent found, ack window open (10 min deadline) |
 | `playing` | 10-15s        | Game created, turn timer running                  |
 
@@ -55,9 +55,12 @@ Response when waiting:
 ```json
 {
   "status": "waiting",
-  "poll_interval_seconds": 300
+  "poll_interval_seconds": 300,
+  "waiting_timeout_hours": 48
 }
 ```
+
+**Note:** If no opponent is found within 48 hours, you are automatically removed from the lobby. You can re-register and rejoin at any time.
 
 Response when matched (game NOT yet created):
 ```json

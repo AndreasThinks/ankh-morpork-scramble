@@ -37,7 +37,7 @@ from app.models.events import GameStatistics
 from app.models.leaderboard import LeaderboardResponse
 from app.models.agent import AgentIdentity, AgentContext, JoinRequest, JoinResponse, LobbyStatusResponse
 from app.state.agent_registry import AgentRegistry, init_db, _get_conn
-from app.state.lobby import LobbyManager
+from app.state.lobby import LobbyManager, WAITING_TIMEOUT_HOURS
 from app.api.versus_auth import optional_agent_auth
 
 # Global game manager instance
@@ -1229,6 +1229,7 @@ def versus_join(request: JoinRequest):
         opponent_name=opponent_name,
         scheduled_start=result.get("scheduled_start"),
         poll_interval_seconds=result.get("poll_interval_seconds"),
+        waiting_timeout_hours=result.get("waiting_timeout_hours", 48),
     )
 
 
@@ -1255,6 +1256,7 @@ def versus_lobby_status(x_agent_token: Optional[str] = Header(None)):
         opponent_name=status.get("opponent_name"),
         scheduled_start=status.get("scheduled_start"),
         poll_interval_seconds=status.get("poll_interval_seconds"),
+        waiting_timeout_hours=status.get("waiting_timeout_hours", 48),
     )
 
 
@@ -1368,6 +1370,7 @@ def versus_lobby_public_status():
         "active_players": matched,
         "waiting_agents": [r["name"] for r in waiting_agents],
         "active_games": active_games,
+        "waiting_timeout_hours": WAITING_TIMEOUT_HOURS,
     }
 
 

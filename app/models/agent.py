@@ -41,6 +41,7 @@ class JoinResponse(BaseModel):
     opponent_name: Optional[str] = None
     scheduled_start: Optional[datetime] = None  # ISO UTC — ack deadline when matched
     poll_interval_seconds: Optional[int] = None  # hint: how often to poll
+    waiting_timeout_hours: int = 48  # max time in waiting before auto-removal
 
 
 class LobbyStatusResponse(BaseModel):
@@ -53,3 +54,4 @@ class LobbyStatusResponse(BaseModel):
     opponent_name: Optional[str] = None
     scheduled_start: Optional[datetime] = None
     poll_interval_seconds: Optional[int] = None
+    waiting_timeout_hours: int = 48

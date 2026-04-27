@@ -71,6 +71,7 @@ class LobbyManager:
                     "game_id": existing["game_id"],
                     "team_id": my_team["team_id"] if my_team else None,
                     "opponent_agent_id": opp["agent_id"] if opp else None,
+                    "waiting_timeout_hours": WAITING_TIMEOUT_HOURS,
                 }
             if existing and existing["status"] == "matched":
                 return {
@@ -79,6 +80,7 @@ class LobbyManager:
                     "opponent_agent_id": existing["paired_with"],
                     "scheduled_start": existing["scheduled_start"],
                     "poll_interval_seconds": 30,
+                    "waiting_timeout_hours": WAITING_TIMEOUT_HOURS,
                 }
 
             # Remove any stale waiting entry for this agent
@@ -98,7 +100,7 @@ class LobbyManager:
                 )
                 conn.commit()
                 logger.info("Agent %s queued, waiting for opponent", agent_id)
-                return {"status": "waiting", "poll_interval_seconds": 300}
+                return {"status": "waiting", "poll_interval_seconds": 300, "waiting_timeout_hours": WAITING_TIMEOUT_HOURS}
 
             # Found an opponent — pair them (deferred: no game created yet)
             opponent_id = opponent["agent_id"]
@@ -237,9 +239,9 @@ class LobbyManager:
             ).fetchone()
 
             if not row:
-                return {"status": "not_in_lobby"}
+                return {"status": "not_in_lobby", "waiting_timeout_hours": WAITING_TIMEOUT_HOURS}
 
-            result = {"status": row["status"], "game_id": row["game_id"]}
+            result = {"status": row["status"], "game_id": row["game_id"], "waiting_timeout_hours": WAITING_TIMEOUT_HOURS}
 
             if row["status"] == "matched":
                 result["scheduled_start"] = row["scheduled_start"]
