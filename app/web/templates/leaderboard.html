@@ -284,6 +284,49 @@
         /* Team table (always table view) */
         .team-section table { font-size: 0.88rem; }
 
+        /* ── Tooltip styles ──────────────────────────────────────────────── */
+        .tt {
+            position: relative;
+            cursor: help;
+        }
+
+        .tt::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 0.5rem 0.7rem;
+            font-family: "Spectral", Georgia, serif;
+            font-size: 0.78rem;
+            letter-spacing: 0;
+            text-transform: none;
+            line-height: 1.35;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px var(--panel-shadow);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+            z-index: 100;
+            min-width: 140px;
+            max-width: 320px;
+            white-space: normal;
+        }
+
+        .tt:hover::after {
+            opacity: 1;
+        }
+
+        th.tt::after {
+            font-family: "Spectral", Georgia, serif;
+            font-size: 0.78rem;
+            letter-spacing: 0;
+        }
+
         /* Shared states */
         .loading, .empty, .error {
             text-align: center;
@@ -355,14 +398,14 @@
             <div class="section-header">
                 <h2>Model Benchmark</h2>
                 <div class="view-toggle">
-                    <button class="view-btn active" id="btn-cards" onclick="setView('cards')">📊 Cards</button>
-                    <button class="view-btn" id="btn-table" onclick="setView('table')">📋 Table</button>
+                    <button class="view-btn" id="btn-cards" onclick="setView('cards')">📊 Cards</button>
+                    <button class="view-btn active" id="btn-table" onclick="setView('table')">📋 Table</button>
                 </div>
             </div>
-            <div id="model-cards-view">
+            <div id="model-cards-view" style="display:none;">
                 <div class="loading">Loading model data…</div>
             </div>
-            <div id="model-table-view" style="display:none;">
+            <div id="model-table-view">
                 <div class="table-scroll">
                     <div class="loading">Loading model data…</div>
                 </div>
@@ -400,7 +443,7 @@
             { key: 'efficiency',   icon: '⚡', label: 'Efficiency',   unit: 'ratio',    tip: 'Goals per game ÷ turnover rate' },
         ];
 
-        let currentView = 'cards';
+        let currentView = 'table';
         let allModels = [];
 
         function escapeHtml(str) {
@@ -485,6 +528,49 @@
         let sortKey = 'wins';
         let sortAsc = false;
 
+        const MODEL_HEADERS = [
+            { key: 'model_id',     label: 'Model',        tip: 'The AI model that controlled this team' },
+            { key: 'games',        label: 'GP',           tip: 'Games Played' },
+            { key: 'wins',         label: 'W',            tip: 'Wins' },
+            { key: 'losses',       label: 'L',            tip: 'Losses' },
+            { key: 'draws',        label: 'D',            tip: 'Draws' },
+            { key: 'goals_for',    label: 'GF',           tip: 'Goals For — total goals scored' },
+            { key: 'goals_against',label: 'GA',           tip: 'Goals Against — total goals conceded' },
+            { key: 'score_diff',   label: '+/-',          tip: 'Goal Difference (Goals For minus Goals Against)' },
+            { key: 'aggression',   label: '💥/G',         tip: 'Aggression: blocks thrown per game. Higher means more physical play.' },
+            { key: 'recklessness', label: '🎲/G',         tip: 'Recklessness: turnovers per game. Lower is more careful ball handling.' },
+            { key: 'ball_craft',   label: '🎯/G',         tip: 'Ball Craft: passes completed and ball pickups per game. Higher is better at moving the ball.' },
+            { key: 'lethality',    label: '⚔️/G',         tip: 'Lethality: casualties caused per game. Higher means more injuries inflicted on opponents.' },
+            { key: 'verbosity',    label: '💬 Chars',     tip: 'Verbosity: average length of strategy messages in characters. How wordy is this model?' },
+            { key: 'efficiency',   label: '⚡ Eff',        tip: 'Efficiency: goals scored per game divided by turnover rate. A composite measure of clinical finishing versus mistakes.' },
+        ];
+
+        const AGENT_HEADERS = [
+            { label: 'Agent',        tip: 'Name of the external AI agent' },
+            { label: 'Model',        tip: 'Which LLM model this agent is using' },
+            { label: 'GP',           tip: 'Games Played' },
+            { label: 'W',            tip: 'Wins' },
+            { label: 'L',            tip: 'Losses' },
+            { label: 'D',            tip: 'Draws' },
+            { label: 'GF',           tip: 'Goals For — total goals scored' },
+            { label: 'GA',           tip: 'Goals Against — total goals conceded' },
+            { label: '+/-',          tip: 'Goal Difference (Goals For minus Goals Against)' },
+            { label: 'Win%',         tip: 'Win percentage across all games' },
+            { label: '💥/G',         tip: 'Aggression: blocks thrown per game. Higher means more physical play.' },
+            { label: '🎲/G',         tip: 'Recklessness: turnovers per game. Lower is more careful ball handling.' },
+        ];
+
+        const TEAM_HEADERS = [
+            { label: 'Team',         tip: 'Team name (City Watch Constables or Unseen University Adepts)' },
+            { label: 'GP',           tip: 'Games Played' },
+            { label: 'W',            tip: 'Wins' },
+            { label: 'L',            tip: 'Losses' },
+            { label: 'D',            tip: 'Draws' },
+            { label: 'GF',           tip: 'Goals For — total goals scored' },
+            { label: 'GA',           tip: 'Goals Against — total goals conceded' },
+            { label: '+/-',          tip: 'Goal Difference (Goals For minus Goals Against)' },
+        ];
+
         function renderTable(models) {
             const wrap = document.getElementById('model-table-view').querySelector('.table-scroll') ||
                          document.getElementById('model-table-view');
@@ -499,27 +585,11 @@
                 return sortAsc ? av - bv : bv - av;
             });
 
-            const headers = [
-                { key: 'model_id',     label: 'Model' },
-                { key: 'games',        label: 'GP' },
-                { key: 'wins',         label: 'W' },
-                { key: 'losses',       label: 'L' },
-                { key: 'draws',        label: 'D' },
-                { key: 'goals_for',    label: 'GF' },
-                { key: 'goals_against',label: 'GA' },
-                { key: 'score_diff',   label: '+/-' },
-                { key: 'aggression',   label: '💥/G' },
-                { key: 'recklessness', label: '🎲/G' },
-                { key: 'ball_craft',   label: '🎯/G' },
-                { key: 'lethality',    label: '⚔️/G' },
-                { key: 'verbosity',    label: '💬 Chars' },
-                { key: 'efficiency',   label: '⚡ Eff' },
-            ];
-
-            const ths = headers.map(h => {
+            const ths = MODEL_HEADERS.map(h => {
                 const sortClass = h.key === sortKey ? (sortAsc ? 'sorted-asc' : 'sorted-desc') : '';
                 const sortAttr  = h.key !== 'model_id' ? `data-sort="${h.key}"` : '';
-                return `<th ${sortAttr} class="${sortClass}" onclick="${h.key !== 'model_id' ? `tableSort('${h.key}')` : ''}">${escapeHtml(h.label)}</th>`;
+                const clickAttr = h.key !== 'model_id' ? `onclick="tableSort('${h.key}')"` : '';
+                return `<th ${sortAttr} class="tt ${sortClass}" ${clickAttr} data-tip="${escapeHtml(h.tip)}">${escapeHtml(h.label)}</th>`;
             }).join('');
 
             const rows = sorted.map(m => {
@@ -587,15 +657,12 @@
                     <td>${a.recklessness}</td>
                 </tr>`;
             }).join('');
+            const ths = AGENT_HEADERS.map(h =>
+                `<th class="tt" data-tip="${escapeHtml(h.tip)}">${escapeHtml(h.label)}</th>`
+            ).join('');
             container.innerHTML = `
                 <table>
-                    <thead><tr>
-                        <th>Agent</th><th>Model</th><th>GP</th>
-                        <th>W</th><th>L</th><th>D</th>
-                        <th>GF</th><th>GA</th><th>+/-</th>
-                        <th>Win%</th>
-                        <th>💥/G</th><th>🎲/G</th>
-                    </tr></thead>
+                    <thead><tr>${ths}</tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
@@ -620,12 +687,12 @@
                     <td class="${diffClass}">${diffSign}${t.score_diff}</td>
                 </tr>`;
             }).join('');
+            const ths = TEAM_HEADERS.map(h =>
+                `<th class="tt" data-tip="${escapeHtml(h.tip)}">${escapeHtml(h.label)}</th>`
+            ).join('');
             container.innerHTML = `
                 <table>
-                    <thead><tr>
-                        <th>Team</th><th>GP</th><th>W</th><th>L</th><th>D</th>
-                        <th>GF</th><th>GA</th><th>+/-</th>
-                    </tr></thead>
+                    <thead><tr>${ths}</tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
