@@ -95,11 +95,12 @@ def call_llm(
     user_message: str,
     model: str = DEFAULT_MODEL,
     max_retries: int = 4,
+    timeout: float = 60,
 ) -> str:
     """Call the OpenRouter chat completions endpoint.
 
     Retries automatically on 429 (rate limit) and transient 5xx errors, using
-    exponential back-off.  Respects the Retry-After header when provided.
+    exponential back-off. Respects the Retry-After header when provided.
     Raises on the final attempt or on non-retryable errors.
     """
     last_exc: Exception | None = None
@@ -120,7 +121,7 @@ def call_llm(
                     ],
                     "temperature": 0.7,
                 },
-                timeout=60,
+                timeout=timeout,
             )
         except requests.exceptions.Timeout as exc:
             last_exc = exc

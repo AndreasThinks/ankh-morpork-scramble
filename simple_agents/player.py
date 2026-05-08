@@ -264,7 +264,13 @@ def setup_team(game_id: str, team_id: str, team_name: str,
     )
 
     try:
-        resp = call_llm("You are a Blood Bowl coach. Return only valid JSON.", roster_prompt, model)
+        resp = call_llm(
+            "You are a Blood Bowl coach. Return only valid JSON.",
+            roster_prompt,
+            model,
+            max_retries=0,
+            timeout=20,
+        )
         match = re.search(r'\{.*\}', resp, re.DOTALL)
         roster = json.loads(match.group()) if match else {}
     except Exception as e:
