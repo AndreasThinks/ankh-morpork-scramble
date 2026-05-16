@@ -241,10 +241,20 @@ def _fetch_games_per_model(leaderboard_url: str) -> dict[str, int]:
 def pick_models(leaderboard_url: str = "http://localhost:8000") -> tuple[str, str]:
     """Pick two distinct models weighted toward least-played.
 
-    Falls back to uniform random if the pool has fewer than 2 models or
-    if weighting fails for any reason.
+    If the cached runtime pool has been exhausted by dead-model bans, force a
+    fresh OpenRouter discovery/validation pass once before giving up. This keeps
+    the long-running Railway runner from crash-looping forever on an empty
+    in-memory pool after transient model availability failures.
     """
     pool = _active_pool()
+    if len(pool) < 2:
+        logger.warning(
+            "pick_models: active pool has %d model(s); forcing re-validation before failing",
+            len(pool),
+        )
+        validate_pool(force=True)
+        pool = _active_pool()
+
     if len(pool) < 2:
         raise ValueError(f"MODEL_POOL must have at least 2 models, got: {pool}")
 
